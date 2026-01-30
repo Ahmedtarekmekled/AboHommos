@@ -81,7 +81,7 @@ const demoProducts = [
     id: "1",
     name: "حليب طازج كامل الدسم",
     price: 25,
-    original_price: 30,
+    compare_at_price: 30,
     image_url: "/images/milk.jpg",
     shop: { name: "سوبر ماركت النور" },
   },
@@ -103,7 +103,7 @@ const demoProducts = [
     id: "4",
     name: "دجاج مجمد",
     price: 85,
-    original_price: 95,
+    compare_at_price: 95,
     image_url: "/images/chicken.jpg",
     shop: { name: "لحوم الأمانة" },
   },
@@ -342,15 +342,15 @@ export default function HomePage() {
                             <ShoppingBag className="w-12 h-12 text-muted-foreground" />
                           </div>
                         )}
-                        {product.original_price &&
-                          product.original_price > product.price && (
+                        {product.compare_at_price &&
+                          product.compare_at_price > product.price && (
                             <Badge
                               className="absolute top-2 right-2"
                               variant="destructive"
                             >
                               خصم{" "}
                               {Math.round(
-                                (1 - product.price / product.original_price) *
+                                (1 - product.price / product.compare_at_price) *
                                   100
                               )}
                               %
@@ -368,10 +368,10 @@ export default function HomePage() {
                           <span className="font-bold text-primary text-lg">
                             {formatPrice(product.price)}
                           </span>
-                          {product.original_price &&
-                            product.original_price > product.price && (
+                          {product.compare_at_price &&
+                            product.compare_at_price > product.price && (
                               <span className="text-muted-foreground line-through text-sm">
-                                {formatPrice(product.original_price)}
+                                {formatPrice(product.compare_at_price)}
                               </span>
                             )}
                         </div>

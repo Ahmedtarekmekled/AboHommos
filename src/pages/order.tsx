@@ -34,6 +34,7 @@ const statusIcons: Record<OrderStatus, typeof Package> = {
   PLACED: ClipboardList,
   CONFIRMED: CheckCircle,
   PREPARING: Package,
+  READY_FOR_PICKUP: Store,
   OUT_FOR_DELIVERY: Truck,
   DELIVERED: CheckCircle2,
   CANCELLED: XCircle,
@@ -43,6 +44,7 @@ const statusOrder: OrderStatus[] = [
   "PLACED",
   "CONFIRMED",
   "PREPARING",
+  "READY_FOR_PICKUP",
   "OUT_FOR_DELIVERY",
   "DELIVERED",
 ];
@@ -51,6 +53,7 @@ const statusColors: Record<OrderStatus, string> = {
   PLACED: "bg-amber-500",
   CONFIRMED: "bg-blue-500",
   PREPARING: "bg-purple-500",
+  READY_FOR_PICKUP: "bg-indigo-500",
   OUT_FOR_DELIVERY: "bg-cyan-500",
   DELIVERED: "bg-success",
   CANCELLED: "bg-destructive",
@@ -374,11 +377,11 @@ export default function OrderPage() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium">{item.product_name}</p>
                         <p className="text-sm text-muted-foreground">
-                          {item.quantity} × {formatPrice(item.product_price)}
+                          {item.quantity} × {formatPrice(item.unit_price)}
                         </p>
                       </div>
                       <span className="font-bold text-primary">
-                        {formatPrice(item.total)}
+                        {formatPrice(item.total_price)}
                       </span>
                     </div>
                   ))}
@@ -412,19 +415,19 @@ export default function OrderPage() {
                         {AR.checkout.phone}
                       </p>
                       <p className="font-medium font-mono" dir="ltr">
-                        {order.delivery_phone}
+                        {order.customer_phone}
                       </p>
                     </div>
                   </div>
                 </div>
-                {order.notes && (
+                {order.delivery_notes && (
                   <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
                     <ClipboardList className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
                     <div>
                       <p className="text-sm text-muted-foreground">
                         {AR.checkout.notes}
                       </p>
-                      <p className="font-medium">{order.notes}</p>
+                      <p className="font-medium">{order.delivery_notes}</p>
                     </div>
                   </div>
                 )}

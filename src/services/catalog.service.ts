@@ -129,7 +129,7 @@ export const productsService = {
     const { data, error } = await query;
 
     if (error) throw error;
-    return (data as ProductWithShop[]) || [];
+    return (data as unknown as ProductWithShop[]) || [];
   },
 
   async getById(id: string): Promise<ProductWithShop | null> {
@@ -146,7 +146,7 @@ export const productsService = {
       .single();
 
     if (error) return null;
-    return data as ProductWithShop;
+    return data as unknown as ProductWithShop;
   },
 
   async getBySlug(
@@ -167,7 +167,7 @@ export const productsService = {
       .single();
 
     if (error) return null;
-    return data as ProductWithShop;
+    return data as unknown as ProductWithShop;
   },
 
   async create(
@@ -217,9 +217,9 @@ export const shopsService = {
     }
 
     if (options?.status) {
-      query = query.eq("status", options.status);
+      query = query.eq("status", options.status as any);
     } else {
-      query = query.eq("status", "APPROVED");
+      query = query.eq("status", "APPROVED" as any);
     }
 
     if (options?.search) {
@@ -348,7 +348,24 @@ export const regionsService = {
       .order("name", { ascending: true });
 
     if (error) throw error;
-    return (data as (District & { region: Region })[]) || [];
+    return (data as unknown as (District & { region: Region })[]) || [];
+  },
+
+  async create(region: Omit<Region, "id" | "created_at" | "updated_at">): Promise<Region> {
+    const { data, error } = await supabase.from("regions").insert(region).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, updates: Partial<Region>): Promise<Region> {
+    const { data, error } = await supabase.from("regions").update(updates).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id: string): Promise<void> {
+    const { error } = await supabase.from("regions").delete().eq("id", id);
+    if (error) throw error;
   },
 };
 
@@ -368,7 +385,7 @@ export const addressesService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as AddressWithDistrict[]) || [];
+    return (data as unknown as AddressWithDistrict[]) || [];
   },
 
   async getById(id: string): Promise<AddressWithDistrict | null> {
@@ -384,7 +401,7 @@ export const addressesService = {
       .single();
 
     if (error) return null;
-    return data as AddressWithDistrict;
+    return data as unknown as AddressWithDistrict;
   },
 
   async getDefault(userId: string): Promise<AddressWithDistrict | null> {
@@ -401,7 +418,7 @@ export const addressesService = {
       .single();
 
     if (error) return null;
-    return data as AddressWithDistrict;
+    return data as unknown as AddressWithDistrict;
   },
 
   async create(address: {

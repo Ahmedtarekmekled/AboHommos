@@ -74,7 +74,7 @@ export default function ShopsPage() {
     queryFn: () => shopsService.getAll({ search: search || undefined }),
   });
 
-  const displayShops = shops?.length ? shops : demoShops;
+  const displayShops = shops?.length ? shops : (demoShops as any[]);
   const filteredShops = search
     ? displayShops.filter((s) => s.name.includes(search))
     : displayShops;

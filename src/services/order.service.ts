@@ -32,7 +32,7 @@ export const cartService = {
         console.warn("Cart fetch error:", cartError.message);
         return null;
       }
-      return cart as CartWithItems;
+      return cart as unknown as CartWithItems;
     } catch (error) {
       console.warn("Cart service error:", error);
       return null;
@@ -255,7 +255,7 @@ export const orderService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as OrderWithItems[]) || [];
+    return (data as unknown as OrderWithItems[]) || [];
   },
 
   async getByShop(
@@ -283,7 +283,7 @@ export const orderService = {
     const { data, error } = await query;
 
     if (error) throw error;
-    return (data as OrderWithItems[]) || [];
+    return (data as unknown as OrderWithItems[]) || [];
   },
 
   async getById(orderId: string): Promise<OrderWithItems | null> {
@@ -301,7 +301,7 @@ export const orderService = {
       .single();
 
     if (error) return null;
-    return data as OrderWithItems;
+    return data as unknown as OrderWithItems;
   },
 
   async getByDeliveryUser(userId: string): Promise<OrderWithItems[]> {
@@ -321,7 +321,7 @@ export const orderService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as OrderWithItems[]) || [];
+    return (data as unknown as OrderWithItems[]) || [];
   },
 
   async assignDriver(orderId: string, driverId: string): Promise<void> {

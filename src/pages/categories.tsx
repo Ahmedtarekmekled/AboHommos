@@ -70,7 +70,7 @@ export default function CategoriesPage() {
     queryFn: categoriesService.getAll,
   });
 
-  const displayCategories = categories?.length ? categories : demoCategories;
+  const displayCategories = categories?.length ? categories : (demoCategories as any[]);
 
   return (
     <div className="py-8">

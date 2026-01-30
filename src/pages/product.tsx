@@ -89,8 +89,8 @@ export default function ProductPage() {
     );
   }
 
-  const discount = product.original_price
-    ? Math.round((1 - product.price / product.original_price) * 100)
+  const discount = product.compare_at_price
+    ? Math.round((1 - product.price / product.compare_at_price) * 100)
     : 0;
 
   return (
@@ -193,10 +193,10 @@ export default function ProductPage() {
               <span className="text-3xl md:text-4xl font-bold text-primary">
                 {formatPrice(product.price)}
               </span>
-              {product.original_price &&
-                product.original_price > product.price && (
+              {product.compare_at_price &&
+                product.compare_at_price > product.price && (
                   <span className="text-xl text-muted-foreground line-through">
-                    {formatPrice(product.original_price)}
+                    {formatPrice(product.compare_at_price)}
                   </span>
                 )}
             </div>

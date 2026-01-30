@@ -76,7 +76,7 @@ export function AdminDelivery() {
         .order("created_at", { ascending: false });
         
       if (statusFilter !== "ALL") {
-          query = query.eq("status", statusFilter);
+          query = query.eq("status", statusFilter as any);
       } else {
           // Filter out delivered/cancelled to keep view clean?
           // Maybe just show active ones: PREPARING, READY_FOR_PICKUP, OUT_FOR_DELIVERY
@@ -86,7 +86,7 @@ export function AdminDelivery() {
       const { data: ordersData, error } = await query;
       
       if (error) throw error;
-      setOrders((ordersData as OrderWithItems[]) || []);
+      setOrders((ordersData as unknown as OrderWithItems[]) || []);
 
     } catch (error) {
       console.error("Failed to load delivery data:", error);

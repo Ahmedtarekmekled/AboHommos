@@ -167,8 +167,8 @@ export default function ShopPage() {
                             <ShoppingBag className="w-12 h-12 text-muted-foreground" />
                           </div>
                         )}
-                        {product.original_price &&
-                          product.original_price > product.price && (
+                        {product.compare_at_price &&
+                          product.compare_at_price > product.price && (
                             <Badge
                               className="absolute top-2 right-2"
                               variant="destructive"
@@ -185,10 +185,10 @@ export default function ShopPage() {
                           <span className="font-bold text-primary text-lg">
                             {formatPrice(product.price)}
                           </span>
-                          {product.original_price &&
-                            product.original_price > product.price && (
+                          {product.compare_at_price &&
+                            product.compare_at_price > product.price && (
                               <span className="text-muted-foreground line-through text-sm">
-                                {formatPrice(product.original_price)}
+                                {formatPrice(product.compare_at_price)}
                               </span>
                             )}
                         </div>

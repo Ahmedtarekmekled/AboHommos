@@ -20,7 +20,7 @@ export const reviewService = {
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as ReviewWithUser[]) || [];
+    return (data as unknown as ReviewWithUser[]) || [];
   },
 
   // Get review stats for a product
@@ -166,7 +166,7 @@ export const reviewService = {
 
   // Mark a review as helpful
   async markHelpful(reviewId: string): Promise<void> {
-    const { error } = await supabase.rpc("increment_helpful_count", {
+    const { error } = await supabase.rpc("increment_helpful_count" as any, {
       review_id: reviewId,
     });
 

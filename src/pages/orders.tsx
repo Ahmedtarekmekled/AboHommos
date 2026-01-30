@@ -11,6 +11,7 @@ import {
   XCircle,
   Filter,
   RefreshCw,
+  Store,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const statusVariantMap: Record<
   PLACED: "placed",
   CONFIRMED: "confirmed",
   PREPARING: "preparing",
+  READY_FOR_PICKUP: "preparing",
   OUT_FOR_DELIVERY: "outForDelivery",
   DELIVERED: "delivered",
   CANCELLED: "cancelled",
@@ -51,6 +53,7 @@ const statusIcons: Record<OrderStatus, typeof Package> = {
   PLACED: Clock,
   CONFIRMED: CheckCircle,
   PREPARING: Package,
+  READY_FOR_PICKUP: Store,
   OUT_FOR_DELIVERY: Truck,
   DELIVERED: CheckCircle,
   CANCELLED: XCircle,
@@ -100,6 +103,7 @@ export default function OrdersPage() {
       PLACED: 20,
       CONFIRMED: 40,
       PREPARING: 60,
+      READY_FOR_PICKUP: 70,
       OUT_FOR_DELIVERY: 80,
       DELIVERED: 100,
       CANCELLED: 0,
@@ -160,6 +164,7 @@ export default function OrdersPage() {
                 <SelectItem value="PLACED">قيد المراجعة</SelectItem>
                 <SelectItem value="CONFIRMED">مؤكدة</SelectItem>
                 <SelectItem value="PREPARING">قيد التجهيز</SelectItem>
+                <SelectItem value="READY_FOR_PICKUP">جاهز للاستلام</SelectItem>
                 <SelectItem value="OUT_FOR_DELIVERY">في الطريق</SelectItem>
                 <SelectItem value="DELIVERED">تم التسليم</SelectItem>
                 <SelectItem value="CANCELLED">ملغية</SelectItem>

@@ -139,15 +139,15 @@ export default function ProductsPage() {
                           <ShoppingBag className="w-12 h-12 text-muted-foreground" />
                         </div>
                       )}
-                      {product.original_price &&
-                        product.original_price > product.price && (
+                      {product.compare_at_price &&
+                        product.compare_at_price > product.price && (
                           <Badge
                             className="absolute top-2 right-2"
                             variant="destructive"
                           >
                             خصم{" "}
                             {Math.round(
-                              (1 - product.price / product.original_price) * 100
+                              (1 - product.price / product.compare_at_price) * 100
                             )}
                             %
                           </Badge>
@@ -164,10 +164,10 @@ export default function ProductsPage() {
                         <span className="font-bold text-primary text-lg">
                           {formatPrice(product.price)}
                         </span>
-                        {product.original_price &&
-                          product.original_price > product.price && (
+                        {product.compare_at_price &&
+                          product.compare_at_price > product.price && (
                             <span className="text-muted-foreground line-through text-sm">
-                              {formatPrice(product.original_price)}
+                              {formatPrice(product.compare_at_price)}
                             </span>
                           )}
                       </div>
@@ -211,10 +211,10 @@ export default function ProductsPage() {
                           <span className="font-bold text-primary text-xl">
                             {formatPrice(product.price)}
                           </span>
-                          {product.original_price &&
-                            product.original_price > product.price && (
+                          {product.compare_at_price &&
+                            product.compare_at_price > product.price && (
                               <span className="text-muted-foreground line-through">
-                                {formatPrice(product.original_price)}
+                                {formatPrice(product.compare_at_price)}
                               </span>
                             )}
                         </div>

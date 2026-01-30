@@ -1,0 +1,19 @@
+[36mvite v5.4.21 [32mbuilding for production...[36m[39m
+transforming...
+
+/images/pattern.svg referenced in /images/pattern.svg didn't resolve at build time, it will remain unchanged to be resolved at runtime
+[32mΓ£ô[39m 1760 modules transformed.
+[plugin:vite:reporter] [plugin vite:reporter] 
+(!) C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/lib/supabase.ts is dynamically imported by C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/pages/dashboard.tsx but also statically imported by C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/components/delivery/AdminDelivery.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/components/delivery/DeliveryDashboard.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/pages/auth/callback.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/pages/checkout.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/pages/dashboard.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/pages/login.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/pages/orders.tsx, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/services/auth.service.ts, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/services/catalog.service.ts, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/services/order.service.ts, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/services/review.service.ts, C:/Users/ahmed/OneDrive/Desktop/Disk/Abo-Hommos/src/store/app-context.tsx, dynamic import will not move module into another chunk.
+
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[32mindex.html                 [39m[1m[2m    0.76 kB[22m[1m[22m[2m Γöé gzip:   0.52 kB[22m
+[2mdist/[22m[35massets/index-l2I4BJ4w.css  [39m[1m[2m   60.05 kB[22m[1m[22m[2m Γöé gzip:  14.72 kB[22m
+[2mdist/[22m[36massets/index-CVuD8sv1.js   [39m[1m[33m1,035.00 kB[39m[22m[2m Γöé gzip: 288.33 kB[22m
+
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[32mΓ£ô built in 10.12s[39m
