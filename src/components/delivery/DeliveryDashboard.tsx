@@ -24,12 +24,25 @@ export function DeliveryDashboard() {
         .on(
           "postgres_changes",
           {
-            event: "*",
+            event: "INSERT",
             schema: "public",
             table: "orders",
             filter: `delivery_user_id=eq.${user.id}`,
           },
           () => {
+             // Play notification sound
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 523.25; // C5
+            osc.type = "sine";
+            osc.start();
+            gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + 0.5);
+            osc.stop(ctx.currentTime + 0.5);
+            
+            toast.info("طلب جديد وصل!");
             loadOrders();
           }
         )
@@ -119,6 +132,19 @@ export function DeliveryDashboard() {
                   </div>
                 </div>
 
+                {/* Order Items */}
+                <div className="bg-muted/50 p-3 rounded-lg space-y-2">
+                  <p className="font-semibold text-sm">محتويات الطلب ({order.items.length}):</p>
+                  <ul className="text-sm space-y-1">
+                    {order.items.map((item, idx) => (
+                      <li key={idx} className="flex justify-between">
+                        <span>{item.quantity}× {item.product_name}</span>
+                        <span className="text-muted-foreground">{formatPrice(item.total_price)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
                 {/* Customer Info */}
                 <div className="bg-muted/30 p-3 rounded-lg space-y-2">
                     <p className="font-semibold text-sm text-muted-foreground">توصيل إلى:</p>
@@ -170,12 +196,22 @@ export function DeliveryDashboard() {
                         </Button>
                     )}
                     
-                    <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.delivery_address)}`} target="_blank" rel="noreferrer">
-                        <Button variant="outline" className="w-full mt-2">
-                            <MapPin className="w-4 h-4 ml-2" />
-                            فتح الموقع في الخريطة
-                        </Button>
-                    </a>
+                    {(() => {
+                        // Extract GPS if present
+                        const gpsMatch = order.delivery_address.match(/موقع GPS:\s*([\d.-]+),\s*([\d.-]+)/);
+                        const mapUrl = gpsMatch 
+                            ? `https://www.google.com/maps/search/?api=1&query=${gpsMatch[1]},${gpsMatch[2]}`
+                            : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(order.delivery_address)}`;
+                            
+                        return (
+                            <a href={mapUrl} target="_blank" rel="noreferrer">
+                                <Button variant="outline" className="w-full mt-2">
+                                    <MapPin className="w-4 h-4 ml-2" />
+                                    فتح الموقع في الخريطة {gpsMatch ? "(GPS)" : ""}
+                                </Button>
+                            </a>
+                        );
+                    })()}
                 </div>
               </div>
             </CardContent>
