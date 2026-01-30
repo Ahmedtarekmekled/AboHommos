@@ -1,0 +1,15 @@
+export { default as HomePage } from "./home";
+export { default as CategoriesPage } from "./categories";
+export { default as CategoryPage } from "./category";
+export { default as ShopsPage } from "./shops";
+export { default as ShopPage } from "./shop";
+export { default as ProductsPage } from "./products";
+export { default as ProductPage } from "./product";
+export { default as CartPage } from "./cart";
+export { default as CheckoutPage } from "./checkout";
+export { default as OrdersPage } from "./orders";
+export { default as OrderPage } from "./order";
+export { default as LoginPage } from "./login";
+export { default as RegisterPage } from "./register";
+export { default as AccountPage } from "./account";
+export { default as DashboardPage } from "./dashboard";
