@@ -68,6 +68,7 @@ export default function AccountPage() {
   const [addresses, setAddresses] = useState<AddressWithDistrict[]>([]);
   const [isLoadingAddresses, setIsLoadingAddresses] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditProfileDialog, setShowEditProfileDialog] = useState(false);
   const [editingAddress, setEditingAddress] =
     useState<AddressWithDistrict | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -152,7 +153,12 @@ export default function AccountPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>الملف الشخصي</CardTitle>
-              <Button variant="ghost" size="sm" className="gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="gap-2"
+                onClick={() => setShowEditProfileDialog(true)}
+              >
                 <Edit className="w-4 h-4" />
                 تعديل
               </Button>
@@ -411,8 +417,100 @@ export default function AccountPage() {
             await loadAddresses();
           }}
         />
+
+        {/* Edit Profile Dialog */}
+        <EditProfileDialog
+          open={showEditProfileDialog}
+          onClose={() => setShowEditProfileDialog(false)}
+          user={user}
+        />
       </div>
     </div>
+  );
+}
+
+import { authService } from "@/services/auth.service";
+import type { Profile } from "@/types/database";
+
+function EditProfileDialog({
+  open,
+  onClose,
+  user,
+}: {
+  open: boolean;
+  onClose: () => void;
+  user: Profile;
+}) {
+  const { refreshUser } = useAuth();
+  const [fullName, setFullName] = useState(user.full_name);
+  const [phone, setPhone] = useState(user.phone || "");
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Update local state when user prop changes
+  useEffect(() => {
+    setFullName(user.full_name);
+    setPhone(user.phone || "");
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!fullName.trim()) {
+      toast.error("يرجى إدخال الاسم");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await authService.updateProfile(user.id, {
+        full_name: fullName,
+        phone: phone || null,
+      });
+      await refreshUser();
+      toast.success("تم تحديث الملف الشخصي");
+      onClose();
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      toast.error("حدث خطأ أثناء التحديث");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>تعديل الملف الشخصي</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>الاسم الكامل</Label>
+            <Input
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              placeholder="الاسم الكامل"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>رقم الهاتف</Label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="01xxxxxxxxx"
+              dir="ltr"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            إلغاء
+          </Button>
+          <Button onClick={handleSave} disabled={isLoading}>
+            {isLoading && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
+            حفظ التغييرات
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
