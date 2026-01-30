@@ -152,7 +152,7 @@ export const cartService = {
   } {
     return items.reduce(
       (acc, item) => ({
-        subtotal: acc.subtotal + item.product.price * item.quantity,
+        subtotal: acc.subtotal + (item.product?.price || 0) * item.quantity,
         itemCount: acc.itemCount + item.quantity,
       }),
       { subtotal: 0, itemCount: 0 }
