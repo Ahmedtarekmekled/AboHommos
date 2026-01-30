@@ -137,6 +137,8 @@ export function Header() {
                           ? "صاحب متجر"
                           : user?.role === "ADMIN"
                           ? "مدير"
+                          : user?.role === "DELIVERY"
+                          ? "مندوب توصيل"
                           : "عميل"}
                       </span>
                     </div>
@@ -154,13 +156,15 @@ export function Header() {
                       {AR.nav.orders}
                     </Link>
                   </DropdownMenuItem>
-                  {(user?.role === "SHOP_OWNER" || user?.role === "ADMIN") && (
+                  {(user?.role === "SHOP_OWNER" ||
+                    user?.role === "ADMIN" ||
+                    user?.role === "DELIVERY") && (
                     <>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem asChild>
                         <Link to="/dashboard" className="cursor-pointer">
                           <LayoutDashboard className="ml-2 h-4 w-4" />
-                          {AR.dashboard.title}
+                          {user.role === "DELIVERY" ? "لوحة التوصيل" : AR.dashboard.title}
                         </Link>
                       </DropdownMenuItem>
                     </>

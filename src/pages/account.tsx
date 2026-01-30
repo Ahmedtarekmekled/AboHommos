@@ -179,6 +179,8 @@ export default function AccountPage() {
                     ? "صاحب متجر"
                     : user.role === "ADMIN"
                     ? "مدير"
+                    : user.role === "DELIVERY"
+                    ? "مندوب توصيل"
                     : "عميل"}
                 </p>
               </div>
@@ -385,7 +387,9 @@ export default function AccountPage() {
             </Card>
           </Link>
 
-          {(user.role === "SHOP_OWNER" || user.role === "ADMIN") && (
+          {(user.role === "SHOP_OWNER" ||
+            user.role === "ADMIN" ||
+            user.role === "DELIVERY") && (
             <Link to="/dashboard">
               <Card interactive className="p-6 h-full">
                 <div className="flex items-center gap-4">
@@ -393,8 +397,16 @@ export default function AccountPage() {
                     <User className="w-6 h-6 text-secondary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold">{AR.dashboard.title}</h3>
-                    <p className="text-sm text-muted-foreground">إدارة متجرك</p>
+                    <h3 className="font-semibold">
+                      {user.role === "DELIVERY"
+                        ? "لوحة التوصيل"
+                        : AR.dashboard.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {user.role === "DELIVERY"
+                        ? "إدارة طلبات التوصيل"
+                        : "إدارة متجرك"}
+                    </p>
                   </div>
                 </div>
               </Card>
