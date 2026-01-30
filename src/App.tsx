@@ -1,5 +1,6 @@
 import { Routes, Route } from "react-router-dom";
 import { MainLayout } from "@/components/layout";
+import { ScrollToTop } from "@/components/ScrollToTop";
 
 // Pages
 import HomePage from "@/pages/home";
@@ -21,35 +22,38 @@ import AuthCallback from "@/pages/auth/callback";
 
 function App() {
   return (
-    <Routes>
-      {/* Auth Callback - outside layout */}
-      <Route path="/auth/callback" element={<AuthCallback />} />
+    <>
+      <ScrollToTop />
+      <Routes>
+        {/* Auth Callback - outside layout */}
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
-      <Route element={<MainLayout />}>
-        {/* Public */}
-        <Route path="/" element={<HomePage />} />
-        <Route path="/categories" element={<CategoriesPage />} />
-        <Route path="/categories/:slug" element={<CategoryPage />} />
-        <Route path="/shops" element={<ShopsPage />} />
-        <Route path="/shops/:slug" element={<ShopPage />} />
-        <Route path="/products" element={<ProductsPage />} />
-        <Route path="/products/:id" element={<ProductPage />} />
+        <Route element={<MainLayout />}>
+          {/* Public */}
+          <Route path="/" element={<HomePage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/categories/:slug" element={<CategoryPage />} />
+          <Route path="/shops" element={<ShopsPage />} />
+          <Route path="/shops/:slug" element={<ShopPage />} />
+          <Route path="/products" element={<ProductsPage />} />
+          <Route path="/products/:id" element={<ProductPage />} />
 
-        {/* Auth */}
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/register" element={<RegisterPage />} />
+          {/* Auth */}
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
 
-        {/* Customer */}
-        <Route path="/cart" element={<CartPage />} />
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/orders/:id" element={<OrderPage />} />
-        <Route path="/account" element={<AccountPage />} />
+          {/* Customer */}
+          <Route path="/cart" element={<CartPage />} />
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/orders/:id" element={<OrderPage />} />
+          <Route path="/account" element={<AccountPage />} />
 
-        {/* Dashboard */}
-        <Route path="/dashboard/*" element={<DashboardPage />} />
-      </Route>
-    </Routes>
+          {/* Dashboard */}
+          <Route path="/dashboard/*" element={<DashboardPage />} />
+        </Route>
+      </Routes>
+    </>
   );
 }
 

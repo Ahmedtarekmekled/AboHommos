@@ -115,15 +115,15 @@ export function DeliveryDashboard() {
                 {/* Shop Info */}
                 <div className="flex items-center gap-3 pb-3 border-b">
                   <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center overflow-hidden">
-                    {order.shop.logo_url ? (
-                        <img src={order.shop.logo_url} alt={order.shop.name} className="w-full h-full object-cover" />
+                    {order.shop?.logo_url ? (
+                        <img src={order.shop.logo_url} alt={order.shop?.name || "Shop"} className="w-full h-full object-cover" />
                     ) : (
                         <Package className="w-5 h-5 text-muted-foreground" />
                     )}
                   </div>
                   <div>
-                    <p className="font-semibold text-sm">استلام من: {order.shop.name}</p>
-                    {order.shop.phone && (
+                    <p className="font-semibold text-sm">استلام من: {order.shop?.name || "المتجر"}</p>
+                    {order.shop?.phone && (
                         <div className="text-xs text-muted-foreground flex items-center gap-1">
                             <Phone className="w-3 h-3" />
                             <a href={`tel:${order.shop.phone}`} className="hover:underline">{order.shop.phone}</a>
