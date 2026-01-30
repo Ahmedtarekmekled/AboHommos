@@ -2570,6 +2570,7 @@ function AdminUsers() {
       ADMIN: { variant: "destructive", label: "مسؤول" },
       SHOP_OWNER: { variant: "default", label: "صاحب متجر" },
       CUSTOMER: { variant: "secondary", label: "عميل" },
+      DELIVERY: { variant: "outline", label: "مندوب توصيل" },
     };
     return variants[role] || { variant: "secondary", label: role };
   };
@@ -2588,6 +2589,7 @@ function AdminUsers() {
     admins: users.filter((u) => u.role === "ADMIN").length,
     shopOwners: users.filter((u) => u.role === "SHOP_OWNER").length,
     customers: users.filter((u) => u.role === "CUSTOMER").length,
+    delivery: users.filter((u) => u.role === "DELIVERY").length,
   };
 
   if (isLoading) {
@@ -2611,7 +2613,7 @@ function AdminUsers() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
@@ -2664,6 +2666,19 @@ function AdminUsers() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Truck className="w-5 h-5 text-orange-500" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold">{(stats as any).delivery}</p>
+                <p className="text-xs text-muted-foreground">مناديب</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -2686,6 +2701,7 @@ function AdminUsers() {
             <SelectItem value="ADMIN">المسؤولين</SelectItem>
             <SelectItem value="SHOP_OWNER">أصحاب المتاجر</SelectItem>
             <SelectItem value="CUSTOMER">العملاء</SelectItem>
+            <SelectItem value="DELIVERY">المناديب</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -2797,6 +2813,7 @@ function AdminUsers() {
                   <SelectContent>
                     <SelectItem value="CUSTOMER">عميل</SelectItem>
                     <SelectItem value="SHOP_OWNER">صاحب متجر</SelectItem>
+                    <SelectItem value="DELIVERY">مندوب توصيل</SelectItem>
                     <SelectItem value="ADMIN">مسؤول</SelectItem>
                   </SelectContent>
                 </Select>
