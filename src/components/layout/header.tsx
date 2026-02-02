@@ -35,12 +35,14 @@ const navLinks = [
   { href: "/products", label: AR.nav.products },
 ];
 
+import { CartDropdown } from "@/components/cart/cart-drawer";
+
 export function Header() {
   const location = useLocation();
   const { user, isAuthenticated, logout } = useAuth();
   const { cartItemCount } = useCart();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -49,19 +51,37 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 glass border-b">
       <div className="container-app">
-        <div className="flex h-16 items-center justify-between gap-4">
-          {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
-              <Store className="w-6 h-6 text-primary-foreground" />
-            </div>
-            <span className="font-bold text-xl hidden sm:block">
-              {AR.app.name}
-            </span>
-          </Link>
+        <div className="flex h-16 items-center justify-between">
+          
+          {/* Right Section: Mobile Menu & Logo */}
+          <div className="flex items-center gap-3">
+             {/* Mobile Menu Toggle */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="lg:hidden"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </Button>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center gap-1">
+            {/* Logo */}
+            <Link to="/" className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                <Store className="w-6 h-6 text-primary-foreground" />
+              </div>
+              <span className="font-bold text-xl hidden sm:block">
+                {AR.app.name}
+              </span>
+            </Link>
+          </div>
+
+          {/* Center Section: Desktop Navigation */}
+          <nav className="hidden lg:flex items-center gap-1 absolute left-1/2 -translate-x-1/2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -76,43 +96,25 @@ export function Header() {
             ))}
           </nav>
 
-          {/* Search - Desktop */}
-          <div className="hidden md:flex flex-1 max-w-md mx-4">
-            <div className="relative w-full">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={AR.products.search}
-                className="pr-10 bg-muted/50"
-              />
-            </div>
-          </div>
-
-          {/* Actions */}
+          {/* Left Section: Actions */}
           <div className="flex items-center gap-2">
-            {/* Search Toggle - Mobile */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setSearchOpen(!searchOpen)}
-            >
-              <Search className="h-5 w-5" />
-            </Button>
-
             {/* Cart */}
-            <Link to="/cart">
-              <Button variant="ghost" size="icon" className="relative">
-                <ShoppingCart className="h-5 w-5" />
-                {cartItemCount > 0 && (
-                  <Badge
-                    className="absolute -top-1 -left-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
-                    variant="default"
-                  >
-                    {cartItemCount}
-                  </Badge>
-                )}
-              </Button>
-            </Link>
+            <Button 
+               variant="ghost" 
+               size="icon" 
+               className="relative"
+               onClick={() => setCartOpen(true)}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartItemCount > 0 && (
+                <Badge
+                  className="absolute -top-1 -left-1 h-5 w-5 flex items-center justify-center p-0 text-xs"
+                  variant="default"
+                >
+                  {cartItemCount}
+                </Badge>
+              )}
+            </Button>
 
             {/* User Menu */}
             {isAuthenticated ? (
@@ -128,7 +130,7 @@ export function Header() {
                     <ChevronDown className="h-4 w-4 hidden sm:block" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
                       <span>{user?.full_name}</span>
@@ -191,36 +193,8 @@ export function Header() {
                 </Link>
               </div>
             )}
-
-            {/* Mobile Menu Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="lg:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? (
-                <X className="h-5 w-5" />
-              ) : (
-                <Menu className="h-5 w-5" />
-              )}
-            </Button>
           </div>
         </div>
-
-        {/* Mobile Search */}
-        {searchOpen && (
-          <div className="py-3 md:hidden animate-fade-in">
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={AR.products.search}
-                className="pr-10"
-                autoFocus
-              />
-            </div>
-          </div>
-        )}
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
@@ -245,6 +219,8 @@ export function Header() {
           </nav>
         )}
       </div>
+
+      <CartDropdown isOpen={cartOpen} onClose={() => setCartOpen(false)} />
     </header>
   );
 }

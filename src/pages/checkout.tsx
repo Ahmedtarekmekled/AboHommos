@@ -74,17 +74,7 @@ export default function CheckoutPage() {
   const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
   const [isFallbackFee, setIsFallbackFee] = useState(false);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
-  const [orderComplete, setOrderComplete] = useState<{
-    orderNumber: string;
-    orderId: string;
-    total: number;
-    subtotal: number;
-    deliveryFee: number;
-    itemCount: number;
-    shopName?: string;
-    isMultiShop: boolean;
-  } | null>(null);
-
+  
   const {
     register,
     handleSubmit,
@@ -287,16 +277,8 @@ export default function CheckoutPage() {
         // Clear cart after successful order
         await clearCart();
         
-        setOrderComplete({ 
-          orderNumber: result.order_number, 
-          orderId: result.parent_order_id,
-          total: calculation.parent_order_data.total,
-          subtotal: calculation.parent_order_data.subtotal,
-          deliveryFee: calculation.parent_order_data.total_delivery_fee,
-          itemCount: cart.items.length,
-          isMultiShop: true
-        });
         toast.success(AR.checkout.success);
+        navigate(`/orders/${result.parent_order_id}`, { replace: true });
         
       } else {
         // Legacy single-shop order
@@ -316,17 +298,10 @@ export default function CheckoutPage() {
           deliveryFee: deliveryFee || 0,
         });
 
-        setOrderComplete({ 
-          orderNumber: order.order_number, 
-          orderId: order.id,
-          total: order.total,
-          subtotal: order.subtotal,
-          deliveryFee: order.delivery_fee,
-          itemCount: cart.items.length,
-          shopName: cart.shop?.name,
-          isMultiShop: false
-        });
+        // setOrderComplete(...) removed
+        
         toast.success(AR.checkout.success);
+        navigate(`/orders/${order.id}`, { replace: true });
       }
     } catch (error) {
       console.error(error);
@@ -378,98 +353,7 @@ export default function CheckoutPage() {
     );
   }
 
-  // Order Complete Success Screen
-  if (orderComplete) {
-    return (
-      <div className="py-16">
-        <div className="container-app max-w-lg mx-auto text-center">
-          <div className="relative">
-            {/* Success Animation */}
-            <div className="w-28 h-28 mx-auto mb-8 rounded-full bg-gradient-to-br from-success/20 to-success/5 flex items-center justify-center animate-in zoom-in duration-500">
-              <div className="w-20 h-20 rounded-full bg-success/20 flex items-center justify-center">
-                <CheckCircle className="w-12 h-12 text-success" />
-              </div>
-            </div>
 
-            <h1 className="text-3xl font-bold mb-3 text-foreground">
-              {AR.checkout.success}
-            </h1>
-            <p className="text-lg text-muted-foreground mb-6">
-              شكراً لك! تم استلام طلبك بنجاح
-            </p>
-
-            {/* Order Info Card */}
-            <Card className="mb-8 text-right">
-              <CardContent className="p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <Badge variant="placed" className="text-sm">
-                    قيد المراجعة
-                  </Badge>
-                  <span className="text-sm text-muted-foreground">
-                    رقم الطلب
-                  </span>
-                </div>
-                <p className="font-mono text-2xl font-bold text-primary">
-                  {orderComplete.orderNumber}
-                </p>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  {orderComplete.isMultiShop ? (
-                    <div className="flex items-center gap-2 col-span-2">
-                       <Store className="w-4 h-4 text-muted-foreground" />
-                       <span>عدة متاجر</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <Store className="w-4 h-4 text-muted-foreground" />
-                      <span>{orderComplete.shopName}</span>
-                    </div>
-                  )}
-                  
-                  <div className="flex items-center gap-2">
-                    <Package className="w-4 h-4 text-muted-foreground" />
-                    <span>{orderComplete.itemCount} منتجات</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Wallet className="w-4 h-4 text-muted-foreground" />
-                    <span>{formatPrice(orderComplete.total)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <span>30-45 دقيقة</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            <p className="text-muted-foreground mb-8">
-              سيتم التواصل معك قريباً لتأكيد الطلب وموعد التسليم
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to={`/orders/${orderComplete.orderId}`}>
-                <Button size="lg" className="w-full sm:w-auto">
-                  <Package className="w-4 h-4 ml-2" />
-                  تتبع الطلب
-                </Button>
-              </Link>
-              <Link to="/">
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full sm:w-auto"
-                >
-                  {AR.nav.home}
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const stepIndex = STEPS.findIndex((s) => s.id === currentStep);
 
