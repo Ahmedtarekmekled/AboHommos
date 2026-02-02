@@ -25,6 +25,9 @@ export function CartDropdown({ isOpen, onClose }: CartDropdownProps) {
   // Close on click outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Check if click is on the trigger button (cart icon) is tricky without ref to it, 
+      // but usually the trigger prevents immediate close if it toggles state.
+      // However, here we just check if it's NOT in the dropdown.
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         onClose();
       }
@@ -35,37 +38,24 @@ export function CartDropdown({ isOpen, onClose }: CartDropdownProps) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  // Prevent internal scrolling of body when open (optional)
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
-    }
-    return () => { document.body.style.overflow = 'unset'; };
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   return (
     <>
-      {/* Backdrop */}
-      <div 
-        className="fixed inset-0 bg-black/40 z-[90] animate-in fade-in duration-200"
-        aria-hidden="true"
-        onClick={onClose}
-      />
-
-      {/* Dropdown Panel */}
+      {/* Dropdown Panel - No Backdrop/Overlay */}
       <div
         ref={dropdownRef}
         dir="rtl"
         className={cn(
-          "fixed z-[100] bg-background shadow-2xl border rounded-b-xl overflow-hidden flex flex-col",
-          // Positioning: Top-Left (since actions are on left), just below header (top-16)
-          "top-0 sm:top-16 left-0 right-0 sm:right-auto sm:left-4 sm:w-[400px] h-[80vh] sm:h-auto sm:max-h-[600px] sm:rounded-xl",
+          "fixed bg-background shadow-xl border border-t-0 rounded-b-xl overflow-hidden flex flex-col",
+          // Positioning: Below Header (top-16)
+          "top-16 z-[49]", 
+          // Mobile: Full width
+          "left-0 right-0 w-full rounded-none h-[calc(100vh-4rem)] sm:h-auto sm:max-h-[600px]",
+          // Desktop: Aligned left (actions side), max width
+          "sm:left-4 sm:right-auto sm:w-[400px] sm:rounded-xl",
           // Animation
-          "animate-in slide-in-from-top-2 fade-in duration-300 ease-out"
+          "animate-in slide-in-from-top-2 fade-in duration-200 ease-out"
         )}
       >
         {/* Header */}
