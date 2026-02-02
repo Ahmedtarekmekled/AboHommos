@@ -156,9 +156,17 @@ export function CartDropdown({ isOpen, onClose }: CartDropdownProps) {
         {/* Footer Actions */}
         {cartItemCount > 0 && (
           <div className="p-4 border-t bg-muted/10">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-muted-foreground text-sm">{AR.cart.total}</span>
-              <span className="font-bold text-lg">{formatPrice(cartTotal)}</span>
+            <div className="space-y-2 mb-4">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground text-sm">{AR.cart.total}</span>
+                <span className="font-bold text-lg text-primary">
+                  {formatPrice(cartTotal)}
+                  <span className="text-xs font-normal text-muted-foreground mr-1">+ التوصيل</span>
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground text-center">
+                 رسوم التوصيل تُحسب عند الدفع
+              </p>
             </div>
             
             <div className="grid grid-cols-2 gap-3">

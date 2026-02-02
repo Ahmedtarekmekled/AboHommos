@@ -94,7 +94,8 @@ export default function CartPage() {
     );
   }
 
-  const deliveryFee = 15; // Will be calculated dynamically in checkout
+  // deliveryFee removed
+
 
   return (
     <div className="py-8">
@@ -243,24 +244,22 @@ export default function CartPage() {
                     {AR.cart.deliveryFee}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {shopsCount > 1 ? 'يُحسب عند الدفع' : formatPrice(deliveryFee)}
+                    يُحسب عند الدفع
                   </span>
                 </div>
                 
-                {shopsCount > 1 && (
-                  <div className="bg-muted/50 p-3 rounded-lg text-sm">
-                    <p className="text-muted-foreground">
-                      💡 رسوم التوصيل تُحسب بناءً على المسافة الفعلية بين المتاجر وموقعك
-                    </p>
-                  </div>
-                )}
+                <div className="bg-muted/50 p-3 rounded-lg text-sm flex items-start gap-2">
+                  <span className="text-muted-foreground text-xs">
+                    💡 رسوم التوصيل تُحسب في الخطوة التالية بعد تحديد العنوان
+                  </span>
+                </div>
                 
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>{AR.cart.total}</span>
                   <span className="text-primary">
-                    {formatPrice(cartTotal + (shopsCount === 1 ? deliveryFee : 0))}
-                    {shopsCount > 1 && '+'}
+                    {formatPrice(cartTotal)}
+                    <span className="text-xs font-normal text-muted-foreground mr-1">+ التوصيل</span>
                   </span>
                 </div>
 
