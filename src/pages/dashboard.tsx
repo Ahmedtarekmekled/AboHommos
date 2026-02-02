@@ -29,7 +29,11 @@ import {
   Volume2,
   VolumeX,
   Bell,
-  BellOff
+  BellOff,
+  PenSquare,
+  BarChart2,
+  AlertTriangle,
+  Phone,
 } from "lucide-react";
 import { SoundService } from "@/services/sound.service";
 import { useRef } from "react";
@@ -37,6 +41,7 @@ import { supabase } from "@/lib/supabase";
 import { AdminDelivery } from "@/components/delivery/AdminDelivery";
 import { DeliveryDashboard } from "@/components/delivery/DeliveryDashboard";
 import { CourierAccount } from "@/components/delivery/CourierAccount";
+import { ShopAnalytics } from "./dashboard/shop-analytics";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -57,6 +62,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/store";
@@ -91,7 +102,6 @@ const adminNav = [
   { href: "/dashboard", label: AR.dashboard.overview, icon: LayoutDashboard },
   { href: "/dashboard/shops", label: AR.admin.shops, icon: Store },
   { href: "/dashboard/categories", label: AR.admin.categories, icon: Folders },
-  { href: "/dashboard/regions", label: AR.admin.regions, icon: MapPin },
   { href: "/dashboard/regions", label: AR.admin.regions, icon: MapPin },
   { href: "/dashboard/users", label: AR.admin.users, icon: Users },
   { href: "/dashboard/delivery", label: "إدارة التوصيل", icon: Truck },
@@ -491,6 +501,7 @@ function AdminOverview() {
 
 function DashboardOverview() {
   const { user } = useAuth();
+  const [shop, setShop] = useState<Shop | null>(null);
   const [stats, setStats] = useState({
     totalOrders: 0,
     totalRevenue: 0,
@@ -507,6 +518,7 @@ function DashboardOverview() {
       try {
         // Get user's shop
         const userShop = await shopsService.getByOwnerId(user.id);
+        setShop(userShop);
 
         if (userShop) {
           // Load shop orders
@@ -593,12 +605,62 @@ function DashboardOverview() {
     );
   }
 
+  // Status Banner Logic
+  const renderStatusBanner = () => {
+    if (!shop) return null;
+    
+    if (shop.approval_status === 'PENDING' || shop.status === 'PENDING') {
+      return (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-amber-800">الحساب قيد المراجعة</h3>
+            <p className="text-sm text-amber-700">طلبك لإنشاء المتجر قيد المراجعة من قبل الإدارة. سيتم تفعيل حسابك قريباً.</p>
+          </div>
+        </div>
+      );
+    }
+    
+    if (shop.approval_status === 'REJECTED' || shop.status === 'REJECTED') {
+      return (
+        <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+          <XCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="font-semibold text-destructive">تم رفض الطلب</h3>
+            <p className="text-sm text-destructive/90">عذراً، تم رفض طلبك للسبب التالي:</p>
+            <p className="text-sm font-medium mt-1 bg-white/50 p-2 rounded">{shop.rejection_reason || "لا يوجد سبب محدد"}</p>
+            <Link to="/dashboard/settings">
+              <Button size="sm" className="mt-3">تعديل البيانات وإعادة الإرسال</Button>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
+    if (!shop.is_active && shop.approval_status === 'APPROVED') {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start gap-3">
+          <Ban className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
+          <div>
+            <h3 className="font-semibold text-red-800">الحساب موقوف</h3>
+            <p className="text-sm text-red-700">تم إيقاف حساب المتجر مؤقتاً.</p>
+            {shop.disabled_reason && <p className="text-sm font-medium mt-1">السبب: {shop.disabled_reason}</p>}
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">{AR.dashboard.overview}</h1>
         <p className="text-muted-foreground">مرحباً بك في لوحة التحكم</p>
       </div>
+
+      {renderStatusBanner()}
 
       {/* Stats Grid */}
       <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1615,13 +1677,23 @@ function DashboardOrders() {
 
 import { MapLocationPicker, LocationPreviewMap } from "@/components/MapLocationPicker"; // Ensure import
 
+// Shop Settings / Registration
 function DashboardSettings() {
   const { user } = useAuth();
   const [shop, setShop] = useState<Shop | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]); // Shop Categories
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
+  
+  // Media Upload State
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -1629,6 +1701,7 @@ function DashboardSettings() {
     whatsapp: "",
     address: "",
     region_id: "",
+    category_id: "", // New field
     latitude: 0,
     longitude: 0,
   });
@@ -1651,19 +1724,60 @@ function DashboardSettings() {
           whatsapp: userShop.whatsapp || "",
           address: userShop.address,
           region_id: userShop.region_id,
-          // Use DB coords or fallback to default (e.g. Tanta)
+          category_id: userShop.category_id || "",
           latitude: userShop.latitude || 30.7865, 
           longitude: userShop.longitude || 31.0004, 
         });
+        if (userShop.logo_url) setLogoPreview(userShop.logo_url);
+        if (userShop.cover_url) setCoverPreview(userShop.cover_url);
       }
 
-      const regs = await regionsService.getAll();
+      const [regs, cats] = await Promise.all([
+        regionsService.getAll(),
+        categoriesService.getAll()
+      ]);
+      
       setRegions(regs);
+      // Filter for Shop Categories only (client-side for now)
+      setCategories(cats.filter(c => c.type === 'SHOP'));
+      
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'cover') => {
+     if (e.target.files && e.target.files[0]) {
+       const file = e.target.files[0];
+       if (file.size > 5 * 1024 * 1024) {
+         toast.error("حجم الملف يجب أن لا يتجاوز 5 ميجابايت");
+         return;
+       }
+       
+       const preview = URL.createObjectURL(file);
+       if (type === 'logo') {
+         setLogoFile(file);
+         setLogoPreview(preview);
+       } else {
+         setCoverFile(file);
+         setCoverPreview(preview);
+       }
+     }
+  };
+
+  const uploadImage = async (file: File, bucket: string): Promise<string> => {
+     const fileExt = file.name.split(".").pop();
+     const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
+     const { error } = await supabase.storage
+        .from(bucket)
+        .upload(fileName, file);
+
+     if (error) throw error;
+     
+     const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
+     return data.publicUrl;
   };
 
   const handleSave = async () => {
@@ -1673,20 +1787,35 @@ function DashboardSettings() {
       !formData.name ||
       !formData.phone ||
       !formData.address ||
-      !formData.region_id
+      !formData.region_id ||
+      !formData.category_id // Mandatory
     ) {
-      toast.error("يرجى ملء جميع الحقول المطلوبة");
+      toast.error("يرجى ملء جميع الحقول المطلوبة (بما في ذلك نوع المتجر)");
       return;
     }
 
-    // Validate map selection
     if (!formData.latitude || !formData.longitude || (formData.latitude === 30.7865 && formData.longitude === 31.0004)) {
        toast.error("يرجى تحديد موقع المتجر على الخريطة بدقة");
        return;
     }
 
     setIsSaving(true);
+    setIsUploading(true);
+
     try {
+      let logoUrl = shop?.logo_url;
+      let coverUrl = shop?.cover_url;
+
+      // Upload Images if changed
+      if (logoFile) {
+        logoUrl = await uploadImage(logoFile, "shop-logos");
+      }
+      if (coverFile) {
+        coverUrl = await uploadImage(coverFile, "shop-covers");
+      }
+
+      setIsUploading(false); // Done uploading
+
       const shopData = {
         name: formData.name,
         description: formData.description || null,
@@ -1694,22 +1823,43 @@ function DashboardSettings() {
         whatsapp: formData.whatsapp || null,
         address: formData.address,
         region_id: formData.region_id,
+        category_id: formData.category_id,
         latitude: formData.latitude,
         longitude: formData.longitude,
         owner_id: user.id,
-        slug: `shop-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 8)}`,
-        status: "APPROVED" as const,
-        is_open: true,
+        logo_url: logoUrl,
+        cover_url: coverUrl,
+        slug: shop?.slug || `shop-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
       };
 
       if (shop) {
-        await shopsService.update(shop.id, shopData);
+        // If updating, do we reset status? 
+        // For now, let's keep status unless it was rejected, then reset to PENDING?
+        // Or simple rule: if it was REJECTED, reset to PENDING to request review again.
+        let newStatus = shop.status;
+        if (shop.approval_status === "REJECTED") {
+           newStatus = "PENDING"; // Resubmit
+        }
+
+        await shopsService.update(shop.id, {
+           ...shopData,
+           // @ts-ignore
+           approval_status: shop.approval_status === 'REJECTED' ? 'PENDING' : shop.approval_status,
+           rejection_reason: shop.approval_status === 'REJECTED' ? null : shop.rejection_reason,
+           status: newStatus as any
+        });
         toast.success("تم تحديث بيانات المتجر");
       } else {
-        await shopsService.create(shopData as any);
-        toast.success("تم إنشاء المتجر بنجاح");
+        // New Shop -> PENDING
+        await shopsService.create({
+          ...shopData,
+          status: "PENDING",
+          // @ts-ignore
+          approval_status: "PENDING",
+          is_active: false,
+          is_open: true // Open by default but inactive until approved
+        } as any);
+        toast.success("تم إنشاء المتجر بنجاح! سيتم مراجعته قريباً.");
       }
       loadData();
     } catch (error: any) {
@@ -1717,6 +1867,7 @@ function DashboardSettings() {
       toast.error(error.message || "فشل حفظ المتجر");
     } finally {
       setIsSaving(false);
+      setIsUploading(false);
     }
   };
 
@@ -1731,6 +1882,52 @@ function DashboardSettings() {
     );
   }
 
+  // Status Banner Logic
+  const renderStatusBanner = () => {
+     if (!shop) return null; // New shop doesn't have status yet
+     
+     if (shop.approval_status === 'PENDING' || shop.status === 'PENDING') {
+       return (
+         <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+           <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+           <div>
+             <h3 className="font-semibold text-amber-800">الحساب قيد المراجعة</h3>
+             <p className="text-sm text-amber-700">طلبك لإنشاء المتجر قيد المراجعة من قبل الإدارة. سيتم تفعيل حسابك قريباً.</p>
+           </div>
+         </div>
+       );
+     }
+     
+     if (shop.approval_status === 'REJECTED' || shop.status === 'REJECTED') {
+       return (
+         <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 mb-6 flex items-start gap-3">
+           <XCircle className="w-5 h-5 text-destructive mt-0.5" />
+           <div>
+             <h3 className="font-semibold text-destructive">تم رفض الطلب</h3>
+             <p className="text-sm text-destructive/90">عذراً، تم رفض طلبك للسبب التالي:</p>
+             <p className="text-sm font-medium mt-1 bg-white/50 p-2 rounded">{shop.rejection_reason || "لا يوجد سبب محدد"}</p>
+             <p className="text-xs text-muted-foreground mt-2">يمكنك تعديل البيانات وإعادة الإرسال للمراجعة.</p>
+           </div>
+         </div>
+       );
+     }
+
+     if (!shop.is_active && shop.approval_status === 'APPROVED') {
+        return (
+         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 flex items-start gap-3">
+           <Ban className="w-5 h-5 text-red-600 mt-0.5" />
+           <div>
+             <h3 className="font-semibold text-red-800">الحساب موقوف</h3>
+             <p className="text-sm text-red-700">تم إيقاف حساب المتجر مؤقتاً.</p>
+             {shop.disabled_reason && <p className="text-sm font-medium mt-1">السبب: {shop.disabled_reason}</p>}
+           </div>
+         </div>
+       );
+     }
+
+     return null;
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -1742,65 +1939,130 @@ function DashboardSettings() {
         </p>
       </div>
 
+      {renderStatusBanner()}
+
       <Card>
         <CardContent className="p-6">
-          <div className="space-y-4 max-w-lg">
-            <div className="space-y-2">
-              <Label htmlFor="shopName">اسم المتجر *</Label>
-              <Input
-                id="shopName"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="مثال: سوبر ماركت النور"
-              />
+          <div className="space-y-6 max-w-2xl">
+            
+            {/* Images Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <div className="space-y-2">
+                  <Label>شعار المتجر (Logo)</Label>
+                  <div className="border border-dashed rounded-lg p-4 text-center hover:bg-muted/50 transition-colors relative h-40 flex items-center justify-center">
+                     {logoPreview ? (
+                        <div className="relative w-full h-full">
+                           <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
+                           <Button size="icon" variant="destructive" className="absolute top-0 right-0 h-6 w-6" onClick={(e) => { e.preventDefault(); setLogoFile(null); setLogoPreview(null); }}>
+                              <X className="h-3 w-3" />
+                           </Button>
+                        </div>
+                     ) : (
+                        <div className="space-y-2 pointer-events-none">
+                           <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                           <span className="text-xs text-muted-foreground block">اضغط للرفع</span>
+                        </div>
+                     )}
+                     <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'logo')} />
+                  </div>
+               </div>
+
+               <div className="space-y-2">
+                  <Label>غلاف المتجر (Cover)</Label>
+                  <div className="border border-dashed rounded-lg p-4 text-center hover:bg-muted/50 transition-colors relative h-40 flex items-center justify-center overflow-hidden">
+                     {coverPreview ? (
+                        <div className="relative w-full h-full">
+                           <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                           <Button size="icon" variant="destructive" className="absolute top-0 right-0 h-6 w-6" onClick={(e) => { e.preventDefault(); setCoverFile(null); setCoverPreview(null); }}>
+                              <X className="h-3 w-3" />
+                           </Button>
+                        </div>
+                     ) : (
+                        <div className="space-y-2 pointer-events-none">
+                           <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                           <span className="text-xs text-muted-foreground block">اضغط للرفع</span>
+                        </div>
+                     )}
+                     <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'cover')} />
+                  </div>
+               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+               <div className="space-y-2">
+                 <Label htmlFor="shopName">اسم المتجر *</Label>
+                 <Input
+                   id="shopName"
+                   value={formData.name}
+                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                   placeholder="مثال: سوبر ماركت النور"
+                 />
+               </div>
+               
+               <div className="space-y-2">
+                 <Label htmlFor="category">نوع المتجر *</Label>
+                 <Select
+                   value={formData.category_id}
+                   onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="اختر نوع المتجر" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {categories.map((cat) => (
+                       <SelectItem key={cat.id} value={cat.id}>
+                         <div className="flex items-center gap-2">
+                           {/* {cat.icon_url && <img src={cat.icon_url} className="w-4 h-4" />} */}
+                           <span>{cat.name}</span>
+                         </div>
+                       </SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="shopDesc">وصف المتجر</Label>
               <Textarea
                 id="shopDesc"
                 value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 placeholder="وصف مختصر عن متجرك..."
                 rows={3}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="region">المنطقة *</Label>
-              <Select
-                value={formData.region_id}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, region_id: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر المنطقة" />
-                </SelectTrigger>
-                <SelectContent>
-                  {regions.map((region) => (
-                    <SelectItem key={region.id} value={region.id}>
-                      {region.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">رقم الهاتف *</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  dir="ltr"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="01xxxxxxxxx"
+                />
+              </div>
+              <div className="space-y-2">
+                 <Label htmlFor="region">المنطقة *</Label>
+                 <Select
+                   value={formData.region_id}
+                   onValueChange={(value) => setFormData({ ...formData, region_id: value })}
+                 >
+                   <SelectTrigger>
+                     <SelectValue placeholder="اختر المنطقة" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     {regions.map((region) => (
+                       <SelectItem key={region.id} value={region.id}>{region.name}</SelectItem>
+                     ))}
+                   </SelectContent>
+                 </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">رقم الهاتف *</Label>
-              <Input
-                id="phone"
-                type="tel"
-                dir="ltr"
-                value={formData.phone}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                placeholder="01xxxxxxxxx"
-              />
-            </div>
+
             <div className="space-y-2">
               <Label htmlFor="whatsapp">واتساب</Label>
               <Input
@@ -1808,21 +2070,18 @@ function DashboardSettings() {
                 type="tel"
                 dir="ltr"
                 value={formData.whatsapp}
-                onChange={(e) =>
-                  setFormData({ ...formData, whatsapp: e.target.value })
-                }
+                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
                 placeholder="01xxxxxxxxx"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="address">العنوان *</Label>
+              <Label htmlFor="address">العنوان التفصيلي *</Label>
               <Input
                 id="address"
                 value={formData.address}
-                onChange={(e) =>
-                  setFormData({ ...formData, address: e.target.value })
-                }
-                placeholder="العنوان التفصيلي للمتجر"
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                placeholder="شارع، مبنى، علامة مميزة..."
               />
             </div>
 
@@ -1842,7 +2101,6 @@ function DashboardSettings() {
                  </Button>
                </div>
 
-               {/* Map Preview */}
                <div 
                  className="h-[200px] w-full rounded-lg overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity relative bg-muted"
                  onClick={() => setShowMapPicker(true)}
@@ -1874,14 +2132,10 @@ function DashboardSettings() {
 
             <Button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || isUploading}
               className="w-full mt-6"
             >
-              {isSaving
-                ? "جاري الحفظ..."
-                : shop
-                ? "حفظ التغييرات"
-                : "إنشاء المتجر"}
+              {isUploading ? "جاري رفع الملفات..." : isSaving ? "جاري الحفظ..." : shop ? "حفظ التغييرات" : "إنشاء المتجر"}
             </Button>
           </div>
         </CardContent>
@@ -1891,6 +2145,7 @@ function DashboardSettings() {
 }
 
 // Admin Categories Management
+// Admin Categories Management
 function AdminCategories() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
@@ -1898,6 +2153,7 @@ function AdminCategories() {
   const [isLoading, setIsLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [activeTab, setActiveTab] = useState<'PRODUCT' | 'SHOP'>('PRODUCT');
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -1964,6 +2220,7 @@ function AdminCategories() {
           .toString(36)
           .substring(2, 8)}`,
         is_active: true,
+        type: activeTab, // Save correctly based on active tab
       };
 
       if (editingCategory) {
@@ -1997,6 +2254,8 @@ function AdminCategories() {
     }
   };
 
+  const filteredCategories = categories.filter(c => (c.type || 'PRODUCT') === activeTab);
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -2014,16 +2273,23 @@ function AdminCategories() {
         <div>
           <h1 className="text-2xl font-bold">{AR.admin.categories}</h1>
           <p className="text-muted-foreground">
-            إدارة تصنيفات المنتجات ({categories.length} تصنيف)
+            إدارة تصنيفات {activeTab === 'SHOP' ? 'المتاجر' : 'المنتجات'} ({filteredCategories.length} تصنيف)
           </p>
         </div>
         <Button className="gap-2" onClick={openAddDialog}>
           <Plus className="w-4 h-4" />
-          إضافة تصنيف
+          إضافة تصنيف {activeTab === 'SHOP' ? 'متجر' : ''}
         </Button>
       </div>
 
-      {categories.length === 0 ? (
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
+          <TabsTrigger value="PRODUCT">تصنيفات المنتجات</TabsTrigger>
+          <TabsTrigger value="SHOP">أنواع المتاجر</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {filteredCategories.length === 0 ? (
         <Card>
           <CardContent className="p-6">
             <div className="text-center py-12">
@@ -2041,7 +2307,7 @@ function AdminCategories() {
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {categories.map((category) => (
+          {filteredCategories.map((category) => (
             <Card key={category.id}>
               <CardContent className="p-4">
                 <div className="flex items-center gap-3 mb-3">
@@ -2083,7 +2349,7 @@ function AdminCategories() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {editingCategory ? "تعديل التصنيف" : "إضافة تصنيف جديد"}
+              {editingCategory ? "تعديل التصنيف" : `إضافة تصنيف ${activeTab === 'SHOP' ? 'متجر' : 'منتج'} جديد`}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -2095,7 +2361,7 @@ function AdminCategories() {
                 onChange={(e) =>
                   setFormData({ ...formData, name: e.target.value })
                 }
-                placeholder="مثال: إلكترونيات"
+                placeholder={activeTab === 'SHOP' ? "مثال: بقالة، صيدلية" : "مثال: إلكترونيات"}
               />
             </div>
             <div className="space-y-2">
@@ -2384,8 +2650,14 @@ function AdminShops() {
   const isAdmin = user?.role === "ADMIN";
   const [shops, setShops] = useState<Shop[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [activeTab, setActiveTab] = useState("PENDING");
   const [searchQuery, setSearchQuery] = useState("");
+  
+  // Status Management
+  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+  const [actionDialog, setActionDialog] = useState<'REJECT' | 'SUSPEND' | null>(null);
+  const [reason, setReason] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -2410,19 +2682,84 @@ function AdminShops() {
     }
   };
 
-  const handleUpdateShopStatus = async (shop: Shop, newStatus: ShopStatus) => {
+  const handleUpdateStatus = async (shop: Shop, newStatus: ShopStatus) => {
+    if (newStatus === "REJECTED") {
+      setSelectedShop(shop);
+      setReason("");
+      setActionDialog("REJECT");
+      return;
+    }
+    
+    if (newStatus === "SUSPENDED") {
+      setSelectedShop(shop);
+      setReason("");
+      setActionDialog("SUSPEND");
+      return;
+    }
+
     try {
-      await shopsService.update(shop.id, { status: newStatus });
-      const messages: Record<ShopStatus, string> = {
-        APPROVED: "تم قبول المتجر بنجاح",
-        REJECTED: "تم رفض المتجر",
-        SUSPENDED: "تم إيقاف المتجر",
-        PENDING: "تم إعادة المتجر للمراجعة",
-      };
-      toast.success(messages[newStatus]);
+      await shopsService.updateStatus(shop.id, newStatus);
+      
+      // If approving, also ensure active
+      if (newStatus === 'APPROVED') {
+         await shopsService.update(shop.id, { 
+             is_active: true,
+             approval_status: 'APPROVED',
+             approved_at: new Date().toISOString(),
+             approved_by: user?.id,
+             rejection_reason: null
+         });
+      }
+
+      toast.success("تم تحديث حالة المتجر بنجاح");
       loadShops();
     } catch (error) {
-      toast.error("فشل تحديث حالة المتجر");
+      toast.error("فشل تحديث الحالة");
+    }
+  };
+
+  const handleProcessAction = async () => {
+    if (!selectedShop || !reason) {
+      toast.error("يرجى ذكر السبب");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      if (actionDialog === 'REJECT') {
+        await shopsService.update(selectedShop.id, {
+          approval_status: 'REJECTED',
+          rejection_reason: reason,
+          is_active: false // Rejected shops are inactive
+        });
+        toast.success("تم رفض المتجر");
+      } else if (actionDialog === 'SUSPEND') {
+        await shopsService.toggleActive(selectedShop.id, {
+          is_active: false,
+          disabled_reason: reason,
+          disabled_at: new Date().toISOString(),
+          disabled_by: user?.id
+        });
+        toast.success("تم إيقاف المتجر");
+      }
+      
+      setActionDialog(null);
+      loadShops();
+    } catch (error) {
+      console.error(error);
+      toast.error("فشل تنفيذ الإجراء");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleTogglePremium = async (shop: Shop) => {
+    try {
+      await shopsService.update(shop.id, { is_premium: !shop.is_premium });
+      toast.success(shop.is_premium ? "تم إلغاء التميز" : "تم تمييز المتجر");
+      loadShops();
+    } catch (error) {
+       toast.error("فشل تحديث التميز");
     }
   };
 
@@ -2436,38 +2773,33 @@ function AdminShops() {
     }
   };
 
-  const getStatusBadge = (status: ShopStatus) => {
-    const variants: Record<ShopStatus, { variant: any; label: string }> = {
-      PENDING: { variant: "secondary", label: "قيد المراجعة" },
-      APPROVED: { variant: "success", label: "مقبول" },
-      REJECTED: { variant: "destructive", label: "مرفوض" },
-      SUSPENDED: { variant: "destructive", label: "موقوف" },
-    };
-    return variants[status] || { variant: "secondary", label: status };
-  };
-
   const filteredShops = shops.filter((shop) => {
-    const matchesStatus =
-      statusFilter === "ALL" || shop.status === statusFilter;
+    // Tab Filtering
+    let matchesTab = false;
+    if (activeTab === 'ALL') matchesTab = true;
+    else if (activeTab === 'PENDING') matchesTab = shop.approval_status === 'PENDING';
+    else if (activeTab === 'APPROVED') matchesTab = shop.approval_status === 'APPROVED' && shop.is_active; // Active approved
+    else if (activeTab === 'REJECTED') matchesTab = shop.approval_status === 'REJECTED';
+    else if (activeTab === 'SUSPENDED') matchesTab = shop.approval_status === 'APPROVED' && !shop.is_active; // Approved but suspended
+
+    // Fallback for old data migration (if approval_status is null but status matches)
+    if (!matchesTab && !shop.approval_status) {
+         if (activeTab === 'PENDING' && shop.status === 'PENDING') matchesTab = true;
+         if (activeTab === 'APPROVED' && shop.status === 'APPROVED') matchesTab = true;
+         if (activeTab === 'SUSPENDED' && shop.status === 'SUSPENDED') matchesTab = true;
+    }
+
     const matchesSearch =
       shop.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       shop.phone?.includes(searchQuery) ||
       shop.address?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesStatus && matchesSearch;
+      
+    return matchesTab && matchesSearch;
   });
 
-  const pendingCount = shops.filter((s) => s.status === "PENDING").length;
+  const pendingCount = shops.filter(s => s.approval_status === 'PENDING' || (!s.approval_status && s.status === 'PENDING')).length;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">{AR.admin.shops}</h1>
-          <p className="text-muted-foreground">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="p-8 text-center text-muted-foreground">جاري التحميل...</div>;
 
   return (
     <div className="space-y-6">
@@ -2475,186 +2807,156 @@ function AdminShops() {
         <div>
           <h1 className="text-2xl font-bold">{AR.admin.shops}</h1>
           <p className="text-muted-foreground">
-            إدارة المتاجر المسجلة ({shops.length} متجر)
-            {pendingCount > 0 && (
-              <span className="text-amber-500 mr-2">
-                • {pendingCount} بانتظار المراجعة
-              </span>
-            )}
+            إدارة المتاجر ({shops.length})
+            {pendingCount > 0 && <span className="text-amber-600 mr-2 font-medium">• {pendingCount} بانتظار المراجعة</span>}
           </p>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="بحث بالاسم أو الهاتف أو العنوان..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pr-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-48">
-            <SelectValue placeholder="تصفية حسب الحالة" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="ALL">جميع المتاجر</SelectItem>
-            <SelectItem value="PENDING">قيد المراجعة</SelectItem>
-            <SelectItem value="APPROVED">مقبولة</SelectItem>
-            <SelectItem value="REJECTED">مرفوضة</SelectItem>
-            <SelectItem value="SUSPENDED">موقوفة</SelectItem>
-          </SelectContent>
-        </Select>
+      <div className="flex flex-col sm:flex-row gap-4 items-center">
+         <div className="relative flex-1 w-full">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="بحث..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pr-10"
+            />
+         </div>
       </div>
 
-      {filteredShops.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-12">
-              <Store className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">لا توجد متاجر</h3>
-              <p className="text-muted-foreground">
-                {searchQuery || statusFilter !== "ALL"
-                  ? "لا توجد نتائج مطابقة للبحث"
-                  : "لم يتم تسجيل أي متاجر بعد"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          {filteredShops.map((shop) => {
-            const statusInfo = getStatusBadge(shop.status as ShopStatus);
-            return (
-              <Card
-                key={shop.id}
-                className={
-                  shop.status === "PENDING"
-                    ? "border-amber-200 bg-amber-50/30"
-                    : ""
-                }
-              >
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+          <TabsTrigger value="PENDING" className="relative">
+             قيد المراجعة
+             {pendingCount > 0 && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></span>}
+          </TabsTrigger>
+          <TabsTrigger value="APPROVED">مقبولة (نشطة)</TabsTrigger>
+          <TabsTrigger value="SUSPENDED">موقوفة</TabsTrigger>
+          <TabsTrigger value="REJECTED">مرفوضة</TabsTrigger>
+          <TabsTrigger value="ALL">الكل</TabsTrigger>
+        </TabsList>
+
+        <div className="mt-4 grid gap-4">
+          {filteredShops.length === 0 ? (
+            <Card>
+              <CardContent className="p-12 text-center text-muted-foreground">
+                <Store className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>لا توجد متاجر في هذه القائمة</p>
+              </CardContent>
+            </Card>
+          ) : (
+            filteredShops.map((shop) => (
+              <Card key={shop.id} className={cn("transition-all", shop.is_premium ? "border-amber-400 shadow-md bg-amber-50/10" : "")}>
                 <CardContent className="p-4">
-                  <div className="flex flex-col md:flex-row md:items-center gap-4">
-                    <div className="w-16 h-16 rounded-xl overflow-hidden bg-muted flex-shrink-0">
-                      {shop.logo_url ? (
-                        <img
-                          src={shop.logo_url}
-                          alt={shop.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-                          <Store className="w-8 h-8 text-primary" />
-                        </div>
-                      )}
+                  <div className="flex flex-col md:flex-row gap-4">
+                    <div className="w-20 h-20 rounded-lg bg-muted flex-shrink-0 relative overflow-hidden">
+                       {shop.logo_url ? (
+                         <img src={shop.logo_url} alt={shop.name} className="w-full h-full object-cover" />
+                       ) : (
+                         <div className="w-full h-full flex items-center justify-center text-muted-foreground"><Store className="w-8 h-8" /></div>
+                       )}
+                       {shop.is_premium && <div className="absolute top-0 right-0 bg-amber-500 text-white p-1 rounded-bl-lg shadow-sm"><CheckCircle className="w-3 h-3" /></div>}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2 mb-1">
-                        <h3 className="font-semibold">{shop.name}</h3>
-                        <Badge variant={statusInfo.variant}>
-                          {statusInfo.label}
+                    
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-lg">{shop.name}</h3>
+                        {shop.is_premium && <Badge className="bg-amber-500 hover:bg-amber-600">مميز</Badge>}
+                        <Badge variant={shop.approval_status === 'APPROVED' ? 'success' : shop.approval_status === 'REJECTED' ? 'destructive' : 'secondary'}>
+                          {shop.approval_status === 'APPROVED' ? 'مقبول' : shop.approval_status === 'REJECTED' ? 'مرفوض' : 'قيد المراجعة'}
                         </Badge>
-                        {shop.status === "APPROVED" && (
-                          <Badge
-                            variant={shop.is_open ? "success" : "secondary"}
-                          >
-                            {shop.is_open ? "مفتوح" : "مغلق"}
-                          </Badge>
-                        )}
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {shop.address}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {shop.phone}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        تاريخ التسجيل:{" "}
-                        {new Date(shop.created_at).toLocaleDateString("ar-EG")}
-                      </p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1"><MapPin className="w-3 h-3" /> {shop.address}</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" /> {shop.phone}</p>
+                      {shop.rejection_reason && <p className="text-sm text-destructive mt-1">سبب الرفض: {shop.rejection_reason}</p>}
+                      {!shop.is_active && shop.disabled_reason && <p className="text-sm text-destructive mt-1">سبب الإيقاف: {shop.disabled_reason}</p>}
                     </div>
-                    <div className="flex flex-wrap gap-2 justify-end">
-                      {/* Status Actions */}
-                      {shop.status === "PENDING" && (
-                        <>
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700"
-                            onClick={() =>
-                              handleUpdateShopStatus(shop, "APPROVED")
-                            }
-                          >
-                            <CheckCircle className="w-4 h-4 ml-1" />
+
+                    <div className="flex flex-col justify-center gap-2 min-w-[140px]">
+                      {/* Actions based on Status */}
+                      {shop.approval_status === 'PENDING' && (
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(shop, 'APPROVED')}>
                             قبول
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() =>
-                              handleUpdateShopStatus(shop, "REJECTED")
-                            }
-                          >
-                            <XCircle className="w-4 h-4 ml-1" />
+                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(shop, 'REJECTED')}>
                             رفض
                           </Button>
-                        </>
+                        </div>
                       )}
-                      {shop.status === "APPROVED" && (
-                        <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleToggleOpen(shop)}
-                          >
+                      
+                      {activeTab === 'APPROVED' && (
+                         <Button size="sm" variant="outline" className={cn(shop.is_premium ? "border-amber-500 text-amber-600" : "")} onClick={() => handleTogglePremium(shop)}>
+                            {shop.is_premium ? "إلغاء التميز" : "تمييز المتجر"}
+                         </Button>
+                      )}
+
+                      {shop.approval_status === 'APPROVED' && (
+                        shop.is_active ? (
+                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(shop, 'SUSPENDED')}>
+                             <Ban className="w-4 h-4 ml-2" /> إيقاف
+                          </Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(shop, 'APPROVED')}>
+                             <CheckCircle className="w-4 h-4 ml-2" /> تفعيل
+                          </Button>
+                        )
+                      )}
+
+                       {/* Open/Close Button */}
+                      {shop.approval_status === 'APPROVED' && shop.is_active && (
+                          <Button size="sm" variant="outline" onClick={() => handleToggleOpen(shop)}>
                             {shop.is_open ? "إغلاق" : "فتح"}
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() =>
-                              handleUpdateShopStatus(shop, "SUSPENDED")
-                            }
-                          >
-                            <Ban className="w-4 h-4 ml-1" />
-                            إيقاف
-                          </Button>
-                        </>
                       )}
-                      {shop.status === "SUSPENDED" && (
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                          onClick={() =>
-                            handleUpdateShopStatus(shop, "APPROVED")
-                          }
-                        >
-                          <CheckCircle className="w-4 h-4 ml-1" />
-                          إعادة تفعيل
+
+                      <Link to={`/dashboard/shops/analytics/${shop.id}`}>
+                        <Button variant="ghost" size="sm" className="w-full">
+                          <BarChart2 className="w-4 h-4 ml-2" /> التحليلات
                         </Button>
-                      )}
-                      {shop.status === "REJECTED" && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() =>
-                            handleUpdateShopStatus(shop, "PENDING")
-                          }
-                        >
-                          إعادة للمراجعة
-                        </Button>
-                      )}
+                      </Link>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            );
-          })}
+            ))
+          )}
         </div>
-      )}
+      </Tabs>
+
+      <Dialog open={!!actionDialog} onOpenChange={(open) => !open && setActionDialog(null)}>
+        <DialogContent>
+           <DialogHeader>
+             <DialogTitle>
+               {actionDialog === 'REJECT' ? 'رفض المتجر' : 'إيقاف المتجر'}
+             </DialogTitle>
+           </DialogHeader>
+           <div className="space-y-4 py-4">
+              <p className="text-sm text-muted-foreground">
+                {actionDialog === 'REJECT' 
+                  ? 'يرجى ذكر سبب رفض هذا المتجر. سيظهر هذا السبب لصاحب المتجر.' 
+                  : 'يرجى ذكر سبب إيقاف هذا المتجر. لن يتمكن المتجر من استقبال طلبات جديدة.'}
+              </p>
+              <Textarea 
+                placeholder="السبب..." 
+                value={reason} 
+                onChange={(e) => setReason(e.target.value)} 
+                rows={4}
+              />
+              <div className="flex gap-2 justify-end">
+                <Button variant="ghost" onClick={() => setActionDialog(null)}>إلغاء</Button>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleProcessAction} 
+                  disabled={isProcessing || !reason.trim()}
+                >
+                  {isProcessing ? 'جاري التنفيذ...' : 'تأكيد'}
+                </Button>
+              </div>
+           </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -3099,11 +3401,21 @@ export default function DashboardPage() {
               <Route path="account" element={isDelivery ? <CourierAccount /> : <DashboardSettings />} />
               <Route path="delivery" element={isAdmin ? <AdminDelivery /> : <DeliveryDashboard />} />
               {/* Admin-only routes - Protected by AdminGuard */}
+// ... existing imports
+
               <Route
                 path="shops"
                 element={
                   <AdminGuard>
                     <AdminShops />
+                  </AdminGuard>
+                }
+              />
+              <Route
+                path="shops/analytics/:id"
+                element={
+                  <AdminGuard>
+                    <ShopAnalytics />
                   </AdminGuard>
                 }
               />

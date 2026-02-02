@@ -208,29 +208,41 @@ export const shopsService = {
     regionId?: string;
     status?: string;
     search?: string;
+    categoryId?: string;
+    approvedOnly?: boolean;
     limit?: number;
   }): Promise<Shop[]> {
-    let query = supabase.from("shops").select("*");
+    let query = supabase.from("shops").select("*, category:categories(id, name, slug, icon)");
 
     if (options?.regionId) {
       query = query.eq("region_id", options.regionId);
     }
 
-    if (options?.status) {
+    // Filter by approval status (default to APPROVED for customer-facing)
+    if (options?.approvedOnly !== false) {
+      query = query.eq("approval_status", "APPROVED");
+    } else if (options?.status) {
       query = query.eq("status", options.status as any);
-    } else {
-      query = query.eq("status", "APPROVED" as any);
     }
 
     if (options?.search) {
       query = query.ilike("name", `%${options.search}%`);
     }
 
+    // NEW: Filter by category
+    if (options?.categoryId) {
+      query = query.eq("category_id", options.categoryId);
+    }
+
     if (options?.limit) {
       query = query.limit(options.limit);
     }
 
-    query = query.order("rating", { ascending: false });
+    // NEW: Sort by premium first, then rating
+    query = query
+      .order("is_premium", { ascending: false })
+      .order("premium_sort_order", { ascending: true, nullsFirst: false })
+      .order("rating", { ascending: false });
 
     const { data, error } = await query;
 
@@ -301,6 +313,34 @@ export const shopsService = {
 
   async updateStatus(id: string, status: Shop["status"]): Promise<Shop> {
     return this.update(id, { status });
+  },
+
+  async toggleActive(id: string, updates: { 
+    is_active: boolean; 
+    disabled_reason?: string | null;
+    disabled_at?: string | null;
+    disabled_by?: string | null;
+  }): Promise<Shop> {
+    return this.update(id, updates);
+  },
+
+  async getAnalytics(shopId: string, startDate: Date, endDate: Date): Promise<Array<{
+    date: string;
+    revenue: number;
+    orders_count: number;
+  }>> {
+    const { data, error } = await (supabase.rpc as any)('get_shop_analytics', {
+      p_shop_id: shopId,
+      p_start_date: startDate.toISOString(),
+      p_end_date: endDate.toISOString()
+    });
+
+    if (error) throw error;
+    return (data as Array<{
+      date: string;
+      revenue: number;
+      orders_count: number;
+    }>) || [];
   },
 };
 

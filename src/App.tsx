@@ -4,8 +4,6 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 
 // Pages
 import HomePage from "@/pages/home";
-import CategoriesPage from "@/pages/categories";
-import CategoryPage from "@/pages/category";
 import ShopsPage from "@/pages/shops";
 import ShopPage from "@/pages/shop";
 import ProductsPage from "@/pages/products";
@@ -19,6 +17,7 @@ import RegisterPage from "@/pages/register";
 import AccountPage from "@/pages/account";
 import DashboardPage from "@/pages/dashboard";
 import AuthCallback from "@/pages/auth/callback";
+import NotFoundPage from "@/pages/NotFound";
 
 function App() {
   return (
@@ -31,8 +30,6 @@ function App() {
         <Route element={<MainLayout />}>
           {/* Public */}
           <Route path="/" element={<HomePage />} />
-          <Route path="/categories" element={<CategoriesPage />} />
-          <Route path="/categories/:slug" element={<CategoryPage />} />
           <Route path="/shops" element={<ShopsPage />} />
           <Route path="/shops/:slug" element={<ShopPage />} />
           <Route path="/products" element={<ProductsPage />} />
@@ -51,6 +48,9 @@ function App() {
 
           {/* Dashboard */}
           <Route path="/dashboard/*" element={<DashboardPage />} />
+          
+          {/* 404 - Must be last */}
+          <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Routes>
     </>

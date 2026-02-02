@@ -1,12 +1,13 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Store, Star, Search } from "lucide-react";
+import { Store, Star, Search, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AR } from "@/lib/i18n";
-import { shopsService } from "@/services";
+import { shopsService, categoriesService } from "@/services";
 import { useState } from "react";
 
 const demoShops = [
@@ -67,17 +68,37 @@ const demoShops = [
 ];
 
 export default function ShopsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
+  const categorySlug = searchParams.get("category");
+
+  // Fetch shop categories
+  const { data: categories } = useQuery({
+    queryKey: ["categories", "shop"],
+    queryFn: () => categoriesService.getAll(),
+  });
+
+  const shopCategories = categories?.filter(c => c.type === 'SHOP') || [];
+  const selectedCategory = shopCategories.find(c => c.slug === categorySlug);
 
   const { data: shops, isLoading } = useQuery({
-    queryKey: ["shops", search],
-    queryFn: () => shopsService.getAll({ search: search || undefined }),
+    queryKey: ["shops", search, selectedCategory?.id],
+    queryFn: () =>
+      shopsService.getAll({
+        search: search || undefined,
+        categoryId: selectedCategory?.id,
+        approvedOnly: true, // Only show approved shops
+      }),
   });
 
   const displayShops = shops?.length ? shops : (demoShops as any[]);
   const filteredShops = search
     ? displayShops.filter((s) => s.name.includes(search))
     : displayShops;
+
+  const clearCategory = () => {
+    setSearchParams({});
+  };
 
   return (
     <div className="py-8">
@@ -91,7 +112,7 @@ export default function ShopsPage() {
         </div>
 
         {/* Search */}
-        <div className="mb-8 max-w-md">
+        <div className="mb-6 max-w-md">
           <div className="relative">
             <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
@@ -100,6 +121,49 @@ export default function ShopsPage() {
               onChange={(e) => setSearch(e.target.value)}
               className="pr-10"
             />
+          </div>
+        </div>
+
+        {/* Category Filter Pills */}
+        <div className="mb-8">
+          <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2">
+            {selectedCategory && (
+              <div className="flex items-center gap-2 animate-fade-in">
+                <Badge variant="default" className="gap-2 px-3 py-1.5 text-sm">
+                  {selectedCategory.icon && <span>{selectedCategory.icon}</span>}
+                  {selectedCategory.name}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearCategory}
+                    className="h-auto p-0 hover:bg-transparent"
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {filteredShops.length} متجر
+                </span>
+              </div>
+            )}
+            {!selectedCategory && shopCategories.length > 0 && (
+              <div className="flex gap-2" dir="rtl">
+                {shopCategories.map((category) => (
+                  <Link
+                    key={category.id}
+                    to={`?category=${category.slug}`}
+                  >
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary/10 transition-colors px-3 py-1.5 gap-1.5"
+                    >
+                      {category.icon && <span>{category.icon}</span>}
+                      {category.name}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -120,11 +184,26 @@ export default function ShopsPage() {
                     </div>
                   </Card>
                 ))
-            : filteredShops.map((shop) => (
-                <Link key={shop.id} to={`/shops/${shop.slug}`}>
-                  <Card interactive className="p-6 h-full">
+            : filteredShops.map((shop: any, i: number) => (
+                <Link 
+                  key={shop.id} 
+                  to={`/shops/${shop.slug}`}
+                  className="animate-fade-in"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <Card interactive className="p-6 h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative overflow-hidden">
+                    {/* Premium Badge */}
+                    {shop.is_premium && (
+                      <div className="absolute top-2 left-2 z-10">
+                        <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0 text-xs gap-1">
+                          <Star className="w-3 h-3 fill-current" />
+                          مميز
+                        </Badge>
+                      </div>
+                    )}
+                    
                     <div className="flex items-start gap-4">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0">
+                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0 transition-transform duration-300 hover:scale-110">
                         {shop.logo_url ? (
                           <img
                             src={shop.logo_url}
@@ -151,16 +230,24 @@ export default function ShopsPage() {
                             {shop.description}
                           </p>
                         )}
-                        <div className="flex items-center gap-4 mt-3">
+                        <div className="flex items-center gap-3 mt-3 flex-wrap">
                           <div className="flex items-center gap-1 text-warning">
                             <Star className="w-4 h-4 fill-current" />
                             <span className="text-sm font-medium">
-                              {shop.rating}
+                              {shop.rating || 4.5}
                             </span>
                           </div>
-                          <span className="text-sm text-muted-foreground">
-                            {shop.total_orders} {AR.shops.orders}
-                          </span>
+                          {shop.category && (
+                            <Badge variant="outline" className="text-xs">
+                              {shop.category.icon && <span className="mr-1">{shop.category.icon}</span>}
+                              {shop.category.name}
+                            </Badge>
+                          )}
+                          {shop.total_orders && (
+                            <span className="text-sm text-muted-foreground">
+                              {shop.total_orders} {AR.shops.orders}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

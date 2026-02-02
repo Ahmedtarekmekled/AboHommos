@@ -30,7 +30,6 @@ import { getInitials } from "@/lib/utils";
 
 const navLinks = [
   { href: "/", label: AR.nav.home },
-  { href: "/categories", label: AR.nav.categories },
   { href: "/shops", label: AR.nav.shops },
   { href: "/products", label: AR.nav.products },
 ];

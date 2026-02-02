@@ -16,131 +16,18 @@ import { formatPrice } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { categoriesService, productsService, shopsService } from "@/services";
 
-// Demo data for initial display
-const demoCategories = [
-  {
-    id: "1",
-    name: "إلكترونيات",
-    slug: "electronics",
-    icon: "📱",
-    image_url: "/images/electronics.jpg",
-  },
-  {
-    id: "2",
-    name: "ألبان ومنتجات ألبان",
-    slug: "dairy",
-    icon: "🥛",
-    image_url: "/images/dairy.jpg",
-  },
-  {
-    id: "3",
-    name: "خضروات وفواكه",
-    slug: "vegetables",
-    icon: "🥬",
-    image_url: "/images/vegetables.jpg",
-  },
-  {
-    id: "4",
-    name: "لحوم ودواجن",
-    slug: "meat",
-    icon: "🍖",
-    image_url: "/images/meat.jpg",
-  },
-  {
-    id: "5",
-    name: "مشروبات",
-    slug: "beverages",
-    icon: "🥤",
-    image_url: "/images/beverages.jpg",
-  },
-  {
-    id: "6",
-    name: "منظفات",
-    slug: "cleaning",
-    icon: "🧹",
-    image_url: "/images/cleaning.jpg",
-  },
-  {
-    id: "7",
-    name: "مستلزمات منزلية",
-    slug: "household",
-    icon: "🏠",
-    image_url: "/images/household.jpg",
-  },
-  {
-    id: "8",
-    name: "مخبوزات",
-    slug: "bakery",
-    icon: "🥖",
-    image_url: "/images/bakery.jpg",
-  },
-];
-
-const demoProducts = [
-  {
-    id: "1",
-    name: "حليب طازج كامل الدسم",
-    price: 25,
-    compare_at_price: 30,
-    image_url: "/images/milk.jpg",
-    shop: { name: "سوبر ماركت النور" },
-  },
-  {
-    id: "2",
-    name: "خبز بلدي طازج",
-    price: 5,
-    image_url: "/images/bread.jpg",
-    shop: { name: "مخبز الفرن الذهبي" },
-  },
-  {
-    id: "3",
-    name: "طماطم طازجة",
-    price: 15,
-    image_url: "/images/tomatoes.jpg",
-    shop: { name: "خضروات الحاج محمود" },
-  },
-  {
-    id: "4",
-    name: "دجاج مجمد",
-    price: 85,
-    compare_at_price: 95,
-    image_url: "/images/chicken.jpg",
-    shop: { name: "لحوم الأمانة" },
-  },
-];
-
-const demoShops = [
-  {
-    id: "1",
-    name: "سوبر ماركت النور",
-    slug: "alnoor-supermarket",
-    logo_url: "/images/shop1.jpg",
-    rating: 4.8,
-    is_open: true,
-  },
-  {
-    id: "2",
-    name: "مخبز الفرن الذهبي",
-    slug: "golden-bakery",
-    logo_url: "/images/shop2.jpg",
-    rating: 4.9,
-    is_open: true,
-  },
-  {
-    id: "3",
-    name: "خضروات الحاج محمود",
-    slug: "mahmoud-vegetables",
-    logo_url: "/images/shop3.jpg",
-    rating: 4.7,
-    is_open: false,
-  },
-];
-
 export default function HomePage() {
-  const { data: categories, isLoading: categoriesLoading } = useQuery({
+  // Fetch all categories
+  const { data: allCategories, isLoading: categoriesLoading } = useQuery({
     queryKey: ["categories"],
     queryFn: categoriesService.getAll,
   });
+
+  // Filter shop categories for the shop categories bar
+  const shopCategories = allCategories?.filter(c => c.type === 'SHOP') || [];
+  
+  // Product categories for the existing categories section
+  const productCategories = allCategories?.filter(c => c.type === 'PRODUCT') || [];
 
   const { data: featuredProducts, isLoading: productsLoading } = useQuery({
     queryKey: ["products", "featured"],
@@ -149,15 +36,8 @@ export default function HomePage() {
 
   const { data: shops, isLoading: shopsLoading } = useQuery({
     queryKey: ["shops", "featured"],
-    queryFn: () => shopsService.getAll({ limit: 6 }),
+    queryFn: () => shopsService.getAll({ limit: 6, approvedOnly: true }),
   });
-
-  // Use demo data if real data not available
-  const displayCategories = categories?.length ? categories : demoCategories;
-  const displayProducts = featuredProducts?.length
-    ? featuredProducts
-    : demoProducts;
-  const displayShops = shops?.length ? shops : demoShops;
 
   return (
     <div className="min-h-screen">
@@ -234,63 +114,47 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Categories Section */}
-      <section className="py-16 bg-background">
+      {/* Shop Categories Horizontal Bar - NEW */}
+      <section className="py-12 bg-gradient-to-br from-primary/5 to-secondary/5">
         <div className="container-app">
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold">
-                {AR.categories.title}
-              </h2>
-              <p className="text-muted-foreground mt-1">تصفح حسب التصنيف</p>
+              <h2 className="text-2xl md:text-3xl font-bold">تصفح المتاجر حسب النوع</h2>
+              <p className="text-muted-foreground mt-1">اختر نوع المتجر المناسب لك</p>
             </div>
-            <Link to="/categories">
-              <Button variant="ghost" className="gap-2">
-                {AR.common.viewAll}
-                <ArrowLeft className="w-4 h-4" />
-              </Button>
-            </Link>
           </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {categoriesLoading
-              ? Array(8)
-                  .fill(0)
-                  .map((_, i) => (
-                    <Skeleton key={i} className="aspect-square rounded-xl" />
-                  ))
-              : displayCategories.slice(0, 8).map((category) => (
+          
+          {/* Horizontal Scrollable Categories */}
+          <div className="overflow-x-auto hide-scrollbar">
+            <div className="flex gap-4 pb-2" dir="rtl">
+              {categoriesLoading ? (
+                Array(6).fill(0).map((_, i) => (
+                  <Skeleton key={i} className="h-32 w-40 rounded-xl flex-shrink-0" />
+                ))
+              ) : (
+                shopCategories.map((category, i) => (
                   <Link
                     key={category.id}
-                    to={`/categories/${category.slug}`}
-                    className="group"
+                    to={`/shops?category=${category.slug}`}
+                    className="group flex-shrink-0 animate-fade-in"
+                    style={{ animationDelay: `${i * 50}ms` }}
                   >
-                    <Card
-                      interactive
-                      className="aspect-square relative overflow-hidden"
+                    <Card 
+                      interactive 
+                      className="h-32 w-40 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent z-10" />
-                      {category.image_url ? (
-                        <img
-                          src={category.image_url}
-                          alt={category.name}
-                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                        />
-                      ) : (
-                        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center">
-                          <span className="text-6xl">
-                            {category.icon || "📦"}
-                          </span>
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10 group-hover:from-primary/20 group-hover:to-secondary/20 transition-all duration-300" />
+                      <div className="relative h-full flex flex-col items-center justify-center p-4 text-center">
+                        <div className="text-4xl mb-2 transition-transform duration-300 group-hover:scale-110">
+                          {category.icon || "🏪"}
                         </div>
-                      )}
-                      <div className="absolute bottom-0 left-0 right-0 p-4 z-20">
-                        <h3 className="font-semibold text-lg text-white">
-                          {category.name}
-                        </h3>
+                        <h3 className="font-semibold text-sm">{category.name}</h3>
                       </div>
                     </Card>
                   </Link>
-                ))}
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -327,7 +191,8 @@ export default function HomePage() {
                       </CardContent>
                     </Card>
                   ))
-              : displayProducts.map((product) => (
+              : featuredProducts && featuredProducts.length > 0 ? (
+                  featuredProducts.map((product: any) => (
                   <Link key={product.id} to={`/products/${product.id}`}>
                     <Card interactive className="overflow-hidden h-full">
                       <div className="aspect-square relative overflow-hidden bg-muted">
@@ -378,7 +243,13 @@ export default function HomePage() {
                       </CardContent>
                     </Card>
                   </Link>
-                ))}
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <ShoppingBag className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-lg text-muted-foreground">لا توجد منتجات متاحة حالياً</p>
+                </div>
+              )}
           </div>
         </div>
       </section>
@@ -418,11 +289,27 @@ export default function HomePage() {
                       </div>
                     </Card>
                   ))
-              : displayShops.map((shop) => (
-                  <Link key={shop.id} to={`/shops/${shop.slug}`}>
-                    <Card interactive className="p-6">
+              : shops && shops.length > 0 ? (
+                  shops.map((shop: any, i: number) => (
+                  <Link 
+                    key={shop.id} 
+                    to={`/shops/${shop.slug}`}
+                    className="animate-fade-in"
+                    style={{ animationDelay: `${i * 60}ms` }}
+                  >
+                    <Card interactive className="p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative overflow-hidden">
+                      {/* Premium Badge */}
+                      {shop.is_premium && (
+                        <div className="absolute top-2 left-2 z-10">
+                          <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0 text-xs gap-1">
+                            <Star className="w-3 h-3 fill-current" />
+                            مميز
+                          </Badge>
+                        </div>
+                      )}
+                      
                       <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                        <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex-shrink-0 transition-transform duration-300 hover:scale-110">
                           {shop.logo_url ? (
                             <img
                               src={shop.logo_url}
@@ -439,13 +326,18 @@ export default function HomePage() {
                           <h3 className="font-semibold truncate">
                             {shop.name}
                           </h3>
-                          <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
                             <div className="flex items-center gap-1 text-warning">
                               <Star className="w-4 h-4 fill-current" />
                               <span className="text-sm font-medium">
-                                {shop.rating}
+                                {shop.rating || 4.5}
                               </span>
                             </div>
+                            {shop.category && (
+                              <Badge variant="outline" className="text-xs">
+                                {shop.category.name}
+                              </Badge>
+                            )}
                             <Badge
                               variant={shop.is_open ? "success" : "secondary"}
                               className="text-xs"
@@ -457,7 +349,16 @@ export default function HomePage() {
                       </div>
                     </Card>
                   </Link>
-                ))}
+                ))
+              ) : (
+                <div className="col-span-full text-center py-12">
+                  <Store className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-lg text-muted-foreground mb-4">لا توجد متاجر متاحة حالياً</p>
+                  <Link to="/register?role=shop_owner">
+                    <Button>سجل متجرك الآن</Button>
+                  </Link>
+                </div>
+              )}
           </div>
         </div>
       </section>
