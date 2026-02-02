@@ -487,7 +487,7 @@ export const orderService = {
       created_by: userId,
     });
 
-    return order;
+    return order as Order;
   },
 
   async getStatusHistory(orderId: string): Promise<OrderStatusHistory[]> {

@@ -780,6 +780,14 @@ export interface Database {
         Args: Record<string, never>;
         Returns: string | null;
       };
+      assign_driver_to_parent: {
+        Args: { p_parent_order_id: string; p_driver_id: string };
+        Returns: { success: boolean; message: string };
+      };
+      update_shop_order_status: {
+        Args: { p_order_id: string; p_status: string };
+        Returns: void;
+      };
     };
     Enums: {
       user_role: UserRole;
