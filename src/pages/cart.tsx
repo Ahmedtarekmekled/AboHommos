@@ -1,16 +1,39 @@
 import { Link } from "react-router-dom";
-import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft } from "lucide-react";
+import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, Store } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 import { useCart, useAuth } from "@/store";
+import { useMemo } from "react";
 
 export default function CartPage() {
   const { isAuthenticated } = useAuth();
   const { cart, cartTotal, updateCartItem, removeFromCart } = useCart();
+
+  // Group items by shop
+  const itemsByShop = useMemo(() => {
+    if (!cart?.items) return {};
+    
+    return cart.items.reduce((acc, item) => {
+      const shopId = item.product?.shop_id || 'unknown';
+      if (!acc[shopId]) {
+        acc[shopId] = {
+          shop: item.product?.shop || null,
+          items: [],
+          subtotal: 0,
+        };
+      }
+      acc[shopId].items.push(item);
+      acc[shopId].subtotal += (item.product?.price || 0) * item.quantity;
+      return acc;
+    }, {} as Record<string, any>);
+  }, [cart?.items]);
+
+  const shopsCount = Object.keys(itemsByShop).length;
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     try {
@@ -71,105 +94,126 @@ export default function CartPage() {
     );
   }
 
-  const deliveryFee = 15;
+  const deliveryFee = 15; // Will be calculated dynamically in checkout
 
   return (
     <div className="py-8">
       <div className="container-app">
-        <h1 className="text-3xl font-bold mb-8">{AR.cart.title}</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-3xl font-bold">{AR.cart.title}</h1>
+          
+          {/* Multi-shop indicator */}
+          {shopsCount > 1 && (
+            <Badge variant="secondary" className="gap-2">
+              <Store className="w-4 h-4" />
+              طلب من {shopsCount} متاجر
+            </Badge>
+          )}
+        </div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
-            {/* Shop Info */}
-            <Card>
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted">
-                    {cart.shop?.logo_url ? (
-                      <img
-                        src={cart.shop.logo_url}
-                        alt={cart.shop.name}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-                        <ShoppingBag className="w-6 h-6 text-primary" />
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{cart.shop?.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">
-                      {cart.items.length} منتج
-                    </p>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
-
-            {/* Items */}
-            {cart.items.map((item) => (
-              <Card key={item.id}>
-                <CardContent className="p-4">
-                  <div className="flex gap-4">
-                    <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                      {item.product?.image_url ? (
-                        <img
-                          src={item.product.image_url}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-                          <ShoppingBag className="w-8 h-8 text-muted-foreground" />
+          {/* Cart Items - Grouped by Shop */}
+          <div className="lg:col-span-2 space-y-6">
+            {Object.entries(itemsByShop).map(([shopId, shopData]: [string, any]) => (
+              <div key={shopId} className="space-y-4">
+                {/* Shop Header */}
+                <Card>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-lg overflow-hidden bg-muted">
+                          {shopData.shop?.logo_url ? (
+                            <img
+                              src={shopData.shop.logo_url}
+                              alt={shopData.shop.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
+                              <Store className="w-6 h-6 text-primary" />
+                            </div>
+                          )}
                         </div>
+                        <div>
+                          <CardTitle className="text-lg">{shopData.shop?.name || 'متجر'}</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            {shopData.items.length} منتج • {formatPrice(shopData.subtotal)}
+                          </p>
+                        </div>
+                      </div>
+                      {shopsCount > 1 && (
+                        <Badge variant="outline" className="text-xs">
+                          متجر {Object.keys(itemsByShop).indexOf(shopId) + 1}
+                        </Badge>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium">{item.product?.name}</h3>
-                      <p className="text-primary font-bold mt-1">
-                        {formatPrice(item.product?.price || 0)}
-                      </p>
+                  </CardHeader>
+                </Card>
 
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity - 1)
-                            }
-                            disabled={item.quantity <= 1}
-                          >
-                            <Minus className="w-4 h-4" />
-                          </Button>
-                          <span className="w-8 text-center font-medium">
-                            {item.quantity}
-                          </span>
-                          <Button
-                            variant="outline"
-                            size="icon-sm"
-                            onClick={() =>
-                              handleUpdateQuantity(item.id, item.quantity + 1)
-                            }
-                          >
-                            <Plus className="w-4 h-4" />
-                          </Button>
+                {/* Shop Items */}
+                {shopData.items.map((item: any) => (
+                  <Card key={item.id}>
+                    <CardContent className="p-4">
+                      <div className="flex gap-4">
+                        <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                          {item.product?.image_url ? (
+                            <img
+                              src={item.product.image_url}
+                              alt={item.product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
+                              <ShoppingBag className="w-8 h-8 text-muted-foreground" />
+                            </div>
+                          )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon-sm"
-                          className="text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveItem(item.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-medium">{item.product?.name}</h3>
+                          <p className="text-primary font-bold mt-1">
+                            {formatPrice(item.product?.price || 0)}
+                          </p>
+
+                          <div className="flex items-center justify-between mt-3">
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() =>
+                                  handleUpdateQuantity(item.id, item.quantity - 1)
+                                }
+                                disabled={item.quantity <= 1}
+                              >
+                                <Minus className="w-4 h-4" />
+                              </Button>
+                              <span className="w-8 text-center font-medium">
+                                {item.quantity}
+                              </span>
+                              <Button
+                                variant="outline"
+                                size="icon-sm"
+                                onClick={() =>
+                                  handleUpdateQuantity(item.id, item.quantity + 1)
+                                }
+                              >
+                                <Plus className="w-4 h-4" />
+                              </Button>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleRemoveItem(item.id)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ))}
 
             <Link
@@ -198,13 +242,25 @@ export default function CartPage() {
                   <span className="text-muted-foreground">
                     {AR.cart.deliveryFee}
                   </span>
-                  <span>{formatPrice(deliveryFee)}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {shopsCount > 1 ? 'يُحسب عند الدفع' : formatPrice(deliveryFee)}
+                  </span>
                 </div>
+                
+                {shopsCount > 1 && (
+                  <div className="bg-muted/50 p-3 rounded-lg text-sm">
+                    <p className="text-muted-foreground">
+                      💡 رسوم التوصيل تُحسب بناءً على المسافة الفعلية بين المتاجر وموقعك
+                    </p>
+                  </div>
+                )}
+                
                 <Separator />
                 <div className="flex justify-between text-lg font-bold">
                   <span>{AR.cart.total}</span>
                   <span className="text-primary">
-                    {formatPrice(cartTotal + deliveryFee)}
+                    {formatPrice(cartTotal + (shopsCount === 1 ? deliveryFee : 0))}
+                    {shopsCount > 1 && '+'}
                   </span>
                 </div>
 

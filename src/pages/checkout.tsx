@@ -1,5 +1,5 @@
 import { useNavigate, Link } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -50,6 +50,8 @@ interface LocationData {
   districtId: string | null;
   deliveryFee: number;
   phone?: string;
+  lat?: number;
+  lng?: number;
 }
 
 const STEPS: { id: CheckoutStep; label: string; icon: React.ElementType }[] = [
@@ -61,17 +63,26 @@ const STEPS: { id: CheckoutStep; label: string; icon: React.ElementType }[] = [
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
-  const { cart, cartTotal } = useCart();
+  const { cart, cartTotal, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("delivery");
   const [locationData, setLocationData] = useState<LocationData>({
     address: "",
     districtId: null,
-    deliveryFee: 15, // Default delivery fee
+    deliveryFee: 0, 
   });
+  const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
+  const [isFallbackFee, setIsFallbackFee] = useState(false);
+  const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [orderComplete, setOrderComplete] = useState<{
     orderNumber: string;
     orderId: string;
+    total: number;
+    subtotal: number;
+    deliveryFee: number;
+    itemCount: number;
+    shopName?: string;
+    isMultiShop: boolean;
   } | null>(null);
 
   const {
@@ -91,7 +102,8 @@ export default function CheckoutPage() {
   });
 
   const watchedValues = watch();
-  const deliveryFee = locationData.deliveryFee || 15;
+  // Only show delivery fee if calculated (or if there's a district-based fee fallback for single orders, though we prefer map calculation)
+  const deliveryFee = calculatedDeliveryFee;
 
   // Handle location change from LocationSelector
   const handleLocationChange = (data: LocationData) => {
@@ -105,6 +117,55 @@ export default function CheckoutPage() {
     }
   };
 
+  // Trigger Fee Calculation when location changes
+  useEffect(() => {
+    const calculateFee = async () => {
+      // Only calculate if we have coordinates and items in cart
+      if (!locationData.lat || !locationData.lng || !cart?.items?.length) {
+        setCalculatedDeliveryFee(null);
+        return;
+      }
+
+      setIsCalculatingFee(true);
+      try {
+        const { user: authUser } = await getCurrentUser();
+        if (!authUser) return;
+
+        // Dynamic import to avoid circular dependencies if any
+        const { calculateMultiStoreCheckout } = await import('@/services/multi-store-checkout.service');
+        
+        const calculation = await calculateMultiStoreCheckout({
+          userId: authUser.id,
+          cartItems: cart.items as any,
+          deliveryAddress: locationData.address || "العنوان المحدد على الخريطة", // Use placeholder if empty
+          deliveryLatitude: locationData.lat,
+          deliveryLongitude: locationData.lng,
+          customerName: user?.full_name || authUser.email || "عميل",
+          customerPhone: watchedValues.phone || "",
+          notes: watchedValues.notes
+        });
+
+        if (calculation.validation_errors.length === 0) {
+           setCalculatedDeliveryFee(calculation.parent_order_data.total_delivery_fee);
+           setIsFallbackFee(calculation.is_fallback);
+           if (calculation.is_fallback && calculation.fallback_warning) {
+             toast.info(calculation.fallback_warning);
+           }
+        }
+      } catch (error) {
+        console.error("Auto calculation error:", error);
+      } finally {
+        setIsCalculatingFee(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      calculateFee();
+    }, 500); // Debounce
+
+    return () => clearTimeout(timer);
+  }, [locationData.lat, locationData.lng, cart?.items, watchedValues.phone]);
+
   const goToStep = async (step: CheckoutStep) => {
     if (step === "payment") {
       const isValid = await trigger(["address", "phone"]);
@@ -117,8 +178,62 @@ export default function CheckoutPage() {
     if (step === "review") {
       const isValid = await trigger();
       if (!isValid) return;
+      
+      // Calculate delivery fee before review
+      await calculateDeliveryFeeForReview();
     }
     setCurrentStep(step);
+  };
+
+  const calculateDeliveryFeeForReview = async () => {
+    if (!cart || !cart.items || cart.items.length === 0) return;
+    
+    const { user: authUser } = await getCurrentUser();
+    if (!authUser) return;
+
+    // Check if multi-shop
+    const uniqueShops = new Set(cart.items.map(item => item.product?.shop_id).filter(Boolean));
+    const isMultiShop = uniqueShops.size > 1 || cart.shop_id === null;
+
+    if (!isMultiShop) {
+      // Single shop - use district-based fee
+      setCalculatedDeliveryFee(locationData.deliveryFee);
+      setIsFallbackFee(false);
+      return;
+    }
+
+    // Multi-shop - calculate with route
+    try {
+      const { calculateMultiStoreCheckout } = await import('@/services/multi-store-checkout.service');
+      
+      const calculation = await calculateMultiStoreCheckout({
+        userId: authUser.id,
+        cartItems: cart.items as any,
+        deliveryAddress: locationData.address || watchedValues.address,
+        deliveryLatitude: locationData.lat || 0,
+        deliveryLongitude: locationData.lng || 0,
+        customerName: user?.full_name || authUser.email || "عميل",
+        customerPhone: watchedValues.phone,
+        notes: watchedValues.notes,
+      });
+
+      if (calculation.validation_errors.length > 0) {
+        toast.error(calculation.validation_errors[0]);
+        return;
+      }
+
+      setCalculatedDeliveryFee(calculation.parent_order_data.total_delivery_fee);
+      setIsFallbackFee(calculation.is_fallback);
+      
+      if (calculation.is_fallback && calculation.fallback_warning) {
+        toast.info(calculation.fallback_warning, { duration: 5000 });
+      }
+    } catch (error) {
+      console.error('Fee calculation error:', error);
+      // Fallback to district fee on error
+      setCalculatedDeliveryFee(locationData.deliveryFee);
+      setIsFallbackFee(false);
+    }
   };
 
   const onSubmit = async (data: CheckoutForm) => {
@@ -135,24 +250,84 @@ export default function CheckoutPage() {
         return;
       }
 
-      const order = await orderService.create({
-        userId: authUser.id,
-        shopId: cart.shop_id!,
-        customerName: user?.full_name || authUser.email || "عميل",
-        items: cart.items.map((item) => ({
-          productId: item.product_id,
-          productName: item.product?.name || "",
-          productPrice: item.product?.price || 0,
-          quantity: item.quantity,
-        })),
-        deliveryAddress: locationData.address || data.address,
-        deliveryPhone: data.phone,
-        notes: data.notes,
-        deliveryFee,
-      });
+      // Check if multi-shop cart
+      const uniqueShops = new Set(cart.items.map(item => item.product?.shop_id).filter(Boolean));
+      const isMultiShop = uniqueShops.size > 1 || cart.shop_id === null;
 
-      setOrderComplete({ orderNumber: order.order_number, orderId: order.id });
-      toast.success(AR.checkout.success);
+      if (isMultiShop) {
+        // Use new multi-store checkout
+        const { calculateMultiStoreCheckout, createMultiStoreOrder } = await import('@/services/multi-store-checkout.service');
+        
+        // Calculate checkout with route/pricing
+        const calculation = await calculateMultiStoreCheckout({
+          userId: authUser.id,
+          cartItems: cart.items as any,
+          deliveryAddress: locationData.address || data.address,
+          deliveryLatitude: locationData.lat || 0,
+          deliveryLongitude: locationData.lng || 0,
+          customerName: user?.full_name || authUser.email || "عميل",
+          customerPhone: data.phone,
+          notes: data.notes,
+        });
+
+        // Check for validation errors
+        if (calculation.validation_errors.length > 0) {
+          toast.error(calculation.validation_errors[0]);
+          return;
+        }
+
+        // Show fallback warning if applicable
+        if (calculation.is_fallback && calculation.fallback_warning) {
+          toast.warning(calculation.fallback_warning);
+        }
+
+        // Create the multi-store order
+        const result = await createMultiStoreOrder(calculation);
+        
+        // Clear cart after successful order
+        await clearCart();
+        
+        setOrderComplete({ 
+          orderNumber: result.order_number, 
+          orderId: result.parent_order_id,
+          total: calculation.parent_order_data.total,
+          subtotal: calculation.parent_order_data.subtotal,
+          deliveryFee: calculation.parent_order_data.total_delivery_fee,
+          itemCount: cart.items.length,
+          isMultiShop: true
+        });
+        toast.success(AR.checkout.success);
+        
+      } else {
+        // Legacy single-shop order
+        const order = await orderService.create({
+          userId: authUser.id,
+          shopId: cart.shop_id || cart.items[0].product?.shop_id!,
+          customerName: user?.full_name || authUser.email || "عميل",
+          items: cart.items.map((item) => ({
+            productId: item.product_id,
+            productName: item.product?.name || "",
+            productPrice: item.product?.price || 0,
+            quantity: item.quantity,
+          })),
+          deliveryAddress: locationData.address || data.address,
+          deliveryPhone: data.phone,
+          notes: data.notes,
+          deliveryFee: deliveryFee || 0,
+        });
+
+        setOrderComplete({ 
+          orderNumber: order.order_number, 
+          orderId: order.id,
+          total: order.total,
+          subtotal: order.subtotal,
+          deliveryFee: order.delivery_fee,
+          itemCount: cart.items.length,
+          shopName: cart.shop?.name,
+          isMultiShop: false
+        });
+        toast.success(AR.checkout.success);
+      }
     } catch (error) {
       console.error(error);
       toast.error("حدث خطأ أثناء إنشاء الطلب");
@@ -241,17 +416,25 @@ export default function CheckoutPage() {
                 <Separator />
 
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Store className="w-4 h-4 text-muted-foreground" />
-                    <span>{cart.shop?.name}</span>
-                  </div>
+                  {orderComplete.isMultiShop ? (
+                    <div className="flex items-center gap-2 col-span-2">
+                       <Store className="w-4 h-4 text-muted-foreground" />
+                       <span>عدة متاجر</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-muted-foreground" />
+                      <span>{orderComplete.shopName}</span>
+                    </div>
+                  )}
+                  
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-muted-foreground" />
-                    <span>{cart.items.length} منتجات</span>
+                    <span>{orderComplete.itemCount} منتجات</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-muted-foreground" />
-                    <span>{formatPrice(cartTotal + deliveryFee)}</span>
+                    <span>{formatPrice(orderComplete.total)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="w-4 h-4 text-muted-foreground" />
@@ -586,7 +769,13 @@ export default function CheckoutPage() {
                             رسوم التوصيل:
                           </span>{" "}
                           <span className="font-medium text-primary">
-                            {formatPrice(deliveryFee)}
+                            {isCalculatingFee ? (
+                              <span className="text-xs animate-pulse">جاري الاحتساب...</span>
+                            ) : deliveryFee !== null ? (
+                              formatPrice(deliveryFee)
+                            ) : (
+                              <span className="text-xs text-muted-foreground">يتم التحديد عند اختيار الموقع</span>
+                            )}
                           </span>
                         </p>
                       </div>
@@ -750,7 +939,7 @@ export default function CheckoutPage() {
                       <span className="text-muted-foreground">
                         {AR.cart.deliveryFee}
                       </span>
-                      <span>{formatPrice(deliveryFee)}</span>
+                      <span>{formatPrice(deliveryFee || 0)}</span>
                     </div>
                   </div>
 
@@ -759,7 +948,7 @@ export default function CheckoutPage() {
                   <div className="flex justify-between text-lg font-bold">
                     <span>{AR.cart.total}</span>
                     <span className="text-primary">
-                      {formatPrice(cartTotal + deliveryFee)}
+                      {formatPrice(cartTotal + (deliveryFee || 0))}
                     </span>
                   </div>
 

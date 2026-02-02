@@ -26,9 +26,17 @@ import {
   TrendingUp,
   ShoppingBag,
   Truck,
+  Volume2,
+  VolumeX,
+  Bell,
+  BellOff
 } from "lucide-react";
+import { SoundService } from "@/services/sound.service";
+import { useRef } from "react";
+import { supabase } from "@/lib/supabase";
 import { AdminDelivery } from "@/components/delivery/AdminDelivery";
 import { DeliveryDashboard } from "@/components/delivery/DeliveryDashboard";
+import { CourierAccount } from "@/components/delivery/CourierAccount";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,8 +99,7 @@ const adminNav = [
 
 const deliveryNav = [
   { href: "/dashboard", label: "الرئيسية", icon: LayoutDashboard },
-  { href: "/dashboard/delivery", label: "طلباتي", icon: Truck },
-  { href: "/dashboard/account", label: "حسابي", icon: UserCog }, // Assuming account page exists or reuse settings
+  { href: "/dashboard/account", label: "حسابي", icon: UserCog },
 ];
 
 // Access Denied Component for non-admin users
@@ -133,6 +140,49 @@ function AdminGuard({ children }: { children: ReactNode }) {
 
   return <>{children}</>;
 }
+
+// Real-time hook for Shop Orders
+function useShopRealtime(shopId: string | undefined, onNewOrder: () => void, onOrderUpdate: () => void) {
+  useEffect(() => {
+    if (!shopId) return;
+
+    const channel = supabase
+      .channel(`shop-orders-${shopId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "orders",
+          filter: `shop_id=eq.${shopId}`,
+        },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+             // New order -> Play Sound + Refresh List
+             await SoundService.playNewOrderSound();
+             toast.info("طلب جديد وصل!", {
+               description: `رقم الطلب: ${(payload.new as any).order_number}`,
+               action: {
+                 label: "عرض",
+                 onClick: onNewOrder
+               }
+             });
+             onNewOrder();
+          } else if (payload.eventType === "UPDATE") {
+             // Order update -> Refresh List
+             onOrderUpdate();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [shopId, onNewOrder, onOrderUpdate]);
+}
+
+
 
 // Admin Overview Dashboard - Platform-wide statistics
 function AdminOverview() {
@@ -1134,6 +1184,21 @@ function DashboardOrders() {
   const [showOrderDialog, setShowOrderDialog] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isMuted, setIsMuted] = useState(SoundService.getMuteStatus());
+
+  // Sound Controls
+  const toggleMute = () => {
+    const newMuteStatus = SoundService.toggleMute();
+    setIsMuted(newMuteStatus);
+    toast.success(newMuteStatus ? "تم كتم الصوت" : "تم تفعيل الصوت");
+  };
+
+  const enableAudio = async () => {
+    const enabled = await SoundService.enableAudio();
+    if (enabled) {
+      toast.success("تم تفعيل التنبيهات الصوتية");
+    }
+  };
 
   useEffect(() => {
     loadData();
@@ -1157,6 +1222,9 @@ function DashboardOrders() {
     }
   };
 
+  // Real-time integration
+  useShopRealtime(shop?.id, loadData, loadData);
+
   const handleUpdateStatus = async (orderId: string, newStatus: string) => {
     if (!user) return;
     setIsUpdating(true);
@@ -1168,6 +1236,7 @@ function DashboardOrders() {
         setSelectedOrder({ ...selectedOrder, status: newStatus });
       }
     } catch (error: any) {
+      console.error("DEBUG: Status update failed", error);
       toast.error(error.message || "فشل تحديث حالة الطلب");
     } finally {
       setIsUpdating(false);
@@ -1202,8 +1271,9 @@ function DashboardOrders() {
     const transitions: Record<string, string> = {
       PLACED: "CONFIRMED",
       CONFIRMED: "PREPARING",
-      PREPARING: "OUT_FOR_DELIVERY",
-      OUT_FOR_DELIVERY: "DELIVERED",
+      PREPARING: "READY_FOR_PICKUP",
+      // Shop cannot move beyond READY_FOR_PICKUP
+      // OUT_FOR_DELIVERY: "DELIVERED", 
     };
     return transitions[currentStatus] || null;
   };
@@ -1212,6 +1282,7 @@ function DashboardOrders() {
     const labels: Record<string, string> = {
       CONFIRMED: "تأكيد الطلب",
       PREPARING: "بدء التجهيز",
+      READY_FOR_PICKUP: "جاهز للاستلام",
       OUT_FOR_DELIVERY: "خرج للتوصيل",
       DELIVERED: "تم التسليم",
     };
@@ -1270,6 +1341,15 @@ function DashboardOrders() {
             إدارة طلبات العملاء ({orders.length} طلب)
           </p>
         </div>
+        <div className="flex gap-2 items-center">
+           <Button variant="outline" size="icon" onClick={toggleMute} title={isMuted ? "تفعيل الصوت" : "كتم الصوت"}>
+             {isMuted ? <VolumeX className="w-4 h-4 text-muted-foreground" /> : <Volume2 className="w-4 h-4 text-primary" />}
+           </Button>
+           <Button variant="outline" onClick={enableAudio} className="gap-2">
+             <Bell className="w-4 h-4" />
+             تفعيل التنبيهات
+           </Button>
+        </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="تصفية حسب الحالة" />
@@ -1324,6 +1404,11 @@ function DashboardOrders() {
                             ]
                           }
                         </Badge>
+                        {order.parent_order_id && (
+                          <Badge variant="outline" className="border-primary text-primary">
+                            طلب مجمّع
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-muted-foreground">
                         {order.delivery_phone} • {order.delivery_address}
@@ -1437,8 +1522,22 @@ function DashboardOrders() {
                     >
                       <div>
                         <p className="font-medium">{item.product_name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatPrice(item.product_price)} × {item.quantity}
+                        {item.variant_name && (
+                          <p className="text-xs text-muted-foreground">
+                            النوع: {item.variant_name}
+                          </p>
+                        )}
+                        {item.modifiers && Array.isArray(item.modifiers) && item.modifiers.length > 0 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {item.modifiers.map((mod: any, idx: number) => (
+                              <span key={idx} className="block">
+                                + {mod.name} ({formatPrice(mod.price)})
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {formatPrice(item.unit_price || item.product_price)} × {item.quantity}
                         </p>
                       </div>
                       <p className="font-semibold">{formatPrice(item.total)}</p>
@@ -1514,12 +1613,15 @@ function DashboardOrders() {
   );
 }
 
+import { MapLocationPicker, LocationPreviewMap } from "@/components/MapLocationPicker"; // Ensure import
+
 function DashboardSettings() {
   const { user } = useAuth();
   const [shop, setShop] = useState<Shop | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -1527,6 +1629,8 @@ function DashboardSettings() {
     whatsapp: "",
     address: "",
     region_id: "",
+    latitude: 0,
+    longitude: 0,
   });
 
   useEffect(() => {
@@ -1547,6 +1651,9 @@ function DashboardSettings() {
           whatsapp: userShop.whatsapp || "",
           address: userShop.address,
           region_id: userShop.region_id,
+          // Use DB coords or fallback to default (e.g. Tanta)
+          latitude: userShop.latitude || 30.7865, 
+          longitude: userShop.longitude || 31.0004, 
         });
       }
 
@@ -1572,6 +1679,12 @@ function DashboardSettings() {
       return;
     }
 
+    // Validate map selection
+    if (!formData.latitude || !formData.longitude || (formData.latitude === 30.7865 && formData.longitude === 31.0004)) {
+       toast.error("يرجى تحديد موقع المتجر على الخريطة بدقة");
+       return;
+    }
+
     setIsSaving(true);
     try {
       const shopData = {
@@ -1581,6 +1694,8 @@ function DashboardSettings() {
         whatsapp: formData.whatsapp || null,
         address: formData.address,
         region_id: formData.region_id,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         owner_id: user.id,
         slug: `shop-${Date.now()}-${Math.random()
           .toString(36)
@@ -1710,6 +1825,53 @@ function DashboardSettings() {
                 placeholder="العنوان التفصيلي للمتجر"
               />
             </div>
+
+            {/* STORE LOCATION MAP */}
+            <div className="space-y-2 pt-4 border-t">
+               <Label>موقع المتجر على الخريطة *</Label>
+               
+               <div className="flex gap-2">
+                 <Button
+                   type="button"
+                   variant="outline"
+                   onClick={() => setShowMapPicker(true)}
+                   className="w-full"
+                 >
+                   <MapPin className="w-4 h-4 ml-2" />
+                   {formData.latitude && formData.latitude !== 30.7865 ? "تغيير الموقع" : "تحديد الموقع"}
+                 </Button>
+               </div>
+
+               {/* Map Preview */}
+               <div 
+                 className="h-[200px] w-full rounded-lg overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity relative bg-muted"
+                 onClick={() => setShowMapPicker(true)}
+               >
+                  {formData.latitude ? (
+                    <LocationPreviewMap 
+                      position={{ lat: formData.latitude, lng: formData.longitude }} 
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                      <span>اضغط لتحديد الموقع</span>
+                    </div>
+                  )}
+               </div>
+               
+               <p className="text-xs text-muted-foreground">
+                 هذا الموقع سيظهر للمناديب لتسهيل الوصول إليك.
+               </p>
+
+               <MapLocationPicker 
+                 open={showMapPicker}
+                 onClose={() => setShowMapPicker(false)}
+                 initialPosition={{ lat: formData.latitude, lng: formData.longitude }}
+                 onLocationSelect={(loc) => {
+                    setFormData(prev => ({ ...prev, latitude: loc.lat, longitude: loc.lng }));
+                 }}
+               />
+            </div>
+
             <Button
               onClick={handleSave}
               disabled={isSaving}
@@ -2925,15 +3087,16 @@ export default function DashboardPage() {
                   isAdmin ? (
                     <AdminOverview />
                   ) : isDelivery ? (
-                    <DeliveryDashboard />
+                    <DeliveryDashboard initialTab="available" />
                   ) : (
                     <DashboardOverview />
                   )
                 }
               />
               <Route path="products" element={<DashboardProducts />} />
-              <Route path="orders" element={<DashboardOrders />} />
+              <Route path="orders" element={isDelivery ? <Navigate to="/dashboard" replace /> : <DashboardOrders />} />
               <Route path="settings" element={<DashboardSettings />} />
+              <Route path="account" element={isDelivery ? <CourierAccount /> : <DashboardSettings />} />
               <Route path="delivery" element={isAdmin ? <AdminDelivery /> : <DeliveryDashboard />} />
               {/* Admin-only routes - Protected by AdminGuard */}
               <Route

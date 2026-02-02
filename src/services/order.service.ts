@@ -21,7 +21,10 @@ export const cartService = {
           shop:shops(id, name, slug, logo_url),
           items:cart_items(
             *,
-            product:products(*)
+            product:products(
+              *,
+              shop:shops(id, name, slug, logo_url)
+            )
           )
         `
         )
@@ -45,22 +48,18 @@ export const cartService = {
     productId: string,
     quantity: number
   ): Promise<CartItem> {
-    // Get or create cart for this shop
+    // Get or create multi-shop cart
     let { data: cart } = await supabase
       .from("carts")
       .select("id")
       .eq("user_id", userId)
-      .eq("shop_id", shopId)
-      .single();
+      .maybeSingle();
 
     if (!cart) {
-      // Clear any existing cart from other shops
-      await supabase.from("carts").delete().eq("user_id", userId);
-
-      // Create new cart
+      // Create new multi-shop cart (shop_id = null)
       const { data: newCart, error: createError } = await supabase
         .from("carts")
-        .insert({ user_id: userId, shop_id: shopId })
+        .insert({ user_id: userId, shop_id: null })
         .select("id")
         .single();
 
@@ -74,7 +73,7 @@ export const cartService = {
       .select("id, quantity")
       .eq("cart_id", cart.id)
       .eq("product_id", productId)
-      .single();
+      .maybeSingle();
 
     if (existingItem) {
       // Update quantity
@@ -158,10 +157,56 @@ export const cartService = {
       { subtotal: 0, itemCount: 0 }
     );
   },
+  async getParentOrder(parentId: string): Promise<any> {
+    const { data, error } = await supabase
+      .from("parent_orders")
+      .select(`
+        *,
+        suborders:orders(
+          id,
+          shop:shops(id, name, address, phone, latitude, longitude),
+          items:order_items(product_name, quantity, total_price)
+        )
+      `)
+      .eq("id", parentId)
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
 };
 
 // Order Service
 export const orderService = {
+  async getParentOrder(orderId: string): Promise<any | null> {
+    const { data: parentOrder, error } = await supabase
+      .from("parent_orders")
+      .select("*")
+      .eq("id", orderId)
+      .single();
+
+    if (error || !parentOrder) return null;
+
+    // Fetch suborders
+    const { data: suborders, error: subError } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        shop:shops(id, name, slug, logo_url, phone, address, latitude, longitude),
+        items:order_items(*),
+        status_history:order_status_history(*)
+      `)
+      .eq("parent_order_id", orderId)
+      .order("created_at", { ascending: true });
+
+    if (subError) throw subError;
+
+    return {
+      ...parentOrder,
+      suborders: suborders || [],
+    };
+  },
+
   async create(orderData: {
     userId: string;
     shopId: string;
@@ -304,25 +349,64 @@ export const orderService = {
     return data as unknown as OrderWithItems;
   },
 
-  async getByDeliveryUser(userId: string): Promise<OrderWithItems[]> {
-    const { data, error } = await supabase
-      .from("orders")
-      .select(
-        `
-        *,
-        shop:shops(id, name, slug, logo_url, phone),
-        items:order_items(*),
-        status_history:order_status_history(*)
-      `
-      )
+  async getByDeliveryUser(userId: string): Promise<any[]> {
+    // Return Parent Orders assigned to this user
+    const { data: parentOrders, error } = await supabase
+      .from("parent_orders")
+      .select("*")
       .eq("delivery_user_id", userId)
       .neq("status", "DELIVERED")
       .neq("status", "CANCELLED")
       .order("created_at", { ascending: false });
 
     if (error) throw error;
-    return (data as unknown as OrderWithItems[]) || [];
+    if (!parentOrders) return [];
+
+    // Fetch suborders for each parent
+    const ordersWithDetails = await Promise.all(
+      parentOrders.map(async (pOrder) => {
+         return await this.getParentOrder(pOrder.id);
+      })
+    );
+
+    return ordersWithDetails.filter(Boolean);
   },
+
+  async getDeliveryHistory(userId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("parent_orders")
+      .select("*")
+      .eq("delivery_user_id", userId)
+      .in("status", ["DELIVERED", "CANCELLED"])
+      .order("updated_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async getDeliveryStats(userId: string) {
+    const now = new Date();
+    const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    const { data: orders, error } = await supabase
+      .from("parent_orders")
+      .select("total_delivery_fee, status, created_at")
+      .eq("delivery_user_id", userId)
+      .eq("status", "DELIVERED")
+      .gte("updated_at", firstDayOfMonth);
+
+    if (error) throw error;
+
+    const totalEarning = orders?.reduce((sum, o) => sum + (o.total_delivery_fee || 0), 0) || 0;
+    const count = orders?.length || 0;
+
+    return {
+      monthly_earnings: totalEarning,
+      monthly_count: count
+    };
+  },
+
+
 
   async assignDriver(orderId: string, driverId: string): Promise<void> {
     const { error } = await supabase
@@ -331,6 +415,18 @@ export const orderService = {
       .eq("id", orderId);
 
     if (error) throw error;
+  },
+
+  async assignDriverToParent(parentOrderId: string, driverId: string): Promise<void> {
+    const { data, error } = await supabase.rpc('assign_driver_to_parent', {
+      p_parent_order_id: parentOrderId,
+      p_driver_id: driverId
+    });
+
+    if (error) throw error;
+    if (!data.success) {
+      throw new Error(data.message || 'فشل قبول الطلب');
+    }
   },
 
   async updateStatus(
@@ -365,12 +461,20 @@ export const orderService = {
       throw new Error("لا يمكن تغيير حالة الطلب إلى هذه الحالة");
     }
 
-    // Update order status
-    const { data: order, error: orderError } = await supabase
+    // Update order status ATOMICALLY via RPC to sync Parent Status
+    const { error: orderError } = await supabase
+      .rpc('update_shop_order_status', { 
+        p_order_id: orderId, 
+        p_status: status 
+      });
+
+    if (orderError) throw orderError;
+
+    // Fetch updated order to return
+    const { data: order } = await supabase
       .from("orders")
-      .update({ status })
-      .eq("id", orderId)
       .select()
+      .eq("id", orderId)
       .single();
 
     if (orderError) throw orderError;
@@ -395,6 +499,29 @@ export const orderService = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  async updateParentStatus(
+    parentId: string,
+    status: OrderStatus,
+    userId: string
+  ): Promise<void> {
+    // 1. Update Parent
+    const { error: pError } = await supabase
+      .from("parent_orders")
+      .update({ status })
+      .eq("id", parentId);
+
+    if (pError) throw pError;
+
+    // 2. Cascade to Sub-Orders (Simple approach)
+    // If Parent is Delivered/Cancelled/Out, Sub-orders should match.
+    if (["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"].includes(status)) {
+        await supabase
+          .from("orders")
+          .update({ status })
+          .eq("parent_order_id", parentId);
+    }
   },
 };
 

@@ -185,6 +185,8 @@ export interface Database {
           phone: string;
           whatsapp: string | null;
           address: string;
+          latitude: number | null;
+          longitude: number | null;
           status: ShopStatus;
           is_open: boolean;
           rating: number;
@@ -211,6 +213,8 @@ export interface Database {
           phone: string;
           whatsapp?: string | null;
           address: string;
+          latitude?: number | null;
+          longitude?: number | null;
           status?: ShopStatus;
           is_open?: boolean;
           rating?: number;
@@ -237,6 +241,8 @@ export interface Database {
           phone?: string;
           whatsapp?: string | null;
           address?: string;
+          latitude?: number | null;
+          longitude?: number | null;
           status?: ShopStatus;
           is_open?: boolean;
           rating?: number;
@@ -405,6 +411,11 @@ export interface Database {
           cancelled_at: string | null;
           cancellation_reason: string | null;
           delivery_user_id: string | null;
+          parent_order_id: string | null;
+          is_critical: boolean;
+          pickup_sequence_index: number | null;
+          cancelled_by: string | null;
+          refund_amount: number;
           created_at: string;
           updated_at: string;
         };
@@ -429,6 +440,11 @@ export interface Database {
           cancelled_at?: string | null;
           cancellation_reason?: string | null;
           delivery_user_id?: string | null;
+          parent_order_id?: string | null;
+          is_critical?: boolean;
+          pickup_sequence_index?: number | null;
+          cancelled_by?: string | null;
+          refund_amount?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -453,6 +469,11 @@ export interface Database {
           cancelled_at?: string | null;
           cancellation_reason?: string | null;
           delivery_user_id?: string | null;
+          parent_order_id?: string | null;
+          is_critical?: boolean;
+          pickup_sequence_index?: number | null;
+          cancelled_by?: string | null;
+          refund_amount?: number;
           created_at?: string;
           updated_at?: string;
         };
@@ -528,6 +549,8 @@ export interface Database {
           label: string;
           address: string;
           district_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
           phone: string | null;
           is_default: boolean;
           created_at: string;
@@ -539,6 +562,8 @@ export interface Database {
           label?: string;
           address: string;
           district_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           phone?: string | null;
           is_default?: boolean;
           created_at?: string;
@@ -550,6 +575,8 @@ export interface Database {
           label?: string;
           address?: string;
           district_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           phone?: string | null;
           is_default?: boolean;
           created_at?: string;
@@ -596,6 +623,141 @@ export interface Database {
           helpful_count?: number;
           created_at?: string;
           updated_at?: string;
+        };
+        Relationships: [];
+      };
+      parent_orders: {
+        Row: {
+          id: string;
+          order_number: string;
+          user_id: string;
+          status: string;
+          subtotal: number;
+          total_delivery_fee: number;
+          discount: number;
+          total: number;
+          route_km: number | null;
+          route_minutes: number | null;
+          pickup_sequence: Json | null;
+          delivery_fee_breakdown: Json | null;
+          delivery_settings_snapshot: Json | null;
+          customer_name: string;
+          customer_phone: string;
+          delivery_address: string;
+          delivery_latitude: number | null;
+          delivery_longitude: number | null;
+          delivery_notes: string | null;
+          payment_method: string;
+          payment_status: string;
+          delivery_user_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_number: string;
+          user_id: string;
+          status?: string;
+          subtotal: number;
+          total_delivery_fee: number;
+          discount?: number;
+          total: number;
+          route_km?: number | null;
+          route_minutes?: number | null;
+          pickup_sequence?: Json | null;
+          delivery_fee_breakdown?: Json | null;
+          delivery_settings_snapshot?: Json | null;
+          customer_name: string;
+          customer_phone: string;
+          delivery_address: string;
+          delivery_latitude?: number | null;
+          delivery_longitude?: number | null;
+          delivery_notes?: string | null;
+          payment_method?: string;
+          payment_status?: string;
+          delivery_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_number?: string;
+          user_id?: string;
+          status?: string;
+          subtotal?: number;
+          total_delivery_fee?: number;
+          discount?: number;
+          total?: number;
+          route_km?: number | null;
+          route_minutes?: number | null;
+          pickup_sequence?: Json | null;
+          delivery_fee_breakdown?: Json | null;
+          delivery_settings_snapshot?: Json | null;
+          customer_name?: string;
+          customer_phone?: string;
+          delivery_address?: string;
+          delivery_latitude?: number | null;
+          delivery_longitude?: number | null;
+          delivery_notes?: string | null;
+          payment_method?: string;
+          payment_status?: string;
+          delivery_user_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      delivery_settings: {
+        Row: {
+          id: boolean;
+          base_fee: number;
+          km_rate: number;
+          pickup_stop_fee: number;
+          min_fee: number;
+          max_fee: number;
+          rounding_rule: string;
+          fallback_mode: string;
+          fixed_fallback_fee: number;
+          routing_algorithm: string;
+          return_to_customer: boolean;
+          mapbox_profile: string;
+          max_shops_per_order: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          base_fee?: number;
+          km_rate?: number;
+          pickup_stop_fee?: number;
+          min_fee?: number;
+          max_fee?: number;
+          rounding_rule?: string;
+          fallback_mode?: string;
+          fixed_fallback_fee?: number;
+          routing_algorithm?: string;
+          return_to_customer?: boolean;
+          mapbox_profile?: string;
+          max_shops_per_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          base_fee?: number;
+          km_rate?: number;
+          pickup_stop_fee?: number;
+          min_fee?: number;
+          max_fee?: number;
+          rounding_rule?: string;
+          fallback_mode?: string;
+          fixed_fallback_fee?: number;
+          routing_algorithm?: string;
+          return_to_customer?: boolean;
+          mapbox_profile?: string;
+          max_shops_per_order?: number;
+          updated_at?: string;
+          updated_by?: string | null;
         };
         Relationships: [];
       };
@@ -652,6 +814,7 @@ export type OrderItem = Tables<"order_items">;
 export type OrderStatusHistory = Tables<"order_status_history">;
 export type Address = Tables<"addresses">;
 export type Review = Tables<"reviews">;
+export type ParentOrder = Tables<"parent_orders">;
 
 // =====================================================
 // EXTENDED TYPES WITH RELATIONS
@@ -663,7 +826,9 @@ export type ProductWithShop = Product & {
 };
 
 export type CartItemWithProduct = CartItem & {
-  product: Product;
+  product: Product & {
+    shop?: Pick<Shop, "id" | "name" | "slug" | "logo_url"> | null;
+  };
 };
 
 export type CartWithItems = Cart & {
@@ -675,6 +840,10 @@ export type OrderWithItems = Order & {
   items: OrderItem[];
   shop: Pick<Shop, "id" | "name" | "slug" | "logo_url" | "phone">;
   status_history: OrderStatusHistory[];
+};
+
+export type ParentOrderWithSuborders = ParentOrder & {
+  suborders: OrderWithItems[];
 };
 
 export type ShopWithProducts = Shop & {

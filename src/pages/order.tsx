@@ -1,5 +1,7 @@
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/lib/supabase";
 import {
   Package,
   ShoppingBag,
@@ -17,6 +19,8 @@ import {
   RotateCcw,
   Copy,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,7 +32,7 @@ import { AR } from "@/lib/i18n";
 import { formatPrice, cn } from "@/lib/utils";
 import { useAuth } from "@/store";
 import { orderService, ORDER_STATUS_CONFIG } from "@/services";
-import type { OrderStatus } from "@/types/database";
+import type { OrderStatus, ParentOrderWithSuborders, OrderWithItems } from "@/types/database";
 
 const statusIcons: Record<OrderStatus, typeof Package> = {
   PLACED: ClipboardList,
@@ -63,12 +67,94 @@ export default function OrderPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
 
-  const { data: order, isLoading } = useQuery({
+  const { data: orderData, isLoading } = useQuery({
     queryKey: ["order", id],
-    queryFn: () => orderService.getById(id!),
+    queryFn: async () => {
+      // 1. Try single/sub order
+      const order = await orderService.getById(id!);
+      if (order) return { type: 'single' as const, data: order as OrderWithItems };
+
+      // 2. Try parent order
+      const parent = await orderService.getParentOrder(id!);
+      if (parent) return { type: 'parent' as const, data: parent as ParentOrderWithSuborders };
+
+      return null;
+    },
     enabled: !!id && isAuthenticated,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 10000, 
   });
+
+  const queryClient = useQueryClient();
+
+  // Real-time Subscription
+  useEffect(() => {
+    if (!orderData || !id) return;
+
+    const channels: any[] = [];
+
+    if (orderData.type === 'parent') {
+      // Subscribe to Parent Order
+      const parentChannel = supabase
+        .channel(`parent-order-${id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "parent_orders",
+            filter: `id=eq.${id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["order", id] });
+            toast.info("تم تحديث حالة الطلب");
+          }
+        )
+        .subscribe();
+      channels.push(parentChannel);
+
+      // Subscribe to Suborders
+      const subChannel = supabase
+        .channel(`suborders-${id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `parent_order_id=eq.${id}`,
+          },
+          () => {
+            queryClient.invalidateQueries({ queryKey: ["order", id] });
+          }
+        )
+        .subscribe();
+      channels.push(subChannel);
+      
+    } else {
+      // Subscribe to Single Order
+      const singleChannel = supabase
+        .channel(`order-${id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "orders",
+            filter: `id=eq.${id}`,
+          },
+          () => {
+             queryClient.invalidateQueries({ queryKey: ["order", id] });
+             toast.info("تم تحديث حالة الطلب");
+          }
+        )
+        .subscribe();
+      channels.push(singleChannel);
+    }
+
+    return () => {
+      channels.forEach(channel => supabase.removeChannel(channel));
+    };
+  }, [id, orderData?.type, queryClient]);
 
   const formatDateTime = (dateStr: string) => {
     return new Date(dateStr).toLocaleString("ar-EG", {
@@ -77,28 +163,22 @@ export default function OrderPage() {
     });
   };
 
-  const copyOrderNumber = () => {
-    if (order) {
-      navigator.clipboard.writeText(order.order_number);
-      toast.success("تم نسخ رقم الطلب");
-    }
+  const copyOrderNumber = (num: string) => {
+    navigator.clipboard.writeText(num);
+    toast.success("تم نسخ رقم الطلب");
   };
 
-  const contactShop = () => {
-    if (order?.shop?.phone) {
-      window.open(`tel:${order.shop.phone}`, "_self");
-    }
+  const contactShop = (phone: string) => {
+    window.open(`tel:${phone}`, "_self");
   };
 
-  const contactWhatsApp = () => {
-    if (order?.shop?.phone) {
-      const phone = order.shop.phone.replace(/^0/, "20");
-      const message = `مرحباً، أستفسر عن الطلب رقم ${order.order_number}`;
-      window.open(
-        `https://wa.me/${phone}?text=${encodeURIComponent(message)}`,
-        "_blank"
-      );
-    }
+  const contactWhatsApp = (phone: string, orderNum: string) => {
+    const p = phone.replace(/^0/, "20");
+    const message = `مرحباً، أستفسر عن الطلب رقم ${orderNum}`;
+    window.open(
+      `https://wa.me/${p}?text=${encodeURIComponent(message)}`,
+      "_blank"
+    );
   };
 
   if (!isAuthenticated) {
@@ -136,7 +216,7 @@ export default function OrderPage() {
     );
   }
 
-  if (!order) {
+  if (!orderData) {
     return (
       <div className="py-16">
         <div className="container-app text-center">
@@ -157,6 +237,201 @@ export default function OrderPage() {
     );
   }
 
+  // Render Parent Order View
+  if (orderData.type === 'parent') {
+    const order = orderData.data;
+    const isCancelled = order.status === 'CANCELLED';
+    const activeSuborders = order.suborders.filter(s => s.status !== 'CANCELLED');
+    const allDelivered = activeSuborders.length > 0 && activeSuborders.every(s => s.status === 'DELIVERED');
+    
+    // Calculate overall progress based on suborders
+    // This is simplified; specific logic can be added later
+    let overallStatus = order.status;
+    if (activeSuborders.length > 0) {
+      if (activeSuborders.some(s => s.status === 'OUT_FOR_DELIVERY')) overallStatus = 'OUT_FOR_DELIVERY';
+      else if (activeSuborders.some(s => s.status === 'READY_FOR_PICKUP')) overallStatus = 'READY_FOR_PICKUP';
+      else if (activeSuborders.some(s => s.status === 'PREPARING')) overallStatus = 'PREPARING';
+    }
+
+    return (
+      <div className="py-8">
+        <div className="container-app">
+          <Link
+            to="/orders"
+            className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors"
+          >
+            <ArrowRight className="w-4 h-4" />
+            العودة للطلبات
+          </Link>
+
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge variant="outline" className="text-xs">
+                  طلب مجمّع
+                </Badge>
+                <p className="text-muted-foreground text-sm">
+                  {AR.orders.orderNumber}
+                </p>
+                <button
+                  onClick={() => copyOrderNumber(order.order_number)}
+                  className="p-1 hover:bg-muted rounded transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5 text-muted-foreground" />
+                </button>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold font-mono">
+                {order.order_number}
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                {formatDateTime(order.created_at)}
+              </p>
+            </div>
+            <Badge
+              variant="default" // Use custom mapping if needed
+              className={cn("text-sm px-4 py-2 self-start", 
+                order.status === 'CANCELLED' ? "bg-destructive text-destructive-foreground" : 
+                order.status === 'DELIVERED' ? "bg-success text-success-foreground" : 
+                "bg-primary text-primary-foreground"
+              )}
+            >
+              {order.status === 'PLACED' ? 'جاري المعالجة' : order.status}
+            </Badge>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* Parent Order Status / Map Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Truck className="w-5 h-5 text-primary" />
+                    حالة التوصيل
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center gap-4 mb-6">
+                     <div className="p-3 bg-primary/10 rounded-full">
+                       <Clock className="w-6 h-6 text-primary" />
+                     </div>
+                     <div>
+                       <p className="font-semibold">الوقت المقدر</p>
+                       <p className="text-muted-foreground">
+                         {order.route_minutes ? `${Math.ceil(order.route_minutes)} - ${Math.ceil(order.route_minutes + 15)} دقيقة` : '30-45 دقيقة'}
+                       </p>
+                     </div>
+                  </div>
+                  
+                  {/* Suborders List */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-sm text-muted-foreground">تفاصيل المتاجر ({order.suborders.length})</h3>
+                    {order.suborders.map((suborder) => (
+                      <div key={suborder.id} className="border rounded-xl p-4 bg-muted/20">
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-white p-1 border">
+                              <img src={suborder.shop?.logo_url || ''} alt="" className="w-full h-full object-contain" />
+                            </div>
+                            <div>
+                               <h4 className="font-semibold">{suborder.shop?.name}</h4>
+                               <Badge variant="outline" className="text-xs mt-1">
+                                 {ORDER_STATUS_CONFIG[suborder.status].label}
+                               </Badge>
+                            </div>
+                          </div>
+                          {suborder.shop?.phone && (
+                             <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => contactShop(suborder.shop.phone)}>
+                               <Phone className="w-4 h-4" />
+                             </Button>
+                          )}
+                        </div>
+
+                        {/* Items Preview */}
+                        <div className="space-y-2 pl-12 border-l-2 border-muted ml-5">
+                          {suborder.items.map(item => (
+                            <div key={item.id} className="flex justify-between text-sm">
+                              <span>{item.quantity}x {item.product_name}</span>
+                              <span className="font-medium">{formatPrice(item.total_price)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Delivery Info */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-primary" />
+                    {AR.checkout.deliveryInfo}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                      <MapPin className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm text-muted-foreground">{AR.checkout.address}</p>
+                        <p className="font-medium">{order.delivery_address}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-3 p-3 bg-muted/50 rounded-lg">
+                       <Phone className="w-5 h-5 text-primary mt-0.5 flex-shrink-0" />
+                       <div>
+                         <p className="text-sm text-muted-foreground">{AR.checkout.phone}</p>
+                         <p className="font-medium font-mono" dir="ltr">{order.customer_phone}</p>
+                       </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+            </div>
+
+            {/* Sidebar Summary */}
+            <div className="space-y-6">
+              <Card className="sticky top-24">
+                <CardHeader>
+                  <CardTitle>{AR.checkout.orderSummary}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{AR.cart.subtotal}</span>
+                      <span>{formatPrice(order.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">{AR.cart.deliveryFee}</span>
+                      <span>{formatPrice(order.total_delivery_fee)}</span>
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="flex justify-between text-lg font-bold">
+                    <span>{AR.cart.total}</span>
+                    <span className="text-primary">{formatPrice(order.total)}</span>
+                  </div>
+                  
+                  <div className="pt-2 text-center text-sm text-muted-foreground">
+                    {order.payment_method === 'COD' ? 'الدفع عند الاستلام' : order.payment_method}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Render Single Order View (Existing Logic)
+  const order = orderData.data as OrderWithItems;
   const currentStatusIndex = statusOrder.indexOf(order.status as OrderStatus);
   const isCancelled = order.status === "CANCELLED";
   const isDelivered = order.status === "DELIVERED";
@@ -182,7 +457,7 @@ export default function OrderPage() {
                 {AR.orders.orderNumber}
               </p>
               <button
-                onClick={copyOrderNumber}
+                onClick={() => copyOrderNumber(order.order_number)}
                 className="p-1 hover:bg-muted rounded transition-colors"
                 title="نسخ رقم الطلب"
               >
@@ -472,7 +747,7 @@ export default function OrderPage() {
                     <Button
                       variant="outline"
                       className="flex-1 gap-2"
-                      onClick={contactShop}
+                      onClick={() => contactShop(order.shop.phone)}
                     >
                       <Phone className="w-4 h-4" />
                       اتصال
@@ -480,7 +755,9 @@ export default function OrderPage() {
                     <Button
                       variant="outline"
                       className="flex-1 gap-2"
-                      onClick={contactWhatsApp}
+                      onClick={() =>
+                        contactWhatsApp(order.shop.phone, order.order_number)
+                      }
                     >
                       <MessageCircle className="w-4 h-4" />
                       واتساب

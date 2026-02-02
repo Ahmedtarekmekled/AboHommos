@@ -67,12 +67,16 @@ interface LocationSelectorProps {
     address: string;
     districtId?: string | null;
     phone?: string;
+    lat?: number;
+    lng?: number;
   };
   onChange: (data: {
     address: string;
     districtId: string | null;
     deliveryFee: number;
     phone?: string;
+    lat?: number;
+    lng?: number;
   }) => void;
   className?: string;
   disabled?: boolean;
@@ -106,7 +110,11 @@ export function LocationSelector({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showMapPicker, setShowMapPicker] = useState(false);
   const [selectedCoordinates, setSelectedCoordinates] =
-    useState<GeoCoordinates | null>(null);
+    useState<GeoCoordinates | null>(
+      value?.lat && value?.lng
+        ? { lat: value.lat, lng: value.lng }
+        : null
+    );
 
   // Load initial data
   useEffect(() => {
@@ -133,8 +141,10 @@ export function LocationSelector({
       districtId: selectedDistrictId || null,
       deliveryFee: selectedDistrict?.delivery_fee || 0,
       phone: value?.phone,
+      lat: selectedCoordinates?.lat,
+      lng: selectedCoordinates?.lng,
     });
-  }, [manualAddress, selectedDistrictId]);
+  }, [manualAddress, selectedDistrictId, selectedCoordinates]);
 
   const loadRegions = async () => {
     try {
@@ -181,86 +191,53 @@ export function LocationSelector({
     if (address.district_id) {
       setSelectedDistrictId(address.district_id);
     }
+    
+    // Set coordinates if available in saved address
+    if (address.latitude && address.longitude) {
+      setSelectedCoordinates({
+        lat: address.latitude,
+        lng: address.longitude
+      });
+    }
+
     onChange({
       address: address.address,
       districtId: address.district_id,
       deliveryFee: address.district?.delivery_fee || 0,
       phone: address.phone || value?.phone,
+      lat: address.latitude || undefined,
+      lng: address.longitude || undefined,
     });
   };
 
-  const requestGPSLocation = useCallback(async () => {
-    if (!navigator.geolocation) {
-      setGpsError("متصفحك لا يدعم خدمات تحديد الموقع");
-      toast.error("متصفحك لا يدعم خدمات تحديد الموقع");
-      return;
-    }
-
-    setGpsLoading(true);
-    setGpsError(null);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude, accuracy } = position.coords;
-        setGpsLocation({ latitude, longitude, accuracy });
-        setGpsLoading(false);
-
-        // Try to reverse geocode (simplified - just show coordinates for now)
-        // In production, you'd use a geocoding API like Google Maps or OpenStreetMap
-        const locationText = `موقع GPS: ${latitude.toFixed(
-          6
-        )}, ${longitude.toFixed(6)}`;
-        setManualAddress((prev) =>
-          prev ? `${prev}\n${locationText}` : locationText
-        );
-        toast.success("تم تحديد موقعك بنجاح");
-      },
-      (error) => {
-        setGpsLoading(false);
-        let errorMessage = "فشل تحديد الموقع";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            errorMessage =
-              "تم رفض إذن تحديد الموقع. يرجى السماح بالوصول من إعدادات المتصفح";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            errorMessage = "خدمة الموقع غير متاحة حالياً";
-            break;
-          case error.TIMEOUT:
-            errorMessage = "انتهى وقت محاولة تحديد الموقع";
-            break;
-        }
-        setGpsError(errorMessage);
-        toast.error(errorMessage);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000,
-      }
-    );
-  }, []);
-
   const handleMapLocationSelect = useCallback((coordinates: GeoCoordinates) => {
-    setSelectedCoordinates(coordinates);
-    const locationText = `موقع GPS: ${coordinates.lat.toFixed(
-      6
-    )}, ${coordinates.lng.toFixed(6)}`;
-    setManualAddress((prev) => {
-      // Replace existing GPS coordinates or append new ones
-      const gpsRegex = /موقع GPS: [\d.-]+, [\d.-]+/;
-      if (gpsRegex.test(prev)) {
-        return prev.replace(gpsRegex, locationText);
-      }
-      return prev ? `${prev}\n${locationText}` : locationText;
-    });
-    setGpsLocation({
+    // When returning from map, we want to open the dialog again with these coords
+    // We assume we were adding/editing an address.
+    // Since we closed the dialog to show the map, we need to restore the state.
+    // For simplicity, we just set the editing address with new coordinates and re-open.
+    
+    // Construct a temporary address object with the new coordinates
+    const newAddressPart = {
+      address: `موقع GPS: ${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`,
       latitude: coordinates.lat,
       longitude: coordinates.lng,
-      accuracy: 0,
-    });
-    toast.success("تم تحديد الموقع على الخريطة بنجاح");
-  }, []);
+      label: editingAddress?.label || "المنزل",
+      is_default: editingAddress?.is_default || false,
+      // Preserve other fields if possible, but map pick usually implies new location
+    } as AddressWithDistrict;
+
+    setEditingAddress((prev) => ({
+       ...prev, 
+       ...newAddressPart,
+       // Merge existing text if it wasn't just GPS
+       address: prev?.address ? prev.address : newAddressPart.address 
+    } as AddressWithDistrict));
+    
+    // Re-open dialog
+    setShowMapPicker(false);
+    setShowAddDialog(true);
+    toast.success("تم تحديد الموقع بنجاح");
+  }, [editingAddress]);
 
   const getLabelIcon = (label: string) => {
     const Icon = LABEL_ICONS[label] || LABEL_ICONS.default;
@@ -271,153 +248,120 @@ export function LocationSelector({
 
   return (
     <div className={cn("space-y-4", className)}>
-      {/* GPS Button and Map Button */}
-      <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={requestGPSLocation}
-          disabled={disabled || gpsLoading}
-          className="flex-1"
-        >
-          {gpsLoading ? (
-            <Loader2 className="w-4 h-4 ml-2 animate-spin" />
-          ) : gpsLocation ? (
-            <Check className="w-4 h-4 ml-2 text-success" />
-          ) : (
-            <Navigation className="w-4 h-4 ml-2" />
-          )}
-          {gpsLoading ? "جاري التحديد..." : "تحديد موقعي"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => setShowMapPicker(true)}
-          disabled={disabled}
-          className="flex-1"
-        >
-          <Map className="w-4 h-4 ml-2" />
-          الخريطة
-        </Button>
-      </div>
+      
+      {/* Map Picker Modal - Controlled by parent */}
+      <MapLocationPicker
+        open={showMapPicker}
+        onClose={() => {
+            setShowMapPicker(false);
+            setShowAddDialog(true); // Re-open dialog on cancel
+        }}
+        onLocationSelect={handleMapLocationSelect}
+        initialPosition={selectedCoordinates || undefined}
+      />
 
-      {/* Map Preview when coordinates are selected */}
-      {selectedCoordinates && (
+      {/* Saved Addresses (Expanded by default or if available) */}
+      {isAuthenticated && (
         <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground">
-            الموقع المحدد على الخريطة
-          </Label>
-          <div
-            className="cursor-pointer hover:opacity-90 transition-opacity rounded-lg overflow-hidden border"
-            onClick={() => setShowMapPicker(true)}
-          >
-            <LocationPreviewMap position={selectedCoordinates} />
-          </div>
-          <p className="text-xs text-muted-foreground text-center" dir="ltr">
-            {selectedCoordinates.lat.toFixed(6)},{" "}
-            {selectedCoordinates.lng.toFixed(6)}
-          </p>
-        </div>
-      )}
-
-      {gpsError && (
-        <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 p-2 rounded-lg">
-          <MapPinOff className="w-4 h-4" />
-          {gpsError}
-        </div>
-      )}
-
-      {/* Saved Addresses (for authenticated users) */}
-      {isAuthenticated && savedAddresses.length > 0 && (
-        <div className="space-y-2">
-          <div
-            className="flex items-center justify-between cursor-pointer"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            <Label className="text-sm font-medium cursor-pointer">
-              العناوين المحفوظة
-            </Label>
-            <ChevronDown
-              className={cn(
-                "w-4 h-4 transition-transform",
-                isExpanded && "rotate-180"
-              )}
-            />
+          <div className="flex items-center justify-between">
+            <Label className="text-sm font-medium">العناوين المحفوظة</Label>
           </div>
 
-          {isExpanded && (
-            <div className="grid gap-2 animate-in fade-in slide-in-from-top-2 duration-200">
-              {savedAddresses.map((address) => {
-                const Icon = getLabelIcon(address.label);
-                const isSelected = selectedAddressId === address.id;
-                return (
-                  <Card
-                    key={address.id}
-                    className={cn(
-                      "cursor-pointer transition-all hover:border-primary/50",
-                      isSelected && "border-primary bg-primary/5"
-                    )}
-                    onClick={() => selectSavedAddress(address)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-3">
-                        <div
-                          className={cn(
-                            "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                            isSelected
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted"
+          <div className="grid gap-2">
+            {savedAddresses.map((address) => {
+              const Icon = getLabelIcon(address.label);
+              const isSelected = selectedAddressId === address.id;
+              return (
+                <Card
+                  key={address.id}
+                  className={cn(
+                    "cursor-pointer transition-all hover:border-primary/50",
+                    isSelected && "border-primary bg-primary/5"
+                  )}
+                  onClick={() => selectSavedAddress(address)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
+                          isSelected
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-muted"
+                        )}
+                      >
+                        <Icon className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{address.label}</span>
+                          {address.is_default && (
+                            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                              افتراضي
+                            </span>
                           )}
-                        >
-                          <Icon className="w-5 h-5" />
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{address.label}</span>
-                            {address.is_default && (
-                              <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                                افتراضي
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {address.address}
+                        <p className="text-sm text-muted-foreground truncate">
+                          {address.address}
+                        </p>
+                        {address.district && (
+                          <p className="text-xs text-muted-foreground">
+                            {address.district.name} -{" "}
+                            {formatPrice(address.district.delivery_fee)} توصيل
                           </p>
-                          {address.district && (
-                            <p className="text-xs text-muted-foreground">
-                              {address.district.name} -{" "}
-                              {formatPrice(address.district.delivery_fee)} توصيل
-                            </p>
-                          )}
-                        </div>
-                        {isSelected && (
-                          <Check className="w-5 h-5 text-primary flex-shrink-0" />
                         )}
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
+                      {isSelected && (
+                        <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAddDialog(true)}
-                className="w-full"
-              >
-                <Plus className="w-4 h-4 ml-2" />
-                إضافة عنوان جديد
-              </Button>
-            </div>
-          )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                  setEditingAddress(null);
+                  setShowAddDialog(true);
+              }}
+              className="w-full border-dashed"
+            >
+              <Plus className="w-4 h-4 ml-2" />
+              إضافة عنوان جديد
+            </Button>
+          </div>
         </div>
       )}
 
-      {/* Region & District Selection */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* Manual Address Input (Fallback or if no saved addresses) */}
+      {!isAuthenticated && (
+          <div className="space-y-2">
+            <Label htmlFor="address" className="text-sm">
+              <MapPin className="w-4 h-4 inline ml-1" />
+              العنوان التفصيلي
+            </Label>
+            <Textarea
+              id="address"
+              placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5، شقة 12"
+              value={manualAddress}
+              onChange={(e) => {
+                setManualAddress(e.target.value);
+                setSelectedAddressId(null);
+              }}
+              disabled={disabled}
+              className="min-h-[80px]"
+            />
+          </div>
+      )}
+      
+      {/* Region & District Selection (Always visible for clarity or only when manual?) 
+          Keep it visible to allow district selection even without saved address 
+      */}
+      <div className="grid grid-cols-2 gap-3 pt-2 border-t">
         <div className="space-y-2">
           <Label htmlFor="region" className="text-sm">
             المنطقة
@@ -484,38 +428,9 @@ export function LocationSelector({
         </div>
       </div>
 
-      {/* Delivery Fee Display */}
-      {selectedDistrict && (
-        <div className="flex items-center justify-between bg-success/10 text-success-foreground p-3 rounded-lg">
-          <span className="text-sm font-medium">رسوم التوصيل للحي المحدد:</span>
-          <span className="font-bold">
-            {formatPrice(selectedDistrict.delivery_fee)}
-          </span>
-        </div>
-      )}
-
-      {/* Manual Address Input */}
-      <div className="space-y-2">
-        <Label htmlFor="address" className="text-sm">
-          <MapPin className="w-4 h-4 inline ml-1" />
-          العنوان التفصيلي
-        </Label>
-        <Textarea
-          id="address"
-          placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5، شقة 12"
-          value={manualAddress}
-          onChange={(e) => {
-            setManualAddress(e.target.value);
-            setSelectedAddressId(null);
-          }}
-          disabled={disabled}
-          className="min-h-[80px]"
-        />
-      </div>
-
       {/* Add/Edit Address Dialog */}
       <AddressDialog
-        open={showAddDialog || !!editingAddress}
+        open={showAddDialog}
         onClose={() => {
           setShowAddDialog(false);
           setEditingAddress(null);
@@ -527,6 +442,10 @@ export function LocationSelector({
           setShowAddDialog(false);
           setEditingAddress(null);
           await loadSavedAddresses();
+        }}
+        onShowMap={() => {
+            setShowAddDialog(false); // Close dialog to show map
+            setShowMapPicker(true);
         }}
       />
     </div>
@@ -541,6 +460,7 @@ interface AddressDialogProps {
   regions: Region[];
   userId: string;
   onSave: () => Promise<void>;
+  onShowMap: () => void;
 }
 
 function AddressDialog({
@@ -550,6 +470,7 @@ function AddressDialog({
   regions,
   userId,
   onSave,
+  onShowMap,
 }: AddressDialogProps) {
   const [label, setLabel] = useState(address?.label || "المنزل");
   const [customLabel, setCustomLabel] = useState("");
@@ -560,6 +481,7 @@ function AddressDialog({
   const [isDefault, setIsDefault] = useState(address?.is_default || false);
   const [districts, setDistricts] = useState<District[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
 
   useEffect(() => {
     if (regionId) {
@@ -568,22 +490,32 @@ function AddressDialog({
   }, [regionId]);
 
   useEffect(() => {
+    // When address prop changes (e.g. returning from map), update fields
     if (address) {
       setLabel(address.label);
       setAddressText(address.address);
       setPhone(address.phone || "");
-      setRegionId(address.district?.region_id || "");
-      setDistrictId(address.district_id || "");
+      // Only overwrite region/district if they are present in the 'address' object
+      // (Map return might not have district, preserve previous selection if possible?)
+      // Actually map return only gives lat/lng and formatted text. 
+      if (address.district?.region_id) setRegionId(address.district.region_id);
+      if (address.district_id) setDistrictId(address.district_id);
+      
       setIsDefault(address.is_default);
-    } else {
-      setLabel("المنزل");
-      setAddressText("");
-      setPhone("");
-      setRegionId("");
-      setDistrictId("");
-      setIsDefault(false);
+    } 
+    // If opening fresh (no address), reset is handled by parent passing null or key?
+    // Parent passes `editingAddress`. If null, we should reset.
+    else if (open) { 
+       // Only reset if opening fresh. 
+       // Note: This effect runs on every 'address' change.
+       setLabel("المنزل");
+       setAddressText("");
+       setPhone("");
+       setRegionId("");
+       setDistrictId("");
+       setIsDefault(false);
     }
-  }, [address]);
+  }, [address, open]);
 
   const loadDistricts = async (rid: string) => {
     try {
@@ -592,6 +524,30 @@ function AddressDialog({
     } catch (error) {
       console.error("Failed to load districts:", error);
     }
+  };
+  
+  const requestGPSLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error("متصفحك لا يدعم خدمات تحديد الموقع");
+      return;
+    }
+
+    setGpsLoading(true);
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude, longitude } = position.coords;
+        setGpsLoading(false);
+        const locationText = `موقع GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        setAddressText((prev) => prev ? `${prev} (${locationText})` : locationText);
+        toast.success("تم تحديد موقعك بنجاح");
+      },
+      (error) => {
+        setGpsLoading(false);
+        toast.error("فشل تحديد الموقع: " + error.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   };
 
   const handleSave = async () => {
@@ -604,23 +560,29 @@ function AddressDialog({
 
     setIsSaving(true);
     try {
-      if (address) {
-        await addressesService.update(address.id, userId, {
+      // Prepare payload
+      const payload: any = {
           label: finalLabel,
           address: addressText,
           district_id: districtId || null,
           phone: phone || null,
           is_default: isDefault,
-        });
+      };
+      
+      // If the address object has lat/lng (from Map pick), include them
+      if (address?.latitude && address?.longitude) {
+         payload.latitude = address.latitude;
+         payload.longitude = address.longitude;
+      }
+      
+      // If we are editing an existing real DB address (it has an ID)
+      if (address?.id) {
+        await addressesService.update(address.id, userId, payload);
         toast.success("تم تحديث العنوان بنجاح");
       } else {
         await addressesService.create({
           user_id: userId,
-          label: finalLabel,
-          address: addressText,
-          district_id: districtId || null,
-          phone: phone || null,
-          is_default: isDefault,
+          ...payload
         });
         toast.success("تم إضافة العنوان بنجاح");
       }
@@ -638,11 +600,24 @@ function AddressDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {address ? "تعديل العنوان" : "إضافة عنوان جديد"}
+            {address?.id ? "تعديل العنوان" : "إضافة عنوان جديد"}
           </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+            
+          {/* Location Tools */}
+          <div className="flex gap-2 mb-2">
+             <Button type="button" variant="secondary" size="sm" className="flex-1" onClick={requestGPSLocation} disabled={gpsLoading}>
+                {gpsLoading ? <Loader2 className="w-4 h-4 ml-2 animate-spin" /> : <Navigation className="w-4 h-4 ml-2" />}
+                استخدم موقعي الحالي
+             </Button>
+             <Button type="button" variant="outline" size="sm" className="flex-1" onClick={onShowMap}>
+                <Map className="w-4 h-4 ml-2" />
+                تحديد على الخريطة
+             </Button>
+          </div>
+            
           {/* Label Selection */}
           <div className="space-y-2">
             <Label>تصنيف العنوان</Label>
@@ -727,11 +702,14 @@ function AddressDialog({
           {/* Address */}
           <div className="space-y-2">
             <Label>العنوان التفصيلي</Label>
-            <Textarea
-              placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5"
-              value={addressText}
-              onChange={(e) => setAddressText(e.target.value)}
-            />
+            <div className="relative">
+                <Textarea
+                  placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5"
+                  value={addressText}
+                  onChange={(e) => setAddressText(e.target.value)}
+                  className="min-h-[80px]"
+                />
+            </div>
           </div>
 
           {/* Phone */}
@@ -764,7 +742,7 @@ function AddressDialog({
           </Button>
           <Button onClick={handleSave} disabled={isSaving}>
             {isSaving && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
-            {address ? "حفظ التغييرات" : "إضافة العنوان"}
+            {address?.id ? "حفظ التغييرات" : "إضافة العنوان"}
           </Button>
         </DialogFooter>
       </DialogContent>
