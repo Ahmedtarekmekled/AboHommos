@@ -15,6 +15,7 @@ import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { categoriesService, productsService, shopsService } from "@/services";
+import { ShopCard } from "@/components/ShopCard";
 
 export default function HomePage() {
   // Fetch all categories
@@ -36,7 +37,7 @@ export default function HomePage() {
 
   const { data: shops, isLoading: shopsLoading } = useQuery({
     queryKey: ["shops", "featured"],
-    queryFn: () => shopsService.getAll({ limit: 6, approvedOnly: true }),
+    queryFn: () => shopsService.getRankedShops({ limit: 6 }),
   });
 
   return (
@@ -291,64 +292,7 @@ export default function HomePage() {
                   ))
               : shops && shops.length > 0 ? (
                   shops.map((shop: any, i: number) => (
-                  <Link 
-                    key={shop.id} 
-                    to={`/shops/${shop.slug}`}
-                    className="animate-fade-in"
-                    style={{ animationDelay: `${i * 60}ms` }}
-                  >
-                    <Card interactive className="p-6 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative overflow-hidden">
-                      {/* Premium Badge */}
-                      {shop.is_premium && (
-                        <div className="absolute top-2 left-2 z-10">
-                          <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0 text-xs gap-1">
-                            <Star className="w-3 h-3 fill-current" />
-                            مميز
-                          </Badge>
-                        </div>
-                      )}
-                      
-                      <div className="flex items-center gap-4">
-                        <div className="w-16 h-16 rounded-full overflow-hidden bg-muted flex-shrink-0 transition-transform duration-300 hover:scale-110">
-                          {shop.logo_url ? (
-                            <img
-                              src={shop.logo_url}
-                              alt={shop.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-                              <Store className="w-8 h-8 text-primary" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-semibold truncate">
-                            {shop.name}
-                          </h3>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <div className="flex items-center gap-1 text-warning">
-                              <Star className="w-4 h-4 fill-current" />
-                              <span className="text-sm font-medium">
-                                {shop.rating || 4.5}
-                              </span>
-                            </div>
-                            {shop.category && (
-                              <Badge variant="outline" className="text-xs">
-                                {shop.category.name}
-                              </Badge>
-                            )}
-                            <Badge
-                              variant={shop.is_open ? "success" : "secondary"}
-                              className="text-xs"
-                            >
-                              {shop.is_open ? AR.shops.open : AR.shops.closed}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-                    </Card>
-                  </Link>
+                  <ShopCard key={shop.id} shop={shop} index={i} />
                 ))
               ) : (
                 <div className="col-span-full text-center py-12">

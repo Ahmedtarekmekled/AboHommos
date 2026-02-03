@@ -250,6 +250,121 @@ export const shopsService = {
     return data || [];
   },
 
+  async getRankedShops(options?: {
+    regionId?: string;
+    limit?: number;
+    categoryId?: string;
+  }): Promise<Shop[]> {
+    // 1. Fetch all approved & active shops
+    let query = supabase
+      .from("shops")
+      .select("*, category:categories(id, name, slug, icon)")
+      .eq("approval_status", "APPROVED")
+      .eq("is_active", true)
+      .order("rating", { ascending: false });
+
+    if (options?.regionId) {
+      query = query.eq("region_id", options.regionId);
+    }
+
+    if (options?.categoryId) {
+      query = query.eq("category_id", options.categoryId);
+    }
+
+    // Fetch shops
+    const { data: shops, error: shopsError } = await query;
+    if (shopsError) throw shopsError;
+    if (!shops?.length) return [];
+
+
+    // 2. Fetch 30-day sales stats (Try RPC, fallback to 0)
+    let salesMap = new Map<string, number>();
+    try {
+      const { data: stats, error: statsError } = await (supabase.rpc as any)(
+        "get_shop_30d_sales"
+      );
+      if (!statsError && stats) {
+        stats.forEach((s: any) => salesMap.set(s.shop_id, Number(s.sales_count)));
+      }
+    } catch (e) {
+      console.warn("Failed to fetch shop stats, falling back to 0 sales", e);
+    }
+
+    // 3. Separate Logic
+    // Valid for Top 2: Must be OPEN
+    const candidates = shops.map((s) => ({
+      ...s,
+      _sales_score: salesMap.get(s.id) || 0,
+    }));
+
+    // A. Premium Candidates (Open + Premium)
+    const premiumCandidates = candidates
+      .filter((s) => s.is_premium && s.is_open)
+      .sort((a, b) => (a.premium_sort_order || 99) - (b.premium_sort_order || 99));
+
+    // B. Best Seller Candidates (All Open) sorted by Sales
+    const bestSellerCandidates = candidates
+      .filter((s) => s.is_open)
+      .sort((a, b) => b._sales_score - a._sales_score);
+
+    const finalOrder: (Shop & { _sales_score: number })[] = [];
+    const usedIds = new Set<string>();
+
+    // SLOT 1
+    let slot1 = premiumCandidates.find((s) => s.premium_sort_order === 1);
+    if (!slot1 && premiumCandidates.length > 0) {
+      // Logic: If no explicit Slot 1, take first available premium
+      slot1 = premiumCandidates[0];
+    }
+    // Fallback: If still no premium, take #1 Best Seller
+    if (!slot1) {
+      slot1 = bestSellerCandidates[0];
+    }
+
+    if (slot1) {
+      finalOrder.push(slot1);
+      usedIds.add(slot1.id);
+    }
+
+    // SLOT 2
+    let slot2 = premiumCandidates.find(
+      (s) => s.premium_sort_order === 2 && !usedIds.has(s.id)
+    );
+    if (!slot2) {
+       // Logic: Next available premium
+       slot2 = premiumCandidates.find(s => !usedIds.has(s.id));
+    }
+    // Fallback: Best Seller
+    if (!slot2) {
+      slot2 = bestSellerCandidates.find((s) => !usedIds.has(s.id));
+    }
+
+    if (slot2) {
+      finalOrder.push(slot2);
+      usedIds.add(slot2.id);
+    }
+
+    // REST: Best Sellers (High->Low), then Closed
+    // First, add remaining OPEN shops by sales
+    const remainingOpen = bestSellerCandidates.filter(s => !usedIds.has(s.id));
+    finalOrder.push(...remainingOpen);
+    remainingOpen.forEach(s => usedIds.add(s.id));
+
+    // Finally, add Closed shops (usually at bottom)
+    const closedShops = candidates
+      .filter((s) => !s.is_open && !usedIds.has(s.id))
+      .sort((a, b) => b._sales_score - a._sales_score); // Sort closed by sales too
+
+    finalOrder.push(...closedShops);
+
+    // Filter limit if requested (only after ranking everything)
+    if (options?.limit) {
+      return finalOrder.slice(0, options.limit);
+    }
+
+    return finalOrder;
+  },
+
   async getById(id: string): Promise<Shop | null> {
     const { data, error } = await supabase
       .from("shops")

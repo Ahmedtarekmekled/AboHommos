@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AR } from "@/lib/i18n";
 import { shopsService, categoriesService } from "@/services";
+import { ShopCard } from "@/components/ShopCard";
 import { useState } from "react";
 
 const demoShops = [
@@ -84,10 +85,9 @@ export default function ShopsPage() {
   const { data: shops, isLoading } = useQuery({
     queryKey: ["shops", search, selectedCategory?.id],
     queryFn: () =>
-      shopsService.getAll({
-        search: search || undefined,
+      shopsService.getRankedShops({
         categoryId: selectedCategory?.id,
-        approvedOnly: true, // Only show approved shops
+        // Using client-side search filtering for now as per existing logic
       }),
   });
 
@@ -185,74 +185,7 @@ export default function ShopsPage() {
                   </Card>
                 ))
             : filteredShops.map((shop: any, i: number) => (
-                <Link 
-                  key={shop.id} 
-                  to={`/shops/${shop.slug}`}
-                  className="animate-fade-in"
-                  style={{ animationDelay: `${i * 40}ms` }}
-                >
-                  <Card interactive className="p-6 h-full transition-all duration-300 hover:shadow-lg hover:-translate-y-1 relative overflow-hidden">
-                    {/* Premium Badge */}
-                    {shop.is_premium && (
-                      <div className="absolute top-2 left-2 z-10">
-                        <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0 text-xs gap-1">
-                          <Star className="w-3 h-3 fill-current" />
-                          مميز
-                        </Badge>
-                      </div>
-                    )}
-                    
-                    <div className="flex items-start gap-4">
-                      <div className="w-20 h-20 rounded-xl overflow-hidden bg-muted flex-shrink-0 transition-transform duration-300 hover:scale-110">
-                        {shop.logo_url ? (
-                          <img
-                            src={shop.logo_url}
-                            alt={shop.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20">
-                            <Store className="w-10 h-10 text-primary" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <h3 className="font-semibold text-lg">{shop.name}</h3>
-                          <Badge
-                            variant={shop.is_open ? "success" : "secondary"}
-                          >
-                            {shop.is_open ? AR.shops.open : AR.shops.closed}
-                          </Badge>
-                        </div>
-                        {shop.description && (
-                          <p className="text-muted-foreground text-sm mt-1 line-clamp-2">
-                            {shop.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3 mt-3 flex-wrap">
-                          <div className="flex items-center gap-1 text-warning">
-                            <Star className="w-4 h-4 fill-current" />
-                            <span className="text-sm font-medium">
-                              {shop.rating || 4.5}
-                            </span>
-                          </div>
-                          {shop.category && (
-                            <Badge variant="outline" className="text-xs">
-                              {shop.category.icon && <span className="mr-1">{shop.category.icon}</span>}
-                              {shop.category.name}
-                            </Badge>
-                          )}
-                          {shop.total_orders && (
-                            <span className="text-sm text-muted-foreground">
-                              {shop.total_orders} {AR.shops.orders}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
+                <ShopCard key={shop.id} shop={shop} index={i} />
               ))}
         </div>
 

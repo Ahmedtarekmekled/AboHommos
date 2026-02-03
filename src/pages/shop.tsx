@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -9,6 +10,7 @@ import {
   ShoppingBag,
   MessageCircle,
   Navigation,
+  Search,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,10 +19,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
+import { ShopProductCard } from "@/components/ShopProductCard";
+import { Input } from "@/components/ui/input";
 import { shopsService, productsService } from "@/services";
 
 export default function ShopPage() {
   const { slug } = useParams<{ slug: string }>();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const { data: shop, isLoading: shopLoading } = useQuery({
     queryKey: ["shop", slug],
@@ -95,27 +101,29 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen" dir="rtl">
       {/* Cover Hero Section */}
-      <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden">
-        {shop.cover_url ? (
-          <img
-            src={shop.cover_url}
-            alt={shop.name}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <Store className="w-24 h-24 text-primary/20" />
-          </div>
-        )}
+      <div className="relative mb-16">
+        <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden rounded-b-3xl">
+          {shop.cover_url ? (
+            <img
+              src={shop.cover_url}
+              alt={shop.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Store className="w-24 h-24 text-primary/20" />
+            </div>
+          )}
+        </div>
         
-        {/* Logo Overlay - Positioned at bottom right with white border */}
-        <div className="absolute bottom-0 right-0 transform translate-y-1/2 mr-6">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-white p-3 shadow-lg">
+        {/* Logo Overlay - Positioned at bottom right with white border (Outside overflow-hidden) */}
+        <div className="absolute bottom-0 right-6 translate-y-1/2 z-10">
+          <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-white p-2 shadow-lg ring-1 ring-black/5">
             {shop.logo_url ? (
               <img
                 src={shop.logo_url}
                 alt={shop.name}
-                className="w-full h-full object-contain"
+                className="w-full h-full object-contain rounded-xl"
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl">
@@ -128,19 +136,19 @@ export default function ShopPage() {
 
       {/* Shop Info Section */}
       <div className="bg-background">
-        <div className="container-app pt-16 pb-6">
-          <div className="flex items-start justify-between gap-4 mb-4">
+        <div className="container-app pb-6">
+          <div className="flex items-center gap-3 mb-4">
             {/* Category Badge */}
             <div>
               {(shop as any).category && (
-                <Badge variant="outline" className="mb-2">
+                <Badge variant="outline" className="text-sm px-3 py-1">
                   {(shop as any).category?.icon && <span className="ml-1">{(shop as any).category.icon}</span>}
                   {(shop as any).category?.name}
                 </Badge>
               )}
             </div>
             
-            {/* Premium Badge */}
+            {/* Premium Badge - Moved to ensure it stays on the right/start */}
             {shop.is_premium && (
               <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0">
                 <Star className="w-3 h-3 ml-1 fill-current" />
@@ -308,89 +316,106 @@ export default function ShopPage() {
             {/* Products Tab */}
             <TabsContent value="products" className="space-y-6">
               {!canOrder && (
-                <div className="text-center py-4 text-muted-foreground">
+                <div className="text-center py-4 text-muted-foreground bg-muted/20 rounded-lg">
                   لا يمكن الطلب من هذا المتجر حالياً
                 </div>
               )}
+
+              {/* Search & Categories */}
+              <div className="space-y-4 sticky top-16 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 py-2 -mx-4 px-4 md:mx-0 md:px-0">
+                <div className="relative">
+                  <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="ابحث عن منتج..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pr-10"
+                  />
+                </div>
+
+                {products && products.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none mask-fade-sides">
+                    <Badge
+                      variant={selectedCategory === null ? "default" : "outline"}
+                      className="cursor-pointer whitespace-nowrap px-4 py-1.5 text-sm hover:opacity-80 transition-opacity"
+                      onClick={() => setSelectedCategory(null)}
+                    >
+                      الكل
+                    </Badge>
+                    {/* Extract Unique Categories */}
+                    {Array.from(new Set(products.map((p: any) => p.category?.id).filter(Boolean))).map((catId: any) => {
+                      const category = products.find((p: any) => p.category?.id === catId)?.category;
+                      if (!category) return null;
+                      return (
+                         <Badge
+                          key={catId}
+                          variant={selectedCategory === catId ? "default" : "outline"}
+                          className="cursor-pointer whitespace-nowrap px-4 py-1.5 text-sm hover:opacity-80 transition-opacity flex items-center gap-1.5"
+                          onClick={() => setSelectedCategory(catId)}
+                        >
+                          {/* {category.icon && <span>{category.icon}</span>} */}
+                          {category.name}
+                        </Badge>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
 
               {productsLoading ? (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {Array(8)
                     .fill(0)
-                    .map((_,i) => (
-                      <Card key={i} className="overflow-hidden">
-                        <Skeleton className="aspect-square" />
-                        <CardContent className="p-4 space-y-2">
+                    .map((_, i) => (
+                      <Card key={i} className="overflow-hidden border-none shadow-none bg-muted/10">
+                        <Skeleton className="aspect-square rounded-xl" />
+                        <div className="pt-3 space-y-2">
                           <Skeleton className="h-4 w-3/4" />
-                          <Skeleton className="h-6 w-1/3" />
-                        </CardContent>
+                          <Skeleton className="h-4 w-1/4" />
+                        </div>
                       </Card>
                     ))}
                 </div>
-              ) : products && products.length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {products.map((product: any) => (
-                    <Link
-                      key={product.id}
-                      to={canOrder ? `/products/${product.id}` : "#"}
-                      className={!canOrder ? "pointer-events-none opacity-60" : ""}
-                    >
-                      <Card interactive={canOrder} className="overflow-hidden h-full">
-                        <div className="aspect-square relative overflow-hidden bg-muted">
-                          {product.image_url ? (
-                            <img
-                              src={product.image_url}
-                              alt={product.name}
-                              className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-                              <ShoppingBag className="w-12 h-12 text-muted-foreground" />
-                            </div>
-                          )}
-                          {product.compare_at_price &&
-                            product.compare_at_price > product.price && (
-                              <Badge className="absolute top-2 left-2 bg-destructive">
-                                خصم{" "}
-                                {Math.round(
-                                  ((product.compare_at_price - product.price) /
-                                    product.compare_at_price) *
-                                    100
-                                )}
-                                %
-                              </Badge>
-                            )}
-                        </div>
-                        <CardContent className="p-4">
-                          <h3 className="font-medium line-clamp-2 mb-2 text-sm">
-                            {product.name}
-                          </h3>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-primary">
-                              {formatPrice(product.price)}
-                            </span>
-                            {product.compare_at_price &&
-                              product.compare_at_price > product.price && (
-                                <span className="text-muted-foreground line-through text-xs">
-                                  {formatPrice(product.compare_at_price)}
-                                </span>
-                              )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  ))}
-                </div>
               ) : (
-                <div className="text-center py-16">
-                  <ShoppingBag className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-                  <h3 className="text-lg font-semibold mb-2">
-                    لا توجد منتجات
-                  </h3>
-                  <p className="text-muted-foreground">
-                    لا توجد منتجات في هذا المتجر حالياً
-                  </p>
-                </div>
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {(() => {
+                      const filteredProducts = products?.filter((p: any) => {
+                         const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
+                         const matchesCategory = selectedCategory ? p.category?.id === selectedCategory : true;
+                         return matchesSearch && matchesCategory;
+                      });
+
+                      if (!filteredProducts || filteredProducts.length === 0) {
+                         return (
+                           <div className="col-span-full py-16 text-center">
+                             <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                               <ShoppingBag className="w-8 h-8 text-muted-foreground" />
+                             </div>
+                             <h3 className="text-lg font-semibold mb-2">لا توجد منتجات</h3>
+                             <p className="text-muted-foreground">
+                               لم يتم العثور على منتجات تطابق بحثك
+                             </p>
+                             {searchQuery && (
+                               <Button variant="link" onClick={() => setSearchQuery("")} className="mt-2">
+                                 مسح البحث
+                               </Button>
+                             )}
+                           </div>
+                         );
+                      }
+
+                      return filteredProducts.map((product: any) => (
+                        <ShopProductCard 
+                          key={product.id} 
+                          product={product} 
+                          shopId={shop!.id}
+                          canOrder={canOrder} 
+                        />
+                      ));
+                    })()}
+                  </div>
+                </>
               )}
             </TabsContent>
 

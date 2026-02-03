@@ -2887,9 +2887,39 @@ function AdminShops() {
                       )}
                       
                       {activeTab === 'APPROVED' && (
-                         <Button size="sm" variant="outline" className={cn(shop.is_premium ? "border-amber-500 text-amber-600" : "")} onClick={() => handleTogglePremium(shop)}>
-                            {shop.is_premium ? "إلغاء التميز" : "تمييز المتجر"}
-                         </Button>
+                         <div className="flex flex-col gap-1">
+                           {shop.is_premium ? (
+                             <Select 
+                               defaultValue={shop.premium_sort_order?.toString() || "0"}
+                               onValueChange={(val) => {
+                                 if (val === 'REMOVE') handleTogglePremium(shop);
+                                 else {
+                                   shopsService.update(shop.id, { 
+                                     is_premium: true, 
+                                     premium_sort_order: parseInt(val) 
+                                   }).then(() => {
+                                     toast.success("تم تحديث ترتيب التميز");
+                                     loadShops();
+                                   });
+                                 }
+                               }}
+                             >
+                               <SelectTrigger className="w-[140px] h-8 border-amber-500 text-amber-600 bg-amber-50/50">
+                                 <SelectValue placeholder="ترتيب التميز" />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="1">مساحة مميزة #1</SelectItem>
+                                 <SelectItem value="2">مساحة مميزة #2</SelectItem>
+                                 <SelectItem value="99">مميز (عام)</SelectItem>
+                                 <SelectItem value="REMOVE" className="text-destructive focus:text-destructive">إلغاء التميز</SelectItem>
+                               </SelectContent>
+                             </Select>
+                           ) : (
+                             <Button size="sm" variant="outline" onClick={() => handleTogglePremium(shop)}>
+                                تمييز المتجر
+                             </Button>
+                           )}
+                         </div>
                       )}
 
                       {shop.approval_status === 'APPROVED' && (
