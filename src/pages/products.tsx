@@ -1,244 +1,255 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ShoppingBag, Search, Filter, Grid, List } from "lucide-react";
+import { 
+  Store, 
+  ShoppingBag, 
+  Star, 
+  TrendingUp, 
+  ArrowRight,
+  AlertTriangle,
+  Loader2
+} from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { AR } from "@/lib/i18n";
-import { formatPrice } from "@/lib/utils";
-import { productsService, categoriesService } from "@/services";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ShopProductCard } from "@/components/ShopProductCard";
+import { shopsService, productsService } from "@/services";
+import { useCart } from "@/store/app-context";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export default function ProductsPage() {
-  const [search, setSearch] = useState("");
-  const [categoryId, setCategoryId] = useState<string>("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const { cart, addToCart, clearCart } = useCart();
+  const [selectedShopId, setSelectedShopId] = useState<string | null>(null);
+  const [pendingProduct, setPendingProduct] = useState<{ id: string, name: string } | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  const { data: categories } = useQuery({
-    queryKey: ["categories"],
-    queryFn: categoriesService.getAll,
+  // 1. Fetch Ranked Shops
+  const { data: shops, isLoading: shopsLoading } = useQuery({
+    queryKey: ["ranked-shops"],
+    queryFn: () => shopsService.getRankedShops({ limit: 10 }), // Fetch Top 10 for tab bar
   });
 
-  const { data: products, isLoading } = useQuery({
-    queryKey: ["products", search, categoryId],
-    queryFn: () =>
-      productsService.getAll({
-        search: search || undefined,
-        categoryId: categoryId || undefined,
-      }),
+  // Set default shop selection
+  useEffect(() => {
+    if (shops && shops.length > 0 && !selectedShopId) {
+      setSelectedShopId(shops[0].id);
+    }
+  }, [shops, selectedShopId]);
+
+  const selectedShop = shops?.find(s => s.id === selectedShopId);
+
+  // 2. Fetch Products for Selected Shop (Limit 6 for Quick Picks)
+  const { data: products, isLoading: productsLoading } = useQuery({
+    queryKey: ["shop-products", selectedShopId],
+    queryFn: () => productsService.getAll({ 
+      shopId: selectedShopId!,
+      limit: 6 
+    }),
+    enabled: !!selectedShopId,
   });
+
+  // Handle Add to Cart with Multi-Store Check
+  const handleAddToCartRequest = async (product: { id: string, name: string }) => {
+    if (!selectedShopId) return;
+
+    // Check conflict
+    const cartHasItems = cart && cart.items && cart.items.length > 0;
+    const currentCartShopId = cartHasItems ? cart.items[0].product.shop_id : null;
+
+    if (cartHasItems && currentCartShopId && currentCartShopId !== selectedShopId) {
+      setPendingProduct(product); // Trigger Alert Dialog
+      return;
+    }
+
+    // No conflict, add directly
+    await performAddToCart(selectedShopId, product.id);
+  };
+
+  const performAddToCart = async (shopId: string, productId: string) => {
+    setIsProcessing(true);
+    try {
+      await addToCart(shopId, productId, 1);
+      toast.success("تمت الإضافة للسلة");
+    } catch (error) {
+      toast.error("فشل إضافة المنتج", { description: "يرجى المحاولة مرة أخرى" });
+    } finally {
+      setIsProcessing(false);
+      setPendingProduct(null);
+    }
+  };
+
+  const handleConfirmAdd = async () => {
+    if (!pendingProduct || !selectedShopId) return;
+    setIsProcessing(true);
+    try {
+      // Don't clear cart, just add new item. User accepted the fee warning.
+      await addToCart(selectedShopId, pendingProduct.id, 1);
+      toast.success("تمت إضافة المنتج للسلة");
+    } catch (error) {
+       toast.error("حدث خطأ في الإضافة");
+    } finally {
+      setIsProcessing(false);
+      setPendingProduct(null);
+    }
+  };
+
+  if (shopsLoading) {
+    return (
+      <div className="container-app py-8 space-y-6">
+        <Skeleton className="h-10 w-full md:w-1/2" />
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {[1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-64 rounded-xl" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (!shops || shops.length === 0) {
+    return (
+       <div className="container-app py-16 text-center">
+         <Store className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
+         <h3>لا توجد متاجر متاحة حالياً</h3>
+       </div>
+    );
+  }
 
   return (
-    <div className="py-8">
-      <div className="container-app">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold">{AR.products.title}</h1>
-          <p className="text-muted-foreground mt-2">
-            تصفح جميع المنتجات المتاحة
-          </p>
-        </div>
+    <div className="min-h-screen bg-muted/10 pb-20">
+      {/* 1. Sticky Shop Tabs */}
+      <div className="sticky top-16 z-30 bg-background/80 backdrop-blur-md border-b">
+        <div className="container-app py-3">
+          <div className="flex items-center gap-3 overflow-x-auto pb-2 scrollbar-none mask-fade-sides no-scrollbar">
+            {shops.map((shop) => {
+              const isActive = shop.id === selectedShopId;
+              const isPremium = shop.is_premium;
+              // Detect "Best Seller" if not premium but high sales? 
+              // (Actually getRankedShops returns based on logic, we trust the order)
+              
+              return (
+                <button
+                  key={shop.id}
+                  onClick={() => setSelectedShopId(shop.id)}
+                  className={cn(
+                    "relative flex items-center gap-2 px-4 py-2 rounded-full border transition-all whitespace-nowrap min-w-fit",
+                    isActive 
+                      ? "bg-primary text-primary-foreground border-primary shadow-md" 
+                      : "bg-background hover:bg-muted border-transparent hover:border-border"
+                  )}
+                >
+                  {/* Premium Badge */}
+                  {isPremium && (
+                    <span className={cn(
+                      "flex items-center justify-center w-5 h-5 rounded-full text-[10px]",
+                      isActive ? "bg-white/20 text-white" : "bg-amber-100 text-amber-700"
+                    )}>
+                      <Star className="w-3 h-3 fill-current" />
+                    </span>
+                  )}
+                  
+                  {/* Shop Name */}
+                  <span className="font-medium text-sm">{shop.name}</span>
 
-        {/* Filters */}
-        <div className="flex flex-col md:flex-row gap-4 mb-8">
-          <div className="flex-1 max-w-md">
-            <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder={AR.products.search}
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pr-10"
-              />
-            </div>
-          </div>
-          <Select
-            value={categoryId || "all"}
-            onValueChange={(val) => setCategoryId(val === "all" ? "" : val)}
-          >
-            <SelectTrigger className="w-full md:w-48">
-              <SelectValue placeholder="جميع التصنيفات" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">جميع التصنيفات</SelectItem>
-              {categories?.map((cat) => (
-                <SelectItem key={cat.id} value={cat.id}>
-                  {cat.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <div className="flex items-center gap-1 border rounded-lg p-1">
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="icon-sm"
-              onClick={() => setViewMode("grid")}
-            >
-              <Grid className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "list" ? "secondary" : "ghost"}
-              size="icon-sm"
-              onClick={() => setViewMode("list")}
-            >
-              <List className="w-4 h-4" />
-            </Button>
+                  {/* Active Indicator */}
+                  {isActive && (
+                    <span className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary rounded-full" />
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
+      </div>
 
-        {/* Results count */}
-        <p className="text-muted-foreground mb-6">
-          {products?.length || 0} منتج
-        </p>
+      <div className="container-app py-6 space-y-8">
+        {selectedShop && (
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-primary" />
+                  أسرع الاختيارات من {selectedShop.name}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  أكثر المنتجات طلباً، تصلك بأسرع وقت
+                </p>
+              </div>
+              <Link to={`/shops/${selectedShop.slug}`}>
+                 <Button variant="outline" size="sm" className="gap-2">
+                    تصفح المتجر <ArrowRight className="w-4 h-4" />
+                 </Button>
+              </Link>
+            </div>
 
-        {/* Products */}
-        {isLoading ? (
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
-                : "space-y-4"
-            }
-          >
-            {Array(8)
-              .fill(0)
-              .map((_, i) => (
-                <Card key={i} className="overflow-hidden">
-                  <Skeleton
-                    className={
-                      viewMode === "grid" ? "aspect-square" : "h-32 w-32"
-                    }
-                  />
-                </Card>
-              ))}
-          </div>
-        ) : products && products.length > 0 ? (
-          viewMode === "grid" ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {products.map((product) => (
-                <Link key={product.id} to={`/products/${product.id}`}>
-                  <Card interactive className="overflow-hidden h-full">
-                    <div className="aspect-square relative overflow-hidden bg-muted">
-                      {product.image_url ? (
-                        <img
-                          src={product.image_url}
-                          alt={product.name}
-                          className="w-full h-full object-cover transition-transform duration-500 hover:scale-110"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-                          <ShoppingBag className="w-12 h-12 text-muted-foreground" />
-                        </div>
-                      )}
-                      {product.compare_at_price &&
-                        product.compare_at_price > product.price && (
-                          <Badge
-                            className="absolute top-2 right-2"
-                            variant="destructive"
-                          >
-                            خصم{" "}
-                            {Math.round(
-                              (1 - product.price / product.compare_at_price) * 100
-                            )}
-                            %
-                          </Badge>
-                        )}
-                    </div>
-                    <CardContent className="p-4">
-                      <p className="text-xs text-muted-foreground mb-1">
-                        {product.shop?.name}
-                      </p>
-                      <h3 className="font-medium line-clamp-2 mb-2">
-                        {product.name}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-primary text-lg">
-                          {formatPrice(product.price)}
-                        </span>
-                        {product.compare_at_price &&
-                          product.compare_at_price > product.price && (
-                            <span className="text-muted-foreground line-through text-sm">
-                              {formatPrice(product.compare_at_price)}
-                            </span>
-                          )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {products.map((product) => (
-                <Link key={product.id} to={`/products/${product.id}`}>
-                  <Card interactive className="overflow-hidden">
-                    <div className="flex gap-4 p-4">
-                      <div className="w-32 h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-                            <ShoppingBag className="w-8 h-8 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground mb-1">
-                          {product.shop?.name}
-                        </p>
-                        <h3 className="font-medium text-lg mb-2">
-                          {product.name}
-                        </h3>
-                        {product.description && (
-                          <p className="text-muted-foreground text-sm line-clamp-2 mb-2">
-                            {product.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-primary text-xl">
-                            {formatPrice(product.price)}
-                          </span>
-                          {product.compare_at_price &&
-                            product.compare_at_price > product.price && (
-                              <span className="text-muted-foreground line-through">
-                                {formatPrice(product.compare_at_price)}
-                              </span>
-                            )}
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          )
-        ) : (
-          <div className="empty-state py-16">
-            <div className="empty-state-icon">
-              <ShoppingBag className="w-full h-full" />
-            </div>
-            <h2 className="text-xl font-semibold mb-2">
-              {AR.products.noResults}
-            </h2>
-            <p className="text-muted-foreground">
-              لم يتم العثور على منتجات مطابقة لبحثك
-            </p>
+            {/* Products Grid */}
+            {productsLoading ? (
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {[1,2,3,4].map(i => (
+                    <div key={i} className="h-64 bg-muted rounded-xl animate-pulse" />
+                  ))}
+               </div>
+            ) : products && products.length > 0 ? (
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                 {products.map(product => (
+                   <ShopProductCard 
+                     key={product.id} 
+                     product={product} 
+                     shopId={selectedShop.id} 
+                     canOrder={selectedShop.is_open}
+                     onAddToCart={() => handleAddToCartRequest({ id: product.id, name: product.name })}
+                   />
+                 ))}
+               </div>
+            ) : (
+                <div className="text-center py-12 bg-muted/20 rounded-xl">
+                    <ShoppingBag className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
+                    <p className="text-muted-foreground">لا توجد منتجات معروضة حالياً</p>
+                </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* Logic Conflict Dialog */}
+      <AlertDialog open={!!pendingProduct} onOpenChange={(open) => !open && setPendingProduct(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600">
+               <AlertTriangle className="w-5 h-5" />
+               تنبيه: رسوم التوصيل
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-right pt-2">
+              الطلب من أكثر من متجر قد يزيد رسوم التوصيل.
+              <br /><br />
+              هل تريد الاستمرار وإضافة <strong>{pendingProduct?.name}</strong> إلى السلة؟
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={isProcessing}>إلغاء</AlertDialogCancel>
+            <Button 
+                onClick={handleConfirmAdd} 
+                disabled={isProcessing}
+                className="gap-2"
+            >
+               {isProcessing && <Loader2 className="w-4 h-4 animate-spin" />}
+               متابعة
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

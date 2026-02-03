@@ -13,9 +13,10 @@ interface ShopProductCardProps {
   product: Product;
   shopId: string;
   canOrder: boolean;
+  onAddToCart?: () => void;
 }
 
-export function ShopProductCard({ product, shopId, canOrder }: ShopProductCardProps) {
+export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: ShopProductCardProps) {
   const { addToCart } = useCart();
   const [isAdding, setIsAdding] = useState(false);
 
@@ -25,6 +26,12 @@ export function ShopProductCard({ product, shopId, canOrder }: ShopProductCardPr
     e.stopPropagation();
     
     if (!canOrder) return;
+
+    // Use external handler if provided (for custom warnings etc)
+    if (onAddToCart) {
+      onAddToCart();
+      return;
+    }
 
     setIsAdding(true);
     try {
