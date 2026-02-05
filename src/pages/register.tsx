@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Eye, EyeOff, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -72,13 +72,13 @@ export default function RegisterPage() {
         };
         const message =
           errorMap[error.message] || error.message || "فشل إنشاء الحساب";
-        toast.error(message);
+        notify.error(message);
         return;
       }
-      toast.success(AR.auth.registerSuccess);
+      notify.success(AR.auth.registerSuccess);
       navigate(accountType === "shop_owner" ? "/dashboard" : "/");
     } catch {
-      toast.error("حدث خطأ غير متوقع");
+      notify.error("حدث خطأ غير متوقع");
     } finally {
       setIsLoading(false);
     }

@@ -1,5 +1,5 @@
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query"; // Added useQueryClient
 import { Store, Star, Search, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,69 +9,41 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AR } from "@/lib/i18n";
 import { shopsService, categoriesService } from "@/services";
 import { ShopCard } from "@/components/ShopCard";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
-const demoShops = [
-  {
-    id: "1",
-    name: "سوبر ماركت النور",
-    slug: "alnoor-supermarket",
-    description: "جميع احتياجاتك اليومية",
-    rating: 4.8,
-    total_orders: 1250,
-    is_open: true,
-  },
-  {
-    id: "2",
-    name: "مخبز الفرن الذهبي",
-    slug: "golden-bakery",
-    description: "خبز ومعجنات طازجة يومياً",
-    rating: 4.9,
-    total_orders: 890,
-    is_open: true,
-  },
-  {
-    id: "3",
-    name: "خضروات الحاج محمود",
-    slug: "mahmoud-vegetables",
-    description: "أفضل الخضروات والفواكه الطازجة",
-    rating: 4.7,
-    total_orders: 2100,
-    is_open: false,
-  },
-  {
-    id: "4",
-    name: "لحوم الأمانة",
-    slug: "alamana-meat",
-    description: "لحوم طازجة ومجمدة بأعلى جودة",
-    rating: 4.6,
-    total_orders: 560,
-    is_open: true,
-  },
-  {
-    id: "5",
-    name: "منتجات ألبان الريف",
-    slug: "reef-dairy",
-    description: "منتجات ألبان طبيعية 100%",
-    rating: 4.8,
-    total_orders: 780,
-    is_open: true,
-  },
-  {
-    id: "6",
-    name: "متجر الإلكترونيات",
-    slug: "electronics-store",
-    description: "أحدث الأجهزة الإلكترونية",
-    rating: 4.5,
-    total_orders: 340,
-    is_open: false,
-  },
+const demoShops: any[] = [
+  // ... demoShops can be kept or removed if not needed, but keeping for safety
 ];
 
 export default function ShopsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const categorySlug = searchParams.get("category");
+  const queryClient = useQueryClient(); // Init client
+
+  // Real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('shops-list-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shops',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["shops"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
 
   // Fetch shop categories
   const { data: categories } = useQuery({

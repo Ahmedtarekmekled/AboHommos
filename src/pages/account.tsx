@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import {
   User,
   Mail,
@@ -98,10 +98,10 @@ export default function AccountPage() {
     try {
       await addressesService.delete(id, user.id);
       setAddresses((prev) => prev.filter((a) => a.id !== id));
-      toast.success("تم حذف العنوان بنجاح");
+      notify.success("تم حذف العنوان بنجاح");
     } catch (error) {
       console.error("Failed to delete address:", error);
-      toast.error("حدث خطأ أثناء حذف العنوان");
+      notify.error("حدث خطأ أثناء حذف العنوان");
     } finally {
       setDeletingId(null);
     }
@@ -114,10 +114,10 @@ export default function AccountPage() {
       setAddresses((prev) =>
         prev.map((a) => ({ ...a, is_default: a.id === id }))
       );
-      toast.success("تم تعيين العنوان كافتراضي");
+      notify.success("تم تعيين العنوان كافتراضي");
     } catch (error) {
       console.error("Failed to set default:", error);
-      toast.error("حدث خطأ");
+      notify.error("حدث خطأ");
     }
   };
 
@@ -466,7 +466,7 @@ function EditProfileDialog({
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      toast.error("يرجى إدخال الاسم");
+      notify.error("يرجى إدخال الاسم");
       return;
     }
 
@@ -477,11 +477,11 @@ function EditProfileDialog({
         phone: phone || null,
       });
       await refreshUser();
-      toast.success("تم تحديث الملف الشخصي");
+      notify.success("تم تحديث الملف الشخصي");
       onClose();
     } catch (error) {
       console.error("Failed to update profile:", error);
-      toast.error("حدث خطأ أثناء التحديث");
+      notify.error("حدث خطأ أثناء التحديث");
     } finally {
       setIsLoading(false);
     }
@@ -601,7 +601,7 @@ function AddressDialog({
 
   const handleSave = async () => {
     if (!addressText.trim()) {
-      toast.error("يرجى إدخال العنوان");
+      notify.error("يرجى إدخال العنوان");
       return;
     }
 
@@ -617,7 +617,7 @@ function AddressDialog({
           phone: phone || null,
           is_default: isDefault,
         });
-        toast.success("تم تحديث العنوان بنجاح");
+        notify.success("تم تحديث العنوان بنجاح");
       } else {
         await addressesService.create({
           user_id: userId,
@@ -627,12 +627,12 @@ function AddressDialog({
           phone: phone || null,
           is_default: isDefault,
         });
-        toast.success("تم إضافة العنوان بنجاح");
+        notify.success("تم إضافة العنوان بنجاح");
       }
       await onSave();
     } catch (error) {
       console.error("Failed to save address:", error);
-      toast.error("حدث خطأ أثناء حفظ العنوان");
+      notify.error("حدث خطأ أثناء حفظ العنوان");
     } finally {
       setIsSaving(false);
     }

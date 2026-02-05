@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Trash2, Minus, Plus, ShoppingBag, ArrowLeft, Store } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -39,16 +39,16 @@ export default function CartPage() {
     try {
       await updateCartItem(itemId, newQuantity);
     } catch {
-      toast.error("حدث خطأ");
+      notify.error("حدث خطأ");
     }
   };
 
   const handleRemoveItem = async (itemId: string) => {
     try {
       await removeFromCart(itemId);
-      toast.success(AR.cart.itemRemoved);
+      notify.success(AR.cart.itemRemoved);
     } catch {
-      toast.error("حدث خطأ");
+      notify.error("حدث خطأ");
     }
   };
 

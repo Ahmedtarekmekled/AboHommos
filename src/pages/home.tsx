@@ -13,22 +13,50 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Category } from "@/types/database";
 import { categoriesService, productsService, shopsService } from "@/services";
 import { ShopCard } from "@/components/ShopCard";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 
 export default function HomePage() {
+  const queryClient = useQueryClient();
+
+  // Real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('home-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shops',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["shops"] });
+          queryClient.invalidateQueries({ queryKey: ["products"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+  
   // Fetch all categories
-  const { data: allCategories, isLoading: categoriesLoading } = useQuery({
+  const { data: categories, isLoading: categoriesLoading } = useQuery<Category[]>({
     queryKey: ["categories"],
-    queryFn: categoriesService.getAll,
+    queryFn: () => categoriesService.getAll(),
   });
 
   // Filter shop categories for the shop categories bar
-  const shopCategories = allCategories?.filter(c => c.type === 'SHOP') || [];
+  const shopCategories = categories?.filter(c => c.type === 'SHOP') || [];
   
   // Product categories for the existing categories section
-  const productCategories = allCategories?.filter(c => c.type === 'PRODUCT') || [];
+  const productCategories = categories?.filter(c => c.type === 'PRODUCT') || [];
 
   const { data: featuredProducts, isLoading: productsLoading } = useQuery({
     queryKey: ["products", "featured"],

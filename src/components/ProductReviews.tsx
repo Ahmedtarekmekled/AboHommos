@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
 import { reviewService } from "@/services/review.service";
 import { useAuth } from "@/store";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import type { ReviewWithUser } from "@/types/database";
 
 // Star Rating Display Component
@@ -206,12 +206,12 @@ function ReviewForm({
     e.preventDefault();
 
     if (!user) {
-      toast.error("يجب تسجيل الدخول لإضافة تقييم");
+      notify.error("يجب تسجيل الدخول لإضافة تقييم");
       return;
     }
 
     if (rating === 0) {
-      toast.error("يرجى اختيار تقييم");
+      notify.error("يرجى اختيار تقييم");
       return;
     }
 
@@ -227,7 +227,7 @@ function ReviewForm({
         is_verified_purchase: !!orderId,
       });
 
-      toast.success("تم إضافة تقييمك بنجاح");
+      notify.success("تم إضافة تقييمك بنجاح");
       setRating(0);
       setTitle("");
       setComment("");
@@ -235,9 +235,9 @@ function ReviewForm({
     } catch (error: any) {
       console.error("Error submitting review:", error);
       if (error.code === "23505") {
-        toast.error("لقد قمت بتقييم هذا المنتج مسبقاً");
+        notify.error("لقد قمت بتقييم هذا المنتج مسبقاً");
       } else {
-        toast.error("فشل إضافة التقييم");
+        notify.error("فشل إضافة التقييم");
       }
     } finally {
       setIsSubmitting(false);

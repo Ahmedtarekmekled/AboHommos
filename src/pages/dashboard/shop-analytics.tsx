@@ -27,9 +27,13 @@ import { Badge } from "@/components/ui/badge";
 import { shopsService } from "@/services/catalog.service";
 import { Shop } from "@/types/database";
 import { formatPrice, cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { format, subDays, startOfDay, endOfDay } from "date-fns";
 import { ar } from "date-fns/locale";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ShopHoursSettings } from "@/components/dashboard/ShopHoursSettings";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 interface AnalyticsData {
   date: string;
@@ -74,7 +78,7 @@ export function ShopAnalytics() {
       setAnalytics(days);
     } catch (error) {
       console.error(error);
-      toast.error("فشل تحميل البيانات");
+      notify.error("فشل تحميل البيانات");
     } finally {
       setLoading(false);
     }
@@ -98,151 +102,184 @@ export function ShopAnalytics() {
         <div className="flex items-center gap-4">
           <Link to="/dashboard/shops">
             <Button variant="outline" size="icon">
-              <ArrowRight className="w-5 h-5" />
+              <ArrowRight className="h-4 w-4" />
             </Button>
           </Link>
-          <div>
-            <h1 className="text-3xl font-bold flex items-center gap-2">
-              {shop.name}
-              {!shop.is_active && (
-                <Badge variant="destructive" className="text-sm">
-                  <AlertOctagon className="w-4 h-4 mr-1" />
-                  معطل
-                </Badge>
-              )}
-            </h1>
-            <p className="text-muted-foreground flex items-center gap-1 mt-1">
-              <Store className="w-4 h-4" />
-              تحليلات المتجر في آخر {period} يوم
-            </p>
+          <div className="flex items-center gap-3">
+             {shop.logo_url && (
+                <img src={shop.logo_url} alt={shop.name} className="w-10 h-10 rounded-full object-cover border" />
+             )}
+             <div>
+                <h1 className="text-2xl font-bold">{shop.name}</h1>
+                <p className="text-sm text-muted-foreground">لوحة التحكم والتحليلات</p>
+             </div>
           </div>
         </div>
-        
-        <div className="flex items-center gap-2">
-           <Button variant={period === 7 ? "default" : "outline"} onClick={() => setPeriod(7)}>7 أيام</Button>
-           <Button variant={period === 30 ? "default" : "outline"} onClick={() => setPeriod(30)}>30 يوم</Button>
+        <div className="flex gap-2">
+            <Badge variant={shop.is_active ? "default" : "destructive"}>
+                {shop.is_active ? "نشط" : "متوقف"}
+            </Badge>
+            <Badge variant="outline">
+                {shop.override_mode === 'AUTO' ? "مجَدول" : (shop.override_mode === 'FORCE_OPEN' ? "مفتوح يدوياً" : "مغلق يدوياً")}
+            </Badge>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              إجمالي المبيعات (المحققة)
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(totalRevenue)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              طلبات تم توصيلها بنجاح
-            </p>
-          </CardContent>
-        </Card>
+      <Tabs defaultValue="analytics" className="space-y-6" dir="rtl">
+        <TabsList>
+            <TabsTrigger value="analytics">نظرة عامة والتحليلات</TabsTrigger>
+            <TabsTrigger value="settings">ساعات العمل والإعدادات</TabsTrigger>
+        </TabsList>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              عدد الطلبات
-            </CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalOrders}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              في الفترة المحددة
-            </p>
-          </CardContent>
-        </Card>
+        <TabsContent value="analytics" className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                   <CardTitle className="text-sm font-medium">إجمالي المبيعات</CardTitle>
+                   <DollarSign className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{formatPrice(totalRevenue)}</div>
+                  <p className="text-xs text-muted-foreground">
+                    خلال {period} يوم
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                   <CardTitle className="text-sm font-medium">عدد الطلبات</CardTitle>
+                   <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{totalOrders}</div>
+                  <p className="text-xs text-muted-foreground">
+                    خلال {period} يوم
+                  </p>
+                </CardContent>
+              </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              متوسط قيمة الطلب
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(avgOrderValue)}</div>
-          </CardContent>
-        </Card>
-      </div>
+              <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                     <CardTitle className="text-sm font-medium">متوسط قيمة الطلب</CardTitle>
+                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{formatPrice(avgOrderValue)}</div>
+                    <p className="text-xs text-muted-foreground">
+                      معدل السلة
+                    </p>
+                  </CardContent>
+                </Card>
 
-      {/* Revenue Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>المبيعات اليومية</CardTitle>
-          <CardDescription>عرض المبيعات اليومية للمتجر</CardDescription>
-        </CardHeader>
-        <CardContent className="h-[350px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={analytics}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="date" 
-                tickFormatter={(val) => format(new Date(val), "d MMM", { locale: ar })} 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-              />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickFormatter={(val) => `${val}`}
-              />
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
-                labelFormatter={(val) => format(new Date(val), "d MMMM yyyy", { locale: ar })}
-              />
-              <Line 
-                type="monotone" 
-                dataKey="revenue" 
-                name="المبيعات" 
-                stroke="hsl(var(--primary))" 
-                strokeWidth={3}
-                dot={false}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                     <CardTitle className="text-sm font-medium">الفترة</CardTitle>
+                     <Calendar className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                     <Select value={period.toString()} onValueChange={(v) => setPeriod(parseInt(v))}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="7">آخر 7 أيام</SelectItem>
+                          <SelectItem value="30">آخر 30 يوم</SelectItem>
+                          <SelectItem value="90">آخر 90 يوم</SelectItem>
+                        </SelectContent>
+                     </Select>
+                  </CardContent>
+                </Card>
+            </div>
 
-     {/* Orders Chart */}
-      <Card>
-        <CardHeader>
-          <CardTitle>حركة الطلبات</CardTitle>
-          <CardDescription>عدد الطلبات اليومية للمتجر</CardDescription>
-        </CardHeader>
-        <CardContent className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={analytics}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-               <XAxis 
-                dataKey="date" 
-                tickFormatter={(val) => format(new Date(val), "d MMM", { locale: ar })} 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-              />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-              />
-              <Tooltip 
-                 contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
-                 cursor={{ fill: 'hsl(var(--muted)/0.3)' }}
-                 labelFormatter={(val) => format(new Date(val), "d MMMM yyyy", { locale: ar })}
-              />
-              <Bar 
-                dataKey="orders_count" 
-                name="عدد الطلبات" 
-                fill="hsl(var(--secondary))" 
-                radius={[4, 4, 0, 0]} 
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>الإيرادات</CardTitle>
+                    <CardDescription>المبيعات اليومية</CardDescription>
+                  </CardHeader>
+                  <CardContent className="h-[300px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analytics}>
+                        <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                        <XAxis 
+                          dataKey="date" 
+                          tickFormatter={(date) => format(new Date(date), "dd/MM")}
+                          stroke="#888888"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                        />
+                        <YAxis 
+                          stroke="#888888"
+                          fontSize={12}
+                          tickLine={false}
+                          axisLine={false}
+                          tickFormatter={(value) => `${value}`}
+                        />
+                        <Tooltip 
+                          contentStyle={{ borderRadius: "8px", direction: "rtl", textAlign: "right" }}
+                          labelFormatter={(label) => format(new Date(label), "PPP", { locale: ar })}
+                        />
+                        <Legend />
+                        <Line 
+                          type="monotone" 
+                          dataKey="revenue" 
+                          name="المبيعات" 
+                          stroke="#2563eb" 
+                          strokeWidth={2}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                      <CardTitle>الطلبات</CardTitle>
+                      <CardDescription>عدد الطلبات اليومية</CardDescription>
+                    </CardHeader>
+                    <CardContent className="h-[300px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={analytics}>
+                          <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
+                          <XAxis 
+                            dataKey="date" 
+                            tickFormatter={(date) => format(new Date(date), "dd/MM")}
+                            stroke="#888888"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <YAxis 
+                            stroke="#888888"
+                            fontSize={12}
+                            tickLine={false}
+                            axisLine={false}
+                          />
+                          <Tooltip 
+                            contentStyle={{ borderRadius: "8px", direction: "rtl", textAlign: "right" }}
+                            labelFormatter={(label) => format(new Date(label), "PPP", { locale: ar })}
+                          />
+                          <Legend />
+                          <Bar 
+                            dataKey="orders_count" 
+                            name="الطلبات" 
+                            fill="#16a34a" 
+                            radius={[4, 4, 0, 0]}
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+            </div>
+        </TabsContent>
+
+        <TabsContent value="settings">
+            <ShopHoursSettings shop={shop} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

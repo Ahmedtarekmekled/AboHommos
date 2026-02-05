@@ -42,8 +42,12 @@ import { AdminDelivery } from "@/components/delivery/AdminDelivery";
 import { DeliveryDashboard } from "@/components/delivery/DeliveryDashboard";
 import { CourierAccount } from "@/components/delivery/CourierAccount";
 import { ShopAnalytics } from "./dashboard/shop-analytics";
+import { AdminCategories } from "@/components/dashboard/AdminCategories";
 import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DashboardProductCard } from "@/components/dashboard/DashboardProductCard";
+import { ProductFilterBar } from "@/components/dashboard/ProductFilterBar";
+import { useProductFilters } from "@/hooks/useProductFilters";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -71,7 +75,8 @@ import {
 import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/store";
-import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { notify } from "@/lib/notify";
 import { uploadImage } from "@/lib/supabase";
 import {
   productsService,
@@ -170,13 +175,7 @@ function useShopRealtime(shopId: string | undefined, onNewOrder: () => void, onO
           if (payload.eventType === "INSERT") {
              // New order -> Play Sound + Refresh List
              await SoundService.playNewOrderSound();
-             toast.info("طلب جديد وصل!", {
-               description: `رقم الطلب: ${(payload.new as any).order_number}`,
-               action: {
-                 label: "عرض",
-                 onClick: onNewOrder
-               }
-             });
+             notify.info(`طلب جديد وصل! رقم الطلب: ${(payload.new as any).order_number}`);
              onNewOrder();
           } else if (payload.eventType === "UPDATE") {
              // Order update -> Refresh List
@@ -758,6 +757,7 @@ function DashboardOverview() {
   );
 }
 
+
 function DashboardProducts() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
@@ -780,6 +780,20 @@ function DashboardProducts() {
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Initialize Filter Hook
+  const {
+     filteredProducts,
+     searchQuery,
+     setSearchQuery,
+     selectedCategory,
+     setSelectedCategory,
+     stockFilter,
+     setStockFilter,
+     sortBy,
+     setSortBy,
+     stats
+  } = useProductFilters(products);
+
   useEffect(() => {
     loadData();
   }, [user]);
@@ -800,9 +814,18 @@ function DashboardProducts() {
         setProducts(shopProducts);
       }
 
-      // Load categories
-      const cats = await categoriesService.getAll();
-      setCategories(cats);
+      // Load categories scoped to shop type
+      if (userShop?.category_id) {
+        const cats = await categoriesService.getAll({ 
+          type: 'PRODUCT', 
+          parentId: userShop.category_id 
+        });
+        setCategories(cats);
+      } else {
+        // Fallback or allow all if no type selected yet (migration support)
+        const cats = await categoriesService.getAll({ type: 'PRODUCT' });
+        setCategories(cats);
+      }
     } catch (error) {
       console.error("Failed to load data:", error);
     } finally {
@@ -850,7 +873,7 @@ function DashboardProducts() {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error("حجم الصورة يجب أن يكون أقل من 5 ميجابايت");
+        notify.error("حجم الصورة يجب أن يكون أقل من 5 ميجابايت");
         return;
       }
       setImageFile(file);
@@ -864,12 +887,12 @@ function DashboardProducts() {
 
   const handleSave = async () => {
     if (!shop) {
-      toast.error("يجب إنشاء متجر أولاً");
+      notify.error("يجب إنشاء متجر أولاً");
       return;
     }
 
     if (!formData.name || !formData.price || !formData.category_id) {
-      toast.error("يرجى ملء جميع الحقول المطلوبة");
+      notify.error("يرجى ملء جميع الحقول المطلوبة");
       return;
     }
 
@@ -889,7 +912,7 @@ function DashboardProducts() {
         setIsUploading(false);
 
         if (uploadError) {
-          toast.error("فشل رفع الصورة");
+          notify.error("فشل رفع الصورة");
           console.error("Upload error:", uploadError);
         } else {
           imageUrl = url;
@@ -916,10 +939,10 @@ function DashboardProducts() {
 
       if (editingProduct) {
         await productsService.update(editingProduct.id, productData);
-        toast.success("تم تحديث المنتج بنجاح");
+        notify.success("تم تحديث المنتج بنجاح");
       } else {
         await productsService.create(productData as any);
-        toast.success("تم إضافة المنتج بنجاح");
+        notify.success("تم إضافة المنتج بنجاح");
       }
 
       setShowAddDialog(false);
@@ -927,7 +950,7 @@ function DashboardProducts() {
       loadData();
     } catch (error: any) {
       console.error("Failed to save product:", error);
-      toast.error(error.message || "فشل حفظ المنتج");
+      notify.error(error.message || "فشل حفظ المنتج");
     } finally {
       setIsSaving(false);
     }
@@ -938,10 +961,10 @@ function DashboardProducts() {
 
     try {
       await productsService.delete(productId);
-      toast.success("تم حذف المنتج");
+      notify.success("تم حذف المنتج");
       loadData();
     } catch (error) {
-      toast.error("فشل حذف المنتج");
+      notify.error("فشل حذف المنتج");
     }
   };
 
@@ -985,251 +1008,228 @@ function DashboardProducts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">{AR.dashboard.products}</h1>
           <p className="text-muted-foreground">
             إدارة منتجات متجرك ({products.length} منتج)
           </p>
         </div>
-        <Button className="gap-2" onClick={openAddDialog}>
+        <Button className="gap-2 shrink-0" onClick={openAddDialog}>
           <Plus className="w-4 h-4" />
           {AR.dashboard.addProduct}
         </Button>
       </div>
 
-      {products.length === 0 ? (
+      <ProductFilterBar
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        selectedCategory={selectedCategory}
+        setSelectedCategory={setSelectedCategory}
+        stockFilter={stockFilter}
+        setStockFilter={setStockFilter}
+        sortBy={sortBy}
+        setSortBy={setSortBy}
+        categories={categories}
+        lowStockCount={stats.lowStockCount}
+      />
+
+      {filteredProducts.length === 0 ? (
         <Card>
           <CardContent className="p-6">
             <div className="text-center py-12">
               <Package className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-semibold mb-2">لا توجد منتجات</h3>
               <p className="text-muted-foreground mb-4">
-                ابدأ بإضافة منتجك الأول
+                لا توجد منتجات تطابق معايير البحث
               </p>
-              <Button onClick={openAddDialog}>
-                <Plus className="w-4 h-4 ml-2" />
-                إضافة منتج
-              </Button>
+              {products.length === 0 && (
+                <Button onClick={openAddDialog}>
+                  <Plus className="w-4 h-4 ml-2" />
+                  إضافة منتج
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {products.map((product) => (
-            <Card key={product.id}>
-              <CardContent className="p-4">
-                <div className="aspect-square rounded-lg bg-muted mb-3 flex items-center justify-center overflow-hidden">
-                  {product.image_url ? (
-                    <img
-                      src={product.image_url}
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Package className="w-12 h-12 text-muted-foreground" />
-                  )}
-                </div>
-                <h3 className="font-semibold truncate">{product.name}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-primary font-bold">
-                    {formatPrice(product.price)}
-                  </span>
-                  {product.compare_at_price && (
-                    <span className="text-muted-foreground text-sm line-through">
-                      {formatPrice(product.compare_at_price)}
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <Badge
-                    variant={
-                      product.stock_quantity > 0 ? "default" : "destructive"
-                    }
-                  >
-                    {product.stock_quantity > 0
-                      ? `متوفر (${product.stock_quantity})`
-                      : "نفذ"}
-                  </Badge>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => openEditDialog(product)}
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(product.id)}
-                    >
-                      <Trash2 className="w-4 h-4 text-destructive" />
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredProducts.map((product) => (
+             <DashboardProductCard
+                key={product.id}
+                product={{
+                  ...product,
+                  category_name: categories.find(c => c.id === product.category_id)?.name // Enrich with category name
+                }}
+                onEdit={openEditDialog}
+                onDelete={handleDelete}
+             />
           ))}
         </div>
       )}
 
       {/* Add/Edit Product Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">اسم المنتج *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="مثال: طماطم طازجة"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">الوصف</Label>
-              <Textarea
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="وصف المنتج..."
-                rows={3}
-              />
-            </div>
-            {/* Image Upload */}
-            <div className="space-y-2">
-              <Label>صورة المنتج</Label>
-              <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
-                {imagePreview ? (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="معاينة"
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="absolute top-2 left-2 h-6 w-6"
-                      onClick={() => {
-                        setImageFile(null);
-                        setImagePreview(null);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer block">
-                    <div className="flex flex-col items-center gap-2 py-4">
-                      <Upload className="w-8 h-8 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">
-                        اضغط لرفع صورة
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        PNG, JPG حتى 5 ميجابايت
-                      </span>
+        <DialogContent className="w-[95vw] max-w-lg max-h-[85vh] p-0 flex flex-col gap-0 overflow-hidden">
+          <div className="px-6 py-4 border-b">
+            <DialogHeader>
+              <DialogTitle>
+                {editingProduct ? "تعديل المنتج" : "إضافة منتج جديد"}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">اسم المنتج *</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="مثال: طماطم طازجة"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">الوصف</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder="وصف المنتج..."
+                  rows={3}
+                />
+              </div>
+              {/* Image Upload */}
+              <div className="space-y-2">
+                <Label>صورة المنتج</Label>
+                <div className="border-2 border-dashed border-border rounded-lg p-4 text-center hover:border-primary/50 transition-colors">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="معاينة"
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-2 left-2 h-6 w-6"
+                        onClick={() => {
+                          setImageFile(null);
+                          setImagePreview(null);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
                     </div>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageChange}
-                    />
-                  </label>
-                )}
+                  ) : (
+                    <label className="cursor-pointer block">
+                      <div className="flex flex-col items-center gap-2 py-4">
+                        <Upload className="w-8 h-8 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          اضغط لرفع صورة
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          PNG, JPG حتى 5 ميجابايت
+                        </span>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageChange}
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">السعر (ج.م) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData({ ...formData, price: e.target.value })
+                    }
+                    placeholder="25"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="compare_price">السعر قبل الخصم</Label>
+                  <Input
+                    id="compare_price"
+                    type="number"
+                    value={formData.compare_at_price}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        compare_at_price: e.target.value,
+                      })
+                    }
+                    placeholder="30"
+                  />
+                </div>
+              </div>
               <div className="space-y-2">
-                <Label htmlFor="price">السعر (ج.م) *</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
+                <Label htmlFor="category">التصنيف *</Label>
+                <Select
+                  value={formData.category_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category_id: value })
                   }
-                  placeholder="25"
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="اختر التصنيف" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stock">الكمية المتوفرة</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  value={formData.stock_quantity}
+                  onChange={(e) =>
+                    setFormData({ ...formData, stock_quantity: e.target.value })
+                  }
+                  placeholder="10"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="compare_price">السعر قبل الخصم</Label>
-                <Input
-                  id="compare_price"
-                  type="number"
-                  value={formData.compare_at_price}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      compare_at_price: e.target.value,
-                    })
-                  }
-                  placeholder="30"
-                />
-              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="category">التصنيف *</Label>
-              <Select
-                value={formData.category_id}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, category_id: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="اختر التصنيف" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="stock">الكمية المتوفرة</Label>
-              <Input
-                id="stock"
-                type="number"
-                value={formData.stock_quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, stock_quantity: e.target.value })
-                }
-                placeholder="10"
-              />
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button
-                onClick={handleSave}
-                disabled={isSaving || isUploading}
-                className="flex-1"
-              >
-                {isUploading
-                  ? "جاري رفع الصورة..."
-                  : isSaving
-                  ? "جاري الحفظ..."
-                  : editingProduct
-                  ? "تحديث"
-                  : "إضافة"}
-              </Button>
-              <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                إلغاء
-              </Button>
-            </div>
+          </div>
+
+          <div className="p-4 border-t bg-background mt-auto flex gap-3">
+            <Button
+              onClick={handleSave}
+              disabled={isSaving || isUploading}
+              className="flex-1"
+            >
+              {isUploading
+                ? "جاري رفع الصورة..."
+                : isSaving
+                ? "جاري الحفظ..."
+                : editingProduct
+                ? "تحديث"
+                : "إضافة"}
+            </Button>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              إلغاء
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -1252,13 +1252,13 @@ function DashboardOrders() {
   const toggleMute = () => {
     const newMuteStatus = SoundService.toggleMute();
     setIsMuted(newMuteStatus);
-    toast.success(newMuteStatus ? "تم كتم الصوت" : "تم تفعيل الصوت");
+    notify.success(newMuteStatus ? "تم كتم الصوت" : "تم تفعيل الصوت");
   };
 
   const enableAudio = async () => {
     const enabled = await SoundService.enableAudio();
     if (enabled) {
-      toast.success("تم تفعيل التنبيهات الصوتية");
+      notify.success("تم تفعيل التنبيهات الصوتية");
     }
   };
 
@@ -1292,14 +1292,14 @@ function DashboardOrders() {
     setIsUpdating(true);
     try {
       await orderService.updateStatus(orderId, newStatus as any, user.id);
-      toast.success("تم تحديث حالة الطلب");
+      notify.success("تم تحديث حالة الطلب");
       loadData();
       if (selectedOrder && selectedOrder.id === orderId) {
         setSelectedOrder({ ...selectedOrder, status: newStatus });
       }
     } catch (error: any) {
       console.error("DEBUG: Status update failed", error);
-      toast.error(error.message || "فشل تحديث حالة الطلب");
+      notify.error(error.message || "فشل تحديث حالة الطلب");
     } finally {
       setIsUpdating(false);
     }
@@ -1675,11 +1675,13 @@ function DashboardOrders() {
   );
 }
 
-import { MapLocationPicker, LocationPreviewMap } from "@/components/MapLocationPicker"; // Ensure import
+import { LocationPreviewMap, MapLocationPicker } from "@/components/MapLocationPicker"; // Ensure import
+import { ShopHoursSettings } from "@/components/dashboard/ShopHoursSettings";
 
 // Shop Settings / Registration
 function DashboardSettings() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [shop, setShop] = useState<Shop | null>(null);
   const [regions, setRegions] = useState<Region[]>([]);
   const [categories, setCategories] = useState<Category[]>([]); // Shop Categories
@@ -1706,18 +1708,27 @@ function DashboardSettings() {
     longitude: 0,
   });
 
-  useEffect(() => {
-    loadData();
-  }, [user]);
+  // React Query for Shop
+  const { data: userShop, isLoading: isShopLoading } = useQuery({
+    queryKey: ["shop", "owner", user?.id],
+    queryFn: () => user?.id ? shopsService.getByOwnerId(user.id) : Promise.resolve(null),
+    enabled: !!user,
+  });
 
-  const loadData = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    try {
-      const userShop = await shopsService.getByOwnerId(user.id);
-      setShop(userShop);
-      if (userShop) {
-        setFormData({
+  // Fetch meta data (Regions/Categories) separately or keep inside useEffect? 
+  // Better to use useQuery for them too, or keep concise. Let's keep meta data simple for now.
+
+  useEffect(() => {
+    loadMetaData();
+  }, []);
+
+  useEffect(() => {
+    if (userShop) {
+      setShop(userShop); // Keep local state for compatibility or remove it? using userShop directly is better but setShop is used elsewhere?
+      // Check if setShop is used elsewhere for optimist updates? 
+      // Actually, let's keep setShop synced with userShop
+      
+      setFormData({
           name: userShop.name,
           description: userShop.description || "",
           phone: userShop.phone,
@@ -1727,32 +1738,32 @@ function DashboardSettings() {
           category_id: userShop.category_id || "",
           latitude: userShop.latitude || 30.7865, 
           longitude: userShop.longitude || 31.0004, 
-        });
-        if (userShop.logo_url) setLogoPreview(userShop.logo_url);
-        if (userShop.cover_url) setCoverPreview(userShop.cover_url);
-      }
-
-      const [regs, cats] = await Promise.all([
-        regionsService.getAll(),
-        categoriesService.getAll()
-      ]);
-      
-      setRegions(regs);
-      // Filter for Shop Categories only (client-side for now)
-      setCategories(cats.filter(c => c.type === 'SHOP'));
-      
-    } catch (error) {
-      console.error("Failed to load data:", error);
-    } finally {
-      setIsLoading(false);
+      });
+      if (userShop.logo_url) setLogoPreview(userShop.logo_url);
+      if (userShop.cover_url) setCoverPreview(userShop.cover_url);
     }
+  }, [userShop]);
+
+  const loadMetaData = async () => {
+      try {
+        const [regs, cats] = await Promise.all([
+            regionsService.getAll(),
+            categoriesService.getAll()
+        ]);
+        setRegions(regs);
+        setCategories(cats.filter(c => c.type === 'SHOP'));
+      } catch (e) { console.error(e); }
+      setIsLoading(false); // Overrides pure query loading
   };
+
+  // Sync loading states
+  const showLoading = isLoading || isShopLoading;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'logo' | 'cover') => {
      if (e.target.files && e.target.files[0]) {
        const file = e.target.files[0];
        if (file.size > 5 * 1024 * 1024) {
-         toast.error("حجم الملف يجب أن لا يتجاوز 5 ميجابايت");
+         notify.error("حجم الملف يجب أن لا يتجاوز 5 ميجابايت");
          return;
        }
        
@@ -1790,12 +1801,12 @@ function DashboardSettings() {
       !formData.region_id ||
       !formData.category_id // Mandatory
     ) {
-      toast.error("يرجى ملء جميع الحقول المطلوبة (بما في ذلك نوع المتجر)");
+      notify.error("يرجى ملء جميع الحقول المطلوبة (بما في ذلك نوع المتجر)");
       return;
     }
 
     if (!formData.latitude || !formData.longitude || (formData.latitude === 30.7865 && formData.longitude === 31.0004)) {
-       toast.error("يرجى تحديد موقع المتجر على الخريطة بدقة");
+       notify.error("يرجى تحديد موقع المتجر على الخريطة بدقة");
        return;
     }
 
@@ -1848,7 +1859,7 @@ function DashboardSettings() {
            rejection_reason: shop.approval_status === 'REJECTED' ? null : shop.rejection_reason,
            status: newStatus as any
         });
-        toast.success("تم تحديث بيانات المتجر");
+        notify.success("تم تحديث بيانات المتجر");
       } else {
         // New Shop -> PENDING
         await shopsService.create({
@@ -1859,19 +1870,20 @@ function DashboardSettings() {
           is_active: false,
           is_open: true // Open by default but inactive until approved
         } as any);
-        toast.success("تم إنشاء المتجر بنجاح! سيتم مراجعته قريباً.");
+        notify.success("تم إنشاء المتجر بنجاح! سيتم مراجعته قريباً.");
       }
-      loadData();
+        // Invalidate to refresh data
+        queryClient.invalidateQueries({ queryKey: ["shop", "owner", user?.id] });
     } catch (error: any) {
       console.error("Failed to save shop:", error);
-      toast.error(error.message || "فشل حفظ المتجر");
+      notify.error(error.message || "فشل حفظ المتجر");
     } finally {
       setIsSaving(false);
       setIsUploading(false);
     }
   };
 
-  if (isLoading) {
+  if (showLoading) {
     return (
       <div className="space-y-6">
         <div>
@@ -1941,474 +1953,228 @@ function DashboardSettings() {
 
       {renderStatusBanner()}
 
-      <Card>
-        <CardContent className="p-6">
-          <div className="space-y-6 max-w-2xl">
-            
-            {/* Images Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-               <div className="space-y-2">
-                  <Label>شعار المتجر (Logo)</Label>
-                  <div className="border border-dashed rounded-lg p-4 text-center hover:bg-muted/50 transition-colors relative h-40 flex items-center justify-center">
-                     {logoPreview ? (
-                        <div className="relative w-full h-full">
-                           <img src={logoPreview} alt="Logo" className="w-full h-full object-contain" />
-                           <Button size="icon" variant="destructive" className="absolute top-0 right-0 h-6 w-6" onClick={(e) => { e.preventDefault(); setLogoFile(null); setLogoPreview(null); }}>
-                              <X className="h-3 w-3" />
-                           </Button>
-                        </div>
-                     ) : (
-                        <div className="space-y-2 pointer-events-none">
-                           <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                           <span className="text-xs text-muted-foreground block">اضغط للرفع</span>
-                        </div>
-                     )}
-                     <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'logo')} />
-                  </div>
-               </div>
-
-               <div className="space-y-2">
-                  <Label>غلاف المتجر (Cover)</Label>
-                  <div className="border border-dashed rounded-lg p-4 text-center hover:bg-muted/50 transition-colors relative h-40 flex items-center justify-center overflow-hidden">
-                     {coverPreview ? (
-                        <div className="relative w-full h-full">
-                           <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-                           <Button size="icon" variant="destructive" className="absolute top-0 right-0 h-6 w-6" onClick={(e) => { e.preventDefault(); setCoverFile(null); setCoverPreview(null); }}>
-                              <X className="h-3 w-3" />
-                           </Button>
-                        </div>
-                     ) : (
-                        <div className="space-y-2 pointer-events-none">
-                           <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                           <span className="text-xs text-muted-foreground block">اضغط للرفع</span>
-                        </div>
-                     )}
-                     <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'cover')} />
-                  </div>
-               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="space-y-2">
-                 <Label htmlFor="shopName">اسم المتجر *</Label>
-                 <Input
-                   id="shopName"
-                   value={formData.name}
-                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                   placeholder="مثال: سوبر ماركت النور"
-                 />
-               </div>
-               
-               <div className="space-y-2">
-                 <Label htmlFor="category">نوع المتجر *</Label>
-                 <Select
-                   value={formData.category_id}
-                   onValueChange={(value) => setFormData({ ...formData, category_id: value })}
-                 >
-                   <SelectTrigger>
-                     <SelectValue placeholder="اختر نوع المتجر" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     {categories.map((cat) => (
-                       <SelectItem key={cat.id} value={cat.id}>
-                         <div className="flex items-center gap-2">
-                           {/* {cat.icon_url && <img src={cat.icon_url} className="w-4 h-4" />} */}
-                           <span>{cat.name}</span>
-                         </div>
-                       </SelectItem>
-                     ))}
-                   </SelectContent>
-                 </Select>
-               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="shopDesc">وصف المتجر</Label>
-              <Textarea
-                id="shopDesc"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="وصف مختصر عن متجرك..."
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">رقم الهاتف *</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  dir="ltr"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  placeholder="01xxxxxxxxx"
-                />
-              </div>
-              <div className="space-y-2">
-                 <Label htmlFor="region">المنطقة *</Label>
-                 <Select
-                   value={formData.region_id}
-                   onValueChange={(value) => setFormData({ ...formData, region_id: value })}
-                 >
-                   <SelectTrigger>
-                     <SelectValue placeholder="اختر المنطقة" />
-                   </SelectTrigger>
-                   <SelectContent>
-                     {regions.map((region) => (
-                       <SelectItem key={region.id} value={region.id}>{region.name}</SelectItem>
-                     ))}
-                   </SelectContent>
-                 </Select>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="whatsapp">واتساب</Label>
-              <Input
-                id="whatsapp"
-                type="tel"
-                dir="ltr"
-                value={formData.whatsapp}
-                onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
-                placeholder="01xxxxxxxxx"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="address">العنوان التفصيلي *</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                placeholder="شارع، مبنى، علامة مميزة..."
-              />
-            </div>
-
-            {/* STORE LOCATION MAP */}
-            <div className="space-y-2 pt-4 border-t">
-               <Label>موقع المتجر على الخريطة *</Label>
-               
-               <div className="flex gap-2">
-                 <Button
-                   type="button"
-                   variant="outline"
-                   onClick={() => setShowMapPicker(true)}
-                   className="w-full"
-                 >
-                   <MapPin className="w-4 h-4 ml-2" />
-                   {formData.latitude && formData.latitude !== 30.7865 ? "تغيير الموقع" : "تحديد الموقع"}
-                 </Button>
-               </div>
-
-               <div 
-                 className="h-[200px] w-full rounded-lg overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity relative bg-muted"
-                 onClick={() => setShowMapPicker(true)}
-               >
-                  {formData.latitude ? (
-                    <LocationPreviewMap 
-                      position={{ lat: formData.latitude, lng: formData.longitude }} 
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
-                      <span>اضغط لتحديد الموقع</span>
-                    </div>
-                  )}
-               </div>
-               
-               <p className="text-xs text-muted-foreground">
-                 هذا الموقع سيظهر للمناديب لتسهيل الوصول إليك.
-               </p>
-
-               <MapLocationPicker 
-                 open={showMapPicker}
-                 onClose={() => setShowMapPicker(false)}
-                 initialPosition={{ lat: formData.latitude, lng: formData.longitude }}
-                 onLocationSelect={(loc) => {
-                    setFormData(prev => ({ ...prev, latitude: loc.lat, longitude: loc.lng }));
-                 }}
-               />
-            </div>
-
-            <Button
-              onClick={handleSave}
-              disabled={isSaving || isUploading}
-              className="w-full mt-6"
-            >
-              {isUploading ? "جاري رفع الملفات..." : isSaving ? "جاري الحفظ..." : shop ? "حفظ التغييرات" : "إنشاء المتجر"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Admin Categories Management
-// Admin Categories Management
-function AdminCategories() {
-  const { user } = useAuth();
-  const isAdmin = user?.role === "ADMIN";
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [showDialog, setShowDialog] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [activeTab, setActiveTab] = useState<'PRODUCT' | 'SHOP'>('PRODUCT');
-  const [formData, setFormData] = useState({
-    name: "",
-    description: "",
-    icon: "",
-  });
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (isAdmin) {
-      loadCategories();
-    }
-  }, [isAdmin]);
-
-  // Secondary protection - return null if not admin
-  if (!isAdmin) {
-    return <AccessDenied />;
-  }
-
-  const loadCategories = async () => {
-    setIsLoading(true);
-    try {
-      const data = await categoriesService.getAll();
-      setCategories(data);
-    } catch (error) {
-      console.error("Failed to load categories:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({ name: "", description: "", icon: "" });
-    setEditingCategory(null);
-  };
-
-  const openAddDialog = () => {
-    resetForm();
-    setShowDialog(true);
-  };
-
-  const openEditDialog = (category: Category) => {
-    setEditingCategory(category);
-    setFormData({
-      name: category.name,
-      description: category.description || "",
-      icon: category.icon || "",
-    });
-    setShowDialog(true);
-  };
-
-  const handleSave = async () => {
-    if (!formData.name) {
-      toast.error("يرجى إدخال اسم التصنيف");
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const categoryData = {
-        name: formData.name,
-        description: formData.description || null,
-        icon: formData.icon || null,
-        slug: `category-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 8)}`,
-        is_active: true,
-        type: activeTab, // Save correctly based on active tab
-      };
-
-      if (editingCategory) {
-        await categoriesService.update(editingCategory.id, categoryData);
-        toast.success("تم تحديث التصنيف بنجاح");
-      } else {
-        await categoriesService.create(categoryData as any);
-        toast.success("تم إضافة التصنيف بنجاح");
-      }
-
-      setShowDialog(false);
-      resetForm();
-      loadCategories();
-    } catch (error: any) {
-      console.error("Failed to save category:", error);
-      toast.error(error.message || "فشل حفظ التصنيف");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handleDelete = async (categoryId: string) => {
-    if (!confirm("هل أنت متأكد من حذف هذا التصنيف؟")) return;
-
-    try {
-      await categoriesService.delete(categoryId);
-      toast.success("تم حذف التصنيف");
-      loadCategories();
-    } catch (error) {
-      toast.error("فشل حذف التصنيف - قد يكون مرتبط بمنتجات");
-    }
-  };
-
-  const filteredCategories = categories.filter(c => (c.type || 'PRODUCT') === activeTab);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold">{AR.admin.categories}</h1>
-          <p className="text-muted-foreground">جاري التحميل...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">{AR.admin.categories}</h1>
-          <p className="text-muted-foreground">
-            إدارة تصنيفات {activeTab === 'SHOP' ? 'المتاجر' : 'المنتجات'} ({filteredCategories.length} تصنيف)
-          </p>
-        </div>
-        <Button className="gap-2" onClick={openAddDialog}>
-          <Plus className="w-4 h-4" />
-          إضافة تصنيف {activeTab === 'SHOP' ? 'متجر' : ''}
-        </Button>
-      </div>
-
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 lg:w-[400px]">
-          <TabsTrigger value="PRODUCT">تصنيفات المنتجات</TabsTrigger>
-          <TabsTrigger value="SHOP">أنواع المتاجر</TabsTrigger>
+      <Tabs defaultValue="general" className="space-y-6" dir="rtl">
+        <TabsList>
+            <TabsTrigger value="general">بيانات المتجر</TabsTrigger>
+            {shop && <TabsTrigger value="hours">ساعات العمل والحالة</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="general">
+          <Card>
+            <CardHeader>
+              <CardTitle>بيانات المتجر</CardTitle>
+              <CardDescription>
+                قم بتحديث بيانات متجرك، الشعار، ومناطق التوصيل.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Logo & Cover */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Logo Upload */}
+                  <div className="space-y-2">
+                      <Label>شعار المتجر</Label>
+                      <div 
+                        className="h-32 w-32 rounded-full border-2 border-dashed flex items-center justify-center relative overflow-hidden bg-muted cursor-pointer hover:bg-muted/80 transition-colors mx-auto md:mx-0"
+                      >
+                        {logoPreview ? (
+                            <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="text-center p-2 pointer-events-none">
+                              <Upload className="w-6 h-6 mx-auto text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground block mt-1">اضغط للرفع</span>
+                            </div>
+                        )}
+                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'logo')} />
+                      </div>
+                  </div>
+
+                  {/* Cover Upload */}
+                  <div className="space-y-2">
+                      <Label>غلاف المتجر</Label>
+                      <div 
+                        className="h-32 w-full rounded-lg border-2 border-dashed flex items-center justify-center relative overflow-hidden bg-muted cursor-pointer hover:bg-muted/80 transition-colors"
+                      >
+                        {coverPreview ? (
+                            <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                        ) : (
+                            <div className="space-y-2 pointer-events-none">
+                              <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground block">اضغط للرفع</span>
+                            </div>
+                        )}
+                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={(e) => handleFileChange(e, 'cover')} />
+                      </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="shopName">اسم المتجر *</Label>
+                    <Input
+                      id="shopName"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="مثال: سوبر ماركت النور"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="category">نوع المتجر *</Label>
+                    <Select
+                      value={formData.category_id}
+                      onValueChange={(value) => setFormData({ ...formData, category_id: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="اختر نوع المتجر" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categories.map((cat) => (
+                          <SelectItem key={cat.id} value={cat.id}>
+                            <div className="flex items-center gap-2">
+                              {/* {cat.icon_url && <img src={cat.icon_url} className="w-4 h-4" />} */}
+                              <span>{cat.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="shopDesc">وصف المتجر</Label>
+                  <Textarea
+                    id="shopDesc"
+                    value={formData.description}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    placeholder="وصف مختصر عن متجرك..."
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">رقم الهاتف *</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      dir="ltr"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="01xxxxxxxxx"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                      <Label htmlFor="region">المنطقة *</Label>
+                      <Select
+                        value={formData.region_id}
+                        onValueChange={(value) => setFormData({ ...formData, region_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="اختر المنطقة" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {regions.map((region) => (
+                            <SelectItem key={region.id} value={region.id}>{region.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="whatsapp">واتساب</Label>
+                  <Input
+                    id="whatsapp"
+                    type="tel"
+                    dir="ltr"
+                    value={formData.whatsapp}
+                    onChange={(e) => setFormData({ ...formData, whatsapp: e.target.value })}
+                    placeholder="01xxxxxxxxx"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">العنوان التفصيلي *</Label>
+                  <Input
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="شارع، مبنى، علامة مميزة..."
+                  />
+                </div>
+
+                {/* STORE LOCATION MAP */}
+                <div className="space-y-2 pt-4 border-t">
+                  <Label>موقع المتجر على الخريطة *</Label>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowMapPicker(true)}
+                      className="w-full"
+                    >
+                      <MapPin className="w-4 h-4 ml-2" />
+                      {formData.latitude && formData.latitude !== 30.7865 ? "تغيير الموقع" : "تحديد الموقع"}
+                    </Button>
+                  </div>
+
+                  <div 
+                    className="h-[200px] w-full rounded-lg overflow-hidden border cursor-pointer hover:opacity-90 transition-opacity relative bg-muted"
+                    onClick={() => setShowMapPicker(true)}
+                  >
+                      {formData.latitude && !showMapPicker ? (
+                        <LocationPreviewMap 
+                          position={{ lat: formData.latitude, lng: formData.longitude }} 
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                          <span>اضغط لتحديد الموقع</span>
+                        </div>
+                      )}
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground">
+                    هذا الموقع سيظهر للمناديب لتسهيل الوصول إليك.
+                  </p>
+
+                  <MapLocationPicker 
+                    open={showMapPicker}
+                    onClose={() => setShowMapPicker(false)}
+                    initialPosition={{ lat: formData.latitude, lng: formData.longitude }}
+                    onLocationSelect={(loc) => {
+                        setFormData(prev => ({ ...prev, latitude: loc.lat, longitude: loc.lng }));
+                    }}
+                  />
+                </div>
+
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving || isUploading}
+                  className="w-full mt-6"
+                >
+                  {isUploading ? "جاري رفع الملفات..." : isSaving ? "جاري الحفظ..." : shop ? "حفظ التغييرات" : "إنشاء المتجر"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {shop && (
+          <TabsContent value="hours">
+            <ShopHoursSettings shop={shop} />
+          </TabsContent>
+        )}
       </Tabs>
-
-      {filteredCategories.length === 0 ? (
-        <Card>
-          <CardContent className="p-6">
-            <div className="text-center py-12">
-              <Folders className="w-16 h-16 mx-auto text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">لا توجد تصنيفات</h3>
-              <p className="text-muted-foreground mb-4">
-                ابدأ بإضافة تصنيف جديد
-              </p>
-              <Button onClick={openAddDialog}>
-                <Plus className="w-4 h-4 ml-2" />
-                إضافة تصنيف
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCategories.map((category) => (
-            <Card key={category.id}>
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center text-2xl">
-                    {category.icon || "📦"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold truncate">{category.name}</h3>
-                    {category.description && (
-                      <p className="text-sm text-muted-foreground truncate">
-                        {category.description}
-                      </p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-1 justify-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEditDialog(category)}
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDelete(category.id)}
-                  >
-                    <Trash2 className="w-4 h-4 text-destructive" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? "تعديل التصنيف" : `إضافة تصنيف ${activeTab === 'SHOP' ? 'متجر' : 'منتج'} جديد`}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="catName">اسم التصنيف *</Label>
-              <Input
-                id="catName"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder={activeTab === 'SHOP' ? "مثال: بقالة، صيدلية" : "مثال: إلكترونيات"}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="catIcon">أيقونة (إيموجي)</Label>
-              <Input
-                id="catIcon"
-                value={formData.icon}
-                onChange={(e) =>
-                  setFormData({ ...formData, icon: e.target.value })
-                }
-                placeholder="📱"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="catDesc">الوصف</Label>
-              <Textarea
-                id="catDesc"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="وصف التصنيف..."
-                rows={3}
-              />
-            </div>
-            <div className="flex gap-3 pt-4">
-              <Button
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex-1"
-              >
-                {isSaving
-                  ? "جاري الحفظ..."
-                  : editingCategory
-                  ? "تحديث"
-                  : "إضافة"}
-              </Button>
-              <Button variant="outline" onClick={() => setShowDialog(false)}>
-                إلغاء
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
+
+// Admin Categories Management
+// Admin Categories Management
+
 
 // Admin Regions Management
 function AdminRegions() {
@@ -2468,7 +2234,7 @@ function AdminRegions() {
 
   const handleSave = async () => {
     if (!formData.name) {
-      toast.error("يرجى إدخال اسم المنطقة");
+      notify.error("يرجى إدخال اسم المنطقة");
       return;
     }
 
@@ -2485,10 +2251,10 @@ function AdminRegions() {
 
       if (editingRegion) {
         await regionsService.update(editingRegion.id, regionData);
-        toast.success("تم تحديث المنطقة بنجاح");
+        notify.success("تم تحديث المنطقة بنجاح");
       } else {
         await regionsService.create(regionData as any);
-        toast.success("تم إضافة المنطقة بنجاح");
+        notify.success("تم إضافة المنطقة بنجاح");
       }
 
       setShowDialog(false);
@@ -2496,7 +2262,7 @@ function AdminRegions() {
       loadRegions();
     } catch (error: any) {
       console.error("Failed to save region:", error);
-      toast.error(error.message || "فشل حفظ المنطقة");
+      notify.error(error.message || "فشل حفظ المنطقة");
     } finally {
       setIsSaving(false);
     }
@@ -2507,10 +2273,10 @@ function AdminRegions() {
 
     try {
       await regionsService.delete(regionId);
-      toast.success("تم حذف المنطقة");
+      notify.success("تم حذف المنطقة");
       loadRegions();
     } catch (error) {
-      toast.error("فشل حذف المنطقة - قد تكون مرتبطة بمتاجر");
+      notify.error("فشل حذف المنطقة - قد تكون مرتبطة بمتاجر");
     }
   };
 
@@ -2711,16 +2477,16 @@ function AdminShops() {
          });
       }
 
-      toast.success("تم تحديث حالة المتجر بنجاح");
+      notify.success("تم تحديث حالة المتجر بنجاح");
       loadShops();
     } catch (error) {
-      toast.error("فشل تحديث الحالة");
+      notify.error("فشل تحديث الحالة");
     }
   };
 
   const handleProcessAction = async () => {
     if (!selectedShop || !reason) {
-      toast.error("يرجى ذكر السبب");
+      notify.error("يرجى ذكر السبب");
       return;
     }
 
@@ -2732,7 +2498,7 @@ function AdminShops() {
           rejection_reason: reason,
           is_active: false // Rejected shops are inactive
         });
-        toast.success("تم رفض المتجر");
+        notify.success("تم رفض المتجر");
       } else if (actionDialog === 'SUSPEND') {
         await shopsService.toggleActive(selectedShop.id, {
           is_active: false,
@@ -2740,14 +2506,14 @@ function AdminShops() {
           disabled_at: new Date().toISOString(),
           disabled_by: user?.id
         });
-        toast.success("تم إيقاف المتجر");
+        notify.success("تم إيقاف المتجر");
       }
       
       setActionDialog(null);
       loadShops();
     } catch (error) {
       console.error(error);
-      toast.error("فشل تنفيذ الإجراء");
+      notify.error("فشل تنفيذ الإجراء");
     } finally {
       setIsProcessing(false);
     }
@@ -2756,20 +2522,20 @@ function AdminShops() {
   const handleTogglePremium = async (shop: Shop) => {
     try {
       await shopsService.update(shop.id, { is_premium: !shop.is_premium });
-      toast.success(shop.is_premium ? "تم إلغاء التميز" : "تم تمييز المتجر");
+      notify.success(shop.is_premium ? "تم إلغاء التميز" : "تم تمييز المتجر");
       loadShops();
     } catch (error) {
-       toast.error("فشل تحديث التميز");
+       notify.error("فشل تحديث التميز");
     }
   };
 
   const handleToggleOpen = async (shop: Shop) => {
     try {
       await shopsService.update(shop.id, { is_open: !shop.is_open });
-      toast.success(shop.is_open ? "تم إغلاق المتجر" : "تم فتح المتجر");
+      notify.success(shop.is_open ? "تم إغلاق المتجر" : "تم فتح المتجر");
       loadShops();
     } catch (error) {
-      toast.error("فشل تحديث حالة المتجر");
+      notify.error("فشل تحديث حالة المتجر");
     }
   };
 
@@ -2826,15 +2592,15 @@ function AdminShops() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
-          <TabsTrigger value="PENDING" className="relative">
+        <TabsList className="w-full justify-start overflow-x-auto flex flex-nowrap md:grid md:grid-cols-5 md:w-[600px] h-auto p-1 gap-1 no-scrollbar">
+          <TabsTrigger value="PENDING" className="relative flex-shrink-0 min-w-[100px]">
              قيد المراجعة
              {pendingCount > 0 && <span className="absolute -top-1 -right-1 flex h-3 w-3"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span></span>}
           </TabsTrigger>
-          <TabsTrigger value="APPROVED">مقبولة (نشطة)</TabsTrigger>
-          <TabsTrigger value="SUSPENDED">موقوفة</TabsTrigger>
-          <TabsTrigger value="REJECTED">مرفوضة</TabsTrigger>
-          <TabsTrigger value="ALL">الكل</TabsTrigger>
+          <TabsTrigger value="APPROVED" className="flex-shrink-0 min-w-[100px]">مقبولة (نشطة)</TabsTrigger>
+          <TabsTrigger value="SUSPENDED" className="flex-shrink-0 min-w-[80px]">موقوفة</TabsTrigger>
+          <TabsTrigger value="REJECTED" className="flex-shrink-0 min-w-[80px]">مرفوضة</TabsTrigger>
+          <TabsTrigger value="ALL" className="flex-shrink-0 min-w-[60px]">الكل</TabsTrigger>
         </TabsList>
 
         <div className="mt-4 grid gap-4">
@@ -2850,7 +2616,7 @@ function AdminShops() {
               <Card key={shop.id} className={cn("transition-all", shop.is_premium ? "border-amber-400 shadow-md bg-amber-50/10" : "")}>
                 <CardContent className="p-4">
                   <div className="flex flex-col md:flex-row gap-4">
-                    <div className="w-20 h-20 rounded-lg bg-muted flex-shrink-0 relative overflow-hidden">
+                    <div className="w-full md:w-20 h-40 md:h-20 rounded-lg bg-muted flex-shrink-0 relative overflow-hidden">
                        {shop.logo_url ? (
                          <img src={shop.logo_url} alt={shop.name} className="w-full h-full object-cover" />
                        ) : (
@@ -2860,7 +2626,7 @@ function AdminShops() {
                     </div>
                     
                     <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-bold text-lg">{shop.name}</h3>
                         {shop.is_premium && <Badge className="bg-amber-500 hover:bg-amber-600">مميز</Badge>}
                         <Badge variant={shop.approval_status === 'APPROVED' ? 'success' : shop.approval_status === 'REJECTED' ? 'destructive' : 'secondary'}>
@@ -2873,14 +2639,14 @@ function AdminShops() {
                       {!shop.is_active && shop.disabled_reason && <p className="text-sm text-destructive mt-1">سبب الإيقاف: {shop.disabled_reason}</p>}
                     </div>
 
-                    <div className="flex flex-col justify-center gap-2 min-w-[140px]">
+                    <div className="flex flex-col justify-end gap-2 w-full md:w-auto md:min-w-[140px]">
                       {/* Actions based on Status */}
                       {shop.approval_status === 'PENDING' && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700" onClick={() => handleUpdateStatus(shop, 'APPROVED')}>
+                        <div className="flex flex-col gap-2 w-full">
+                          <Button size="sm" className="w-full bg-green-600 hover:bg-green-700 h-10" onClick={() => handleUpdateStatus(shop, 'APPROVED')}>
                             قبول
                           </Button>
-                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(shop, 'REJECTED')}>
+                          <Button size="sm" variant="destructive" className="w-full h-10" onClick={() => handleUpdateStatus(shop, 'REJECTED')}>
                             رفض
                           </Button>
                         </div>
@@ -2898,13 +2664,13 @@ function AdminShops() {
                                      is_premium: true, 
                                      premium_sort_order: parseInt(val) 
                                    }).then(() => {
-                                     toast.success("تم تحديث ترتيب التميز");
+                                     notify.success("تم تحديث ترتيب التميز");
                                      loadShops();
                                    });
                                  }
                                }}
                              >
-                               <SelectTrigger className="w-[140px] h-8 border-amber-500 text-amber-600 bg-amber-50/50">
+                               <SelectTrigger className="w-full md:w-[140px] h-10 border-amber-500 text-amber-600 bg-amber-50/50">
                                  <SelectValue placeholder="ترتيب التميز" />
                                </SelectTrigger>
                                <SelectContent>
@@ -2915,7 +2681,7 @@ function AdminShops() {
                                </SelectContent>
                              </Select>
                            ) : (
-                             <Button size="sm" variant="outline" onClick={() => handleTogglePremium(shop)}>
+                             <Button size="sm" variant="outline" className="w-full h-10" onClick={() => handleTogglePremium(shop)}>
                                 تمييز المتجر
                              </Button>
                            )}
@@ -2924,11 +2690,11 @@ function AdminShops() {
 
                       {shop.approval_status === 'APPROVED' && (
                         shop.is_active ? (
-                          <Button size="sm" variant="destructive" onClick={() => handleUpdateStatus(shop, 'SUSPENDED')}>
+                          <Button size="sm" variant="destructive" className="w-full h-10" onClick={() => handleUpdateStatus(shop, 'SUSPENDED')}>
                              <Ban className="w-4 h-4 ml-2" /> إيقاف
                           </Button>
                         ) : (
-                          <Button size="sm" variant="outline" onClick={() => handleUpdateStatus(shop, 'APPROVED')}>
+                          <Button size="sm" variant="outline" className="w-full h-10" onClick={() => handleUpdateStatus(shop, 'APPROVED')}>
                              <CheckCircle className="w-4 h-4 ml-2" /> تفعيل
                           </Button>
                         )
@@ -2936,13 +2702,13 @@ function AdminShops() {
 
                        {/* Open/Close Button */}
                       {shop.approval_status === 'APPROVED' && shop.is_active && (
-                          <Button size="sm" variant="outline" onClick={() => handleToggleOpen(shop)}>
+                          <Button size="sm" variant="outline" className="w-full h-10" onClick={() => handleToggleOpen(shop)}>
                             {shop.is_open ? "إغلاق" : "فتح"}
                           </Button>
                       )}
 
-                      <Link to={`/dashboard/shops/analytics/${shop.id}`}>
-                        <Button variant="ghost" size="sm" className="w-full">
+                      <Link to={`/dashboard/shops/analytics/${shop.id}`} className="w-full">
+                        <Button variant="ghost" size="sm" className="w-full h-10">
                           <BarChart2 className="w-4 h-4 ml-2" /> التحليلات
                         </Button>
                       </Link>
@@ -3022,7 +2788,7 @@ function AdminUsers() {
       setUsers(data);
     } catch (error) {
       console.error("Failed to load users:", error);
-      toast.error("فشل تحميل المستخدمين");
+      notify.error("فشل تحميل المستخدمين");
     } finally {
       setIsLoading(false);
     }
@@ -3048,12 +2814,12 @@ function AdminUsers() {
 
       if (error) throw error;
 
-      toast.success("تم تحديث صلاحية المستخدم بنجاح");
+      notify.success("تم تحديث صلاحية المستخدم بنجاح");
       setShowRoleDialog(false);
       loadUsers();
     } catch (error) {
       console.error("Failed to update role:", error);
-      toast.error("فشل تحديث صلاحية المستخدم");
+      notify.error("فشل تحديث صلاحية المستخدم");
     } finally {
       setIsUpdating(false);
     }

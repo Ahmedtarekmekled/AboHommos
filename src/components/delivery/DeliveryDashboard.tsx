@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { MapPin, Phone, CheckCircle, Package, Truck, Clock, Navigation, Volume2, VolumeX, Bell, Loader2, Map as MapIcon, ArrowUpRight, User } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -174,12 +174,12 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
   const toggleMute = () => {
     const newMuteStatus = SoundService.toggleMute();
     setIsMuted(newMuteStatus);
-    toast.success(newMuteStatus ? "تم كتم الصوت" : "تم تفعيل الصوت");
+    notify.success(newMuteStatus ? "تم كتم الصوت" : "تم تفعيل الصوت");
   };
 
   const enableAudio = async () => {
     const enabled = await SoundService.enableAudio();
-    if (enabled) toast.success("تم تفعيل التنبيهات الصوتية");
+    if (enabled) notify.success("تم تفعيل التنبيهات الصوتية");
   };
 
   const handleAcceptOrder = async (orderId: string) => {
@@ -187,13 +187,13 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
     setIsAccepting(orderId);
     try {
       await orderService.assignDriverToParent(orderId, user.id);
-      toast.success("تم قبول الطلب بنجاح! 🚀");
+      notify.success("تم قبول الطلب بنجاح! 🚀");
       await SoundService.playNewOrderSound(); 
       refreshAvailable();
       refreshMy();
     } catch (err: any) {
       console.error("Accept order failed:", err);
-      toast.error("حدث خطأ أثناء قبول الطلب");
+      notify.error("حدث خطأ أثناء قبول الطلب");
     } finally {
       setIsAccepting(null);
     }
@@ -209,10 +209,10 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
 
     try {
       await orderService.updateParentStatus(orderId, newStatus, user.id);
-      toast.success(`تم تحديث الحالة إلى ${ORDER_STATUS_CONFIG[newStatus].label}`);
+      notify.success(`تم تحديث الحالة إلى ${ORDER_STATUS_CONFIG[newStatus].label}`);
     } catch (error: any) {
       console.error('Error updating status:', error);
-      toast.error("فشل تحديث الحالة");
+      notify.error("فشل تحديث الحالة");
       // Revert optimism
       setMyOrders(previousOrders);
     } finally {
@@ -231,7 +231,7 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
     try {
       // 1. Update Server
       await orderService.updateParentStatus(orderId, 'DELIVERED', user.id);
-      toast.success(`تم تسليم الطلب بنجاح ✅`);
+      notify.success(`تم تسليم الطلب بنجاح ✅`);
       
       // 2. Play success sound
       // (Optional: Add a cash register sound or similar here if available)
@@ -248,7 +248,7 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
 
     } catch (error: any) {
       console.error('Error confirming delivery:', error);
-      toast.error("فشل إتمام التسليم");
+      notify.error("فشل إتمام التسليم");
     } finally {
       setIsUpdating(null);
     }
@@ -417,7 +417,7 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
                                           className="h-6 w-6"
                                           onClick={() => {
                                              navigator.clipboard.writeText(`${lat},${lng}`);
-                                             toast.success("تم نسخ الإحداثيات");
+                                             notify.success("تم نسخ الإحداثيات");
                                           }}
                                         >
                                            <span className="text-xs">نسخ</span>

@@ -22,7 +22,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -106,7 +106,7 @@ export default function OrderPage() {
           },
           () => {
             queryClient.invalidateQueries({ queryKey: ["order", id] });
-            toast.info("تم تحديث حالة الطلب");
+            notify.info("تم تحديث حالة الطلب");
           }
         )
         .subscribe();
@@ -144,7 +144,7 @@ export default function OrderPage() {
           },
           () => {
              queryClient.invalidateQueries({ queryKey: ["order", id] });
-             toast.info("تم تحديث حالة الطلب");
+             notify.info("تم تحديث حالة الطلب");
           }
         )
         .subscribe();
@@ -165,7 +165,7 @@ export default function OrderPage() {
 
   const copyOrderNumber = (num: string) => {
     navigator.clipboard.writeText(num);
-    toast.success("تم نسخ رقم الطلب");
+    notify.success("تم نسخ رقم الطلب");
   };
 
   const contactShop = (phone: string) => {

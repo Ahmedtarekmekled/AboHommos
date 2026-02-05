@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { Category } from "@/types/database";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AR } from "@/lib/i18n";
@@ -65,9 +66,9 @@ const demoCategories = [
 ];
 
 export default function CategoriesPage() {
-  const { data: categories, isLoading } = useQuery({
+  const { data: categories, isLoading } = useQuery<Category[]>({
     queryKey: ["categories"],
-    queryFn: categoriesService.getAll,
+    queryFn: () => categoriesService.getAll(),
   });
 
   const displayCategories = categories?.length ? categories : (demoCategories as any[]);

@@ -171,6 +171,46 @@ export interface Database {
         };
         Relationships: [];
       };
+      shop_working_hours: {
+        Row: {
+          id: string;
+          shop_id: string;
+          day_of_week: number;
+          is_day_off: boolean;
+          open_time: string | null;
+          close_time: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          shop_id: string;
+          day_of_week: number;
+          is_day_off?: boolean;
+          open_time?: string | null;
+          close_time?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          shop_id?: string;
+          day_of_week?: number;
+          is_day_off?: boolean;
+          open_time?: string | null;
+          close_time?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "shop_working_hours_shop_id_fkey";
+            columns: ["shop_id"];
+            referencedRelation: "shops";
+            referencedColumns: ["id"];
+          }
+        ];
+      };
       shops: {
         Row: {
           id: string;
@@ -208,6 +248,7 @@ export interface Database {
           rejection_reason: string | null;
           is_premium: boolean;
           premium_sort_order: number;
+          override_mode: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
           created_at: string;
           updated_at: string;
         };
@@ -247,6 +288,7 @@ export interface Database {
           rejection_reason?: string | null;
           is_premium?: boolean;
           premium_sort_order?: number;
+          override_mode?: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
           created_at?: string;
           updated_at?: string;
         };
@@ -286,6 +328,7 @@ export interface Database {
           rejection_reason?: string | null;
           is_premium?: boolean;
           premium_sort_order?: number;
+          override_mode?: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
           created_at?: string;
           updated_at?: string;
         };
@@ -934,3 +977,5 @@ export interface ApiResponse<T> {
   data: T | null;
   error: ApiError | null;
 }
+
+export type WorkingHours = Database["public"]["Tables"]["shop_working_hours"]["Row"];

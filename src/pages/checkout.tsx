@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import {
   CreditCard,
   Truck,
@@ -139,7 +139,7 @@ export default function CheckoutPage() {
            setCalculatedDeliveryFee(calculation.parent_order_data.total_delivery_fee);
            setIsFallbackFee(calculation.is_fallback);
            if (calculation.is_fallback && calculation.fallback_warning) {
-             toast.info(calculation.fallback_warning);
+             notify.info(calculation.fallback_warning);
            }
         }
       } catch (error) {
@@ -161,7 +161,7 @@ export default function CheckoutPage() {
       const isValid = await trigger(["address", "phone"]);
       if (!isValid) return;
       if (!locationData.address || locationData.address.length < 10) {
-        toast.error("يرجى إدخال عنوان صالح (10 حروف على الأقل)");
+        notify.error("يرجى إدخال عنوان صالح (10 حروف على الأقل)");
         return;
       }
     }
@@ -208,7 +208,7 @@ export default function CheckoutPage() {
       });
 
       if (calculation.validation_errors.length > 0) {
-        toast.error(calculation.validation_errors[0]);
+        notify.error(calculation.validation_errors[0]);
         return;
       }
 
@@ -216,7 +216,7 @@ export default function CheckoutPage() {
       setIsFallbackFee(calculation.is_fallback);
       
       if (calculation.is_fallback && calculation.fallback_warning) {
-        toast.info(calculation.fallback_warning, { duration: 5000 });
+        notify.info(calculation.fallback_warning);
       }
     } catch (error) {
       console.error('Fee calculation error:', error);
@@ -228,7 +228,7 @@ export default function CheckoutPage() {
 
   const onSubmit = async (data: CheckoutForm) => {
     if (!cart || !cart.items || cart.items.length === 0) {
-      toast.error("السلة فارغة");
+      notify.error("السلة فارغة");
       return;
     }
 
@@ -236,7 +236,7 @@ export default function CheckoutPage() {
     try {
       const { user: authUser } = await getCurrentUser();
       if (!authUser) {
-        toast.error("يجب تسجيل الدخول");
+        notify.error("يجب تسجيل الدخول");
         return;
       }
 
@@ -262,13 +262,13 @@ export default function CheckoutPage() {
 
         // Check for validation errors
         if (calculation.validation_errors.length > 0) {
-          toast.error(calculation.validation_errors[0]);
+          notify.error(calculation.validation_errors[0]);
           return;
         }
 
         // Show fallback warning if applicable
         if (calculation.is_fallback && calculation.fallback_warning) {
-          toast.warning(calculation.fallback_warning);
+          notify.warning(calculation.fallback_warning);
         }
 
         // Create the multi-store order
@@ -277,7 +277,7 @@ export default function CheckoutPage() {
         // Clear cart after successful order
         await clearCart();
         
-        toast.success(AR.checkout.success);
+        notify.success(AR.checkout.success);
         navigate(`/orders/${result.parent_order_id}`, { replace: true });
         
       } else {
@@ -300,12 +300,12 @@ export default function CheckoutPage() {
 
         // setOrderComplete(...) removed
         
-        toast.success(AR.checkout.success);
+        notify.success(AR.checkout.success);
         navigate(`/orders/${order.id}`, { replace: true });
       }
     } catch (error) {
       console.error(error);
-      toast.error("حدث خطأ أثناء إنشاء الطلب");
+      notify.error("حدث خطأ أثناء إنشاء الطلب");
     } finally {
       setIsLoading(false);
     }

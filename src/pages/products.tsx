@@ -27,7 +27,7 @@ import {
 import { ShopProductCard } from "@/components/ShopProductCard";
 import { shopsService, productsService } from "@/services";
 import { useCart } from "@/store/app-context";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 
 export default function ProductsPage() {
@@ -82,9 +82,9 @@ export default function ProductsPage() {
     setIsProcessing(true);
     try {
       await addToCart(shopId, productId, 1);
-      toast.success("تمت الإضافة للسلة");
+      notify.success("تمت الإضافة للسلة");
     } catch (error) {
-      toast.error("فشل إضافة المنتج", { description: "يرجى المحاولة مرة أخرى" });
+      notify.error("فشل إضافة المنتج: يرجى المحاولة مرة أخرى");
     } finally {
       setIsProcessing(false);
       setPendingProduct(null);
@@ -97,9 +97,9 @@ export default function ProductsPage() {
     try {
       // Don't clear cart, just add new item. User accepted the fee warning.
       await addToCart(selectedShopId, pendingProduct.id, 1);
-      toast.success("تمت إضافة المنتج للسلة");
+      notify.success("تمت إضافة المنتج للسلة");
     } catch (error) {
-       toast.error("حدث خطأ في الإضافة");
+       notify.error("حدث خطأ في الإضافة");
     } finally {
       setIsProcessing(false);
       setPendingProduct(null);

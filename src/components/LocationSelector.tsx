@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import {
   MapPin,
   Navigation,
@@ -236,7 +236,7 @@ export function LocationSelector({
     // Re-open dialog
     setShowMapPicker(false);
     setShowAddDialog(true);
-    toast.success("تم تحديد الموقع بنجاح");
+    notify.success("تم تحديد الموقع بنجاح");
   }, [editingAddress]);
 
   const getLabelIcon = (label: string) => {
@@ -375,7 +375,6 @@ export function LocationSelector({
                 setSelectedAddressId(null);
               }
             }}
-            disabled={disabled}
           >
             <SelectTrigger>
               <SelectValue placeholder="اختر المنطقة" />
@@ -528,7 +527,7 @@ function AddressDialog({
   
   const requestGPSLocation = async () => {
     if (!navigator.geolocation) {
-      toast.error("متصفحك لا يدعم خدمات تحديد الموقع");
+      notify.error("متصفحك لا يدعم خدمات تحديد الموقع");
       return;
     }
 
@@ -540,11 +539,11 @@ function AddressDialog({
         setGpsLoading(false);
         const locationText = `موقع GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         setAddressText((prev) => prev ? `${prev} (${locationText})` : locationText);
-        toast.success("تم تحديد موقعك بنجاح");
+        notify.success("تم تحديد موقعك بنجاح");
       },
       (error) => {
         setGpsLoading(false);
-        toast.error("فشل تحديد الموقع: " + error.message);
+        notify.error("فشل تحديد الموقع: " + error.message);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -552,7 +551,7 @@ function AddressDialog({
 
   const handleSave = async () => {
     if (!addressText.trim()) {
-      toast.error("يرجى إدخال العنوان");
+      notify.error("يرجى إدخال العنوان");
       return;
     }
 
@@ -578,18 +577,18 @@ function AddressDialog({
       // If we are editing an existing real DB address (it has an ID)
       if (address?.id) {
         await addressesService.update(address.id, userId, payload);
-        toast.success("تم تحديث العنوان بنجاح");
+        notify.success("تم تحديث العنوان بنجاح");
       } else {
         await addressesService.create({
           user_id: userId,
           ...payload
         });
-        toast.success("تم إضافة العنوان بنجاح");
+        notify.success("تم إضافة العنوان بنجاح");
       }
       await onSave();
     } catch (error) {
       console.error("Failed to save address:", error);
-      toast.error("حدث خطأ أثناء حفظ العنوان");
+      notify.error("حدث خطأ أثناء حفظ العنوان");
     } finally {
       setIsSaving(false);
     }
@@ -683,7 +682,9 @@ function AddressDialog({
             >
               <SelectTrigger>
                 <SelectValue
-                  placeholder={!regionId ? "اختر المنطقة أولاً" : "اختر الحي"}
+                  placeholder={
+                    !regionId ? "اختر المنطقة أولاً" : "اختر الحي"
+                  }
                 />
               </SelectTrigger>
               <SelectContent>

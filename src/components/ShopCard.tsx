@@ -30,18 +30,21 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
         {/* Badges Container - Top Left */}
         <div className="absolute top-3 left-3 z-10 flex flex-col gap-2 items-end">
           {/* Status Badge with Dot (No Text) */}
+          {/* Status Badge with Dot (No Text) */}
           <div 
             className={cn(
               "flex items-center justify-center w-6 h-6 rounded-full shadow-sm border backdrop-blur-sm",
-              shop.is_open 
+              (shop.override_mode === 'FORCE_OPEN' || (shop.override_mode !== 'FORCE_CLOSED' && shop.is_open))
                 ? "bg-white/90 border-green-200" 
                 : "bg-white/90 border-red-200"
             )}
-            title={shop.is_open ? AR.shops.open : AR.shops.closed}
+            title={shop.override_mode === 'FORCE_OPEN' ? AR.shops.open : (shop.override_mode === 'FORCE_CLOSED' ? AR.shops.closed : (shop.is_open ? AR.shops.open : AR.shops.closed))}
           >
             <div className={cn(
               "w-2.5 h-2.5 rounded-full",
-              shop.is_open ? "bg-green-500 animate-pulse" : "bg-red-500"
+              (shop.override_mode === 'FORCE_OPEN' || (shop.override_mode !== 'FORCE_CLOSED' && shop.is_open))
+                 ? "bg-green-500 animate-pulse" 
+                 : "bg-red-500"
             )} />
           </div>
         </div>

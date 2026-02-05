@@ -8,7 +8,7 @@ import {
 } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import {
   Navigation,
   Loader2,
@@ -174,7 +174,7 @@ export function MapLocationPicker({
   const getCurrentLocation = useCallback(() => {
     if (!navigator.geolocation) {
       setGpsError("متصفحك لا يدعم خدمات تحديد الموقع");
-      toast.error("متصفحك لا يدعم خدمات تحديد الموقع");
+      notify.error("متصفحك لا يدعم خدمات تحديد الموقع");
       return;
     }
 
@@ -189,7 +189,7 @@ export function MapLocationPicker({
         };
         setPosition(newPosition);
         setIsGettingLocation(false);
-        toast.success("تم تحديد موقعك بنجاح");
+        notify.success("تم تحديد موقعك بنجاح");
       },
       (error) => {
         setIsGettingLocation(false);
@@ -206,7 +206,7 @@ export function MapLocationPicker({
             break;
         }
         setGpsError(errorMessage);
-        toast.error(errorMessage);
+        notify.error(errorMessage);
       },
       {
         enableHighAccuracy: true,

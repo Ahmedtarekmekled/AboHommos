@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Eye, EyeOff, Store } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,11 +54,11 @@ export default function LoginPage() {
         };
         const message =
           errorMap[error.message] || error.message || "فشل تسجيل الدخول";
-        toast.error(message);
+        notify.error(message);
         setIsLoading(false);
         return;
       }
-      toast.success(AR.auth.loginSuccess);
+      notify.success(AR.auth.loginSuccess);
       setIsLoading(false);
 
       // Redirect based on user role
@@ -68,7 +68,7 @@ export default function LoginPage() {
         navigate("/");
       }
     } catch {
-      toast.error("حدث خطأ غير متوقع");
+      notify.error("حدث خطأ غير متوقع");
       setIsLoading(false);
     }
   };
@@ -78,10 +78,10 @@ export default function LoginPage() {
     try {
       const { error } = await signInWithGoogle();
       if (error) {
-        toast.error(error.message || "فشل تسجيل الدخول بجوجل");
+        notify.error(error.message || "فشل تسجيل الدخول بجوجل");
       }
     } catch {
-      toast.error("حدث خطأ غير متوقع");
+      notify.error("حدث خطأ غير متوقع");
     } finally {
       setIsGoogleLoading(false);
     }

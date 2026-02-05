@@ -7,6 +7,7 @@ import type {
   Region,
   District,
   Address,
+  WorkingHours,
 } from "@/types/database";
 
 // Extended Address type with district info
@@ -16,12 +17,29 @@ export type AddressWithDistrict = Address & {
 
 // Categories
 export const categoriesService = {
-  async getAll(): Promise<Category[]> {
-    const { data, error } = await supabase
+  async getAll(options?: {
+    type?: 'SHOP' | 'PRODUCT';
+    parentId?: string | null;
+  }): Promise<Category[]> {
+    let query = supabase
       .from("categories")
       .select("*")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
+
+    if (options?.type) {
+      query = query.eq("type", options.type);
+    }
+
+    if (options?.parentId !== undefined) {
+      if (options.parentId === null) {
+        query = query.is("parent_id", null);
+      } else {
+        query = query.eq("parent_id", options.parentId);
+      }
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data || [];
@@ -204,6 +222,43 @@ export const productsService = {
 
 // Shops
 export const shopsService = {
+  async getHours(shopId: string): Promise<WorkingHours[]> {
+    const { data, error } = await supabase
+      .from("shop_working_hours")
+      .select("*")
+      .eq("shop_id", shopId)
+      .order("day_of_week", { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async updateHours(shopId: string, hours: Partial<WorkingHours>[]): Promise<void> {
+    const { error } = await supabase
+      .from("shop_working_hours")
+      .upsert(
+        hours.map(h => ({
+           shop_id: shopId,
+           day_of_week: h.day_of_week,
+           is_day_off: h.is_day_off,
+           open_time: h.open_time,
+           close_time: h.close_time
+        } as any)),
+        { onConflict: 'shop_id, day_of_week' }
+      );
+
+    if (error) throw error;
+  },
+
+  async updateOverride(shopId: string, mode: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED'): Promise<void> {
+    const { error } = await supabase
+      .from("shops")
+      .update({ override_mode: mode })
+      .eq("id", shopId);
+      
+    if (error) throw error;
+  },
+
   async getAll(options?: {
     regionId?: string;
     status?: string;

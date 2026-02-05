@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/store/app-context";
 import { Product } from "@/types/database";
 import { formatPrice, cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 interface ShopProductCardProps {
   product: Product;
@@ -36,11 +36,9 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
     setIsAdding(true);
     try {
       await addToCart(shopId, product.id, 1);
-      toast.success("تمت الإضافة للسلة");
+      notify.success("تمت الإضافة للسلة");
     } catch (error) {
-      toast.error("فشل إضافة المنتج", {
-        description: "يرجى تسجيل الدخول أولاً"
-      });
+      notify.error("فشل إضافة المنتج: يرجى تسجيل الدخول أولاً");
     } finally {
       setIsAdding(false);
     }

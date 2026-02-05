@@ -17,7 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { 
   Truck, 
   MapPin, 
@@ -75,7 +75,7 @@ function CouriersTab({ couriers, period, setPeriod }: { couriers: CourierSummary
       setAnalytics(days);
     } catch (e) {
       console.error(e);
-      toast.error("فشل تحميل التحليلات");
+      notify.error("فشل تحميل التحليلات");
     } finally {
       setLoadingAnalytics(false);
     }
@@ -209,7 +209,7 @@ function OrdersTab({ couriers }: { couriers: CourierSummary[] }) {
       });
       setOrders(data);
     } catch (e) {
-      toast.error("فشل تحميل الطلبات");
+      notify.error("فشل تحميل الطلبات");
     } finally {
       setIsLoading(false);
     }
@@ -218,10 +218,10 @@ function OrdersTab({ couriers }: { couriers: CourierSummary[] }) {
   const handleAssign = async (orderId: string, courierId: string | undefined) => {
      try {
        await deliveryAdminService.assignCourier(orderId, courierId || null);
-       toast.success(courierId ? "تم تعيين المندوب" : "تم إلغاء تعيين المندوب");
+       notify.success(courierId ? "تم تعيين المندوب" : "تم إلغاء تعيين المندوب");
        setOrders(orders.map(o => o.id === orderId ? { ...o, delivery_user_id: courierId || null } : o));
      } catch (e) {
-       toast.error("فشل التحديث");
+       notify.error("فشل التحديث");
      }
   };
 
@@ -369,9 +369,9 @@ function SettingsTab() {
   const handleSave = async () => {
      try {
        await deliveryAdminService.updateSettings(settings);
-       toast.success("تم حفظ الإعدادات");
+       notify.success("تم حفظ الإعدادات");
      } catch (e) {
-       toast.error("فشل الحفظ");
+       notify.error("فشل الحفظ");
      }
   };
 
@@ -493,7 +493,7 @@ export function AdminDelivery() {
       setCouriers(combined);
     } catch (e) {
       console.error(e);
-      toast.error("فشل تحميل البيانات");
+      notify.error("فشل تحميل البيانات");
     } finally {
       setLoading(false);
     }

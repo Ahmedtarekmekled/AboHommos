@@ -9,7 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { useState } from "react";
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,7 +36,7 @@ export default function ProductPage() {
 
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
-      toast.error("يجب تسجيل الدخول أولاً");
+      notify.error("يجب تسجيل الدخول أولاً");
       return;
     }
 
@@ -45,9 +45,9 @@ export default function ProductPage() {
     setIsAdding(true);
     try {
       await addToCart(product.shop_id, product.id, quantity);
-      toast.success(AR.cart.itemAdded);
+      notify.success(AR.cart.itemAdded);
     } catch (error) {
-      toast.error("حدث خطأ أثناء الإضافة");
+      notify.error("حدث خطأ أثناء الإضافة");
     } finally {
       setIsAdding(false);
     }

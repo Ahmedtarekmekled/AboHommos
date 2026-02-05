@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { supabase } from "@/lib/supabase"; // Ensure this import exists
 import {
   Store,
   Star,
@@ -23,16 +25,66 @@ import { ShopProductCard } from "@/components/ShopProductCard";
 import { Input } from "@/components/ui/input";
 import { shopsService, productsService } from "@/services";
 
+
+
+import { getShopStatus } from "@/lib/shop-status";
+
 export default function ShopPage() {
   const { slug } = useParams<{ slug: string }>();
+  // State for search and filtering
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
+  const queryClient = useQueryClient();
   const { data: shop, isLoading: shopLoading } = useQuery({
     queryKey: ["shop", slug],
     queryFn: () => shopsService.getBySlug(slug!),
     enabled: !!slug,
   });
+
+  // Fetch Working Hours
+  const { data: workingHours } = useQuery({
+    queryKey: ["shop-hours", shop?.id],
+    queryFn: () => shop?.id ? shopsService.getHours(shop.id) : Promise.resolve([]),
+    enabled: !!shop?.id,
+  });
+
+  // Real-time subscription
+  useEffect(() => {
+    if (!shop?.id) return;
+
+    const channel = supabase
+      .channel(`shop-status-${shop.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT/UPDATE/DELETE)
+          schema: 'public',
+          table: 'shops',
+          filter: `id=eq.${shop.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["shop", slug] });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shop_working_hours',
+          filter: `shop_id=eq.${shop.id}`,
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["shop-hours", shop.id] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [shop?.id, slug, queryClient]);
 
   const { data: products, isLoading: productsLoading } = useQuery({
     queryKey: ["products", "shop", shop?.id],
@@ -40,6 +92,7 @@ export default function ShopPage() {
     enabled: !!shop?.id,
   });
 
+  // --- Handlers ---
   const handleOpenMaps = () => {
     if (shop?.latitude && shop?.longitude) {
       window.open(
@@ -66,6 +119,7 @@ export default function ShopPage() {
       window.open(`https://wa.me/${number.replace(/\D/g, "")}`, "_blank");
     }
   };
+
 
   if (shopLoading) {
     return (
@@ -94,9 +148,22 @@ export default function ShopPage() {
     );
   }
 
-  // Check if shop is approved
+  // Calculate Status
+  // If workingHours is undefined, pass empty array to rely on legacy/override
+  const shopStatus = getShopStatus(shop, workingHours || []);
   const isApproved = shop.approval_status === "APPROVED";
-  const canOrder = isApproved && shop.is_open;
+  const canOrder = isApproved && shopStatus.isOpen;
+
+  // Format Today's Hours
+  const today = new Date().getDay();
+  const todaySchedule = workingHours?.find(h => h.day_of_week === today);
+  const todayTimeRange = todaySchedule && !todaySchedule.is_day_off 
+     ? `${todaySchedule.open_time?.slice(0,5)} - ${todaySchedule.close_time?.slice(0,5)}`
+     : "مغلق اليوم";
+
+  // --- End Logic ---
+
+
 
   return (
     <div className="min-h-screen" dir="rtl">
@@ -224,61 +291,33 @@ export default function ShopPage() {
           )}
 
           {/* Status & Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3">
-            {/* Open/Closed Status */}
-            <Badge
-              variant={shop.is_open ? "default" : "secondary"}
-              className={`text-sm px-3 py-1 ${
-                shop.is_open
-                  ? "bg-success text-success-foreground"
-                  : ""
-              }`}
-            >
-              {shop.is_open ? "مفتوح" : "مغلق"}
-            </Badge>
 
-            {/* Action Buttons Row */}
-            <div className="flex gap-2">
-              {/* Maps Button */}
-              {(shop.latitude || shop.address) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleOpenMaps}
-                  className="gap-1"
-                >
-                  <Navigation className="w-4 h-4" />
-                  الموقع
-                </Button>
-              )}
 
-              {/* Call Button */}
-              {shop.phone && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleCall}
-                  className="gap-1"
-                >
-                  <Phone className="w-4 h-4" />
-                  اتصال
-                </Button>
-              )}
+          <div className="flex flex-wrap gap-3">
+             {/* Status Badge */}
+             <div className={`px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium ${
+                shopStatus.isOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+             }`}>
+                <Clock className="w-4 h-4" />
+                <span>{shopStatus.statusText}</span>
+             </div>
 
-              {/* WhatsApp Button */}
-              {(shop.whatsapp || shop.phone) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleWhatsApp}
-                  className="gap-1"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  واتساب
-                </Button>
-              )}
-            </div>
+             <Button variant="outline" onClick={handleOpenMaps} disabled={!shop.latitude && !shop.address}>
+               <MapPin className="w-4 h-4 ml-2" />
+               Google Maps
+             </Button>
+
+            <Button variant="outline" onClick={handleCall} disabled={!shop.phone}>
+              <Phone className="w-4 h-4 ml-2" />
+              اتصال
+            </Button>
+            
+            <Button variant="outline" onClick={handleWhatsApp} disabled={!shop.whatsapp && !shop.phone}>
+               <MessageCircle className="w-4 h-4 ml-2" />
+               واتساب
+            </Button>
           </div>
+
 
           {/* Warning if not approved */}
           {!isApproved && (
@@ -290,10 +329,13 @@ export default function ShopPage() {
           )}
 
           {/* Warning if closed */}
-          {isApproved && !shop.is_open && (
+          {isApproved && !shopStatus.isOpen && (
             <div className="mt-6 p-4 bg-muted border rounded-lg">
               <p className="text-sm text-muted-foreground">
-                المتجر مغلق حالياً. يرجى المحاولة لاحقاً
+                 {shopStatus.isOverride && shop.override_mode === 'FORCE_CLOSED' 
+                   ? "المتجر مغلق مؤقتاً من قبل المالك. يرجى المحاولة لاحقاً."
+                   : "المتجر مغلق حالياً حسب ساعات العمل. يمكنك تصفح المنتجات ولكن لا يمكنك الطلب."
+                 }
               </p>
             </div>
           )}
@@ -472,13 +514,18 @@ export default function ShopPage() {
                       </div>
                       <div className="flex-1 text-right">
                         <h4 className="font-medium mb-1">حالة المتجر</h4>
-                        <p
-                          className={`text-sm font-medium ${
-                            shop.is_open ? "text-success" : "text-muted-foreground"
-                          }`}
-                        >
-                          {shop.is_open ? "مفتوح الآن" : "مغلق حالياً"}
-                        </p>
+                        <div className="flex flex-col gap-1">
+                          <p
+                            className={`text-sm font-medium ${
+                              shopStatus.isOpen ? "text-success" : "text-destructive"
+                            }`}
+                          >
+                            {shopStatus.statusText}
+                          </p>
+                          <p className="text-xs text-muted-foreground" dir="ltr">
+                             {todayTimeRange}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
