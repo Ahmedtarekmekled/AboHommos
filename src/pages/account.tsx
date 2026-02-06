@@ -576,7 +576,7 @@ function AddressDialog({
       setAddressText("");
       setPhone("");
       setRegionId("");
-      setDistrictId("");
+      // setDistrictId("");
       setIsDefault(false);
     }
   }, [address]);
@@ -701,33 +701,7 @@ function AddressDialog({
             </Select>
           </div>
 
-          {/* District */}
-          <div className="space-y-2">
-            <Label>الحي</Label>
-            <Select
-              value={districtId || "placeholder"}
-              onValueChange={(val) =>
-                val !== "placeholder" && setDistrictId(val)
-              }
-              disabled={!regionId || districts.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={!regionId ? "اختر المنطقة أولاً" : "اختر الحي"}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="placeholder" disabled>
-                  اختر الحي
-                </SelectItem>
-                {districts.map((district) => (
-                  <SelectItem key={district.id} value={district.id}>
-                    {district.name} - {formatPrice(district.delivery_fee)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
 
           {/* Address */}
           <div className="space-y-2">

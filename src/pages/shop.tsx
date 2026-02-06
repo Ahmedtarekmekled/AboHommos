@@ -27,7 +27,7 @@ import { shopsService, productsService } from "@/services";
 
 
 
-import { getShopStatus } from "@/lib/shop-status";
+import { getShopOpenState } from "@/lib/shop-helpers";
 
 export default function ShopPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -107,6 +107,16 @@ export default function ShopPage() {
     }
   };
 
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: shop?.name,
+        text: shop?.description || "",
+        url: window.location.href,
+      });
+    }
+  };
+
   const handleCall = () => {
     if (shop?.phone) {
       window.location.href = `tel:${shop.phone}`;
@@ -150,16 +160,21 @@ export default function ShopPage() {
 
   // Calculate Status
   // If workingHours is undefined, pass empty array to rely on legacy/override
-  const shopStatus = getShopStatus(shop, workingHours || []);
+  const shopStatus = getShopOpenState(shop, workingHours || []);
   const isApproved = shop.approval_status === "APPROVED";
   const canOrder = isApproved && shopStatus.isOpen;
 
   // Format Today's Hours
   const today = new Date().getDay();
-  const todaySchedule = workingHours?.find(h => h.day_of_week === today);
-  const todayTimeRange = todaySchedule && !todaySchedule.is_day_off 
-     ? `${todaySchedule.open_time?.slice(0,5)} - ${todaySchedule.close_time?.slice(0,5)}`
-     : "مغلق اليوم";
+  const todayShifts = workingHours?.filter(h => h.day_of_week === today && h.is_enabled)
+    .sort((a,b) => (a.period_index || 0) - (b.period_index || 0)) || [];
+    
+  let todayTimeRange = "مغلق اليوم";
+  if (todayShifts.length > 0) {
+    todayTimeRange = todayShifts.map(s => 
+      `${s.start_time?.slice(0,5)} - ${s.end_time?.slice(0,5)}`
+    ).join(" / ");
+  }
 
   // --- End Logic ---
 
@@ -299,7 +314,11 @@ export default function ShopPage() {
                 shopStatus.isOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
              }`}>
                 <Clock className="w-4 h-4" />
-                <span>{shopStatus.statusText}</span>
+                <span>
+                  {shopStatus.isOpen 
+                    ? (shopStatus.reason === 'MANUAL_OPEN' ? "مفتوح (تجاوز يدوي)" : "مفتوح الآن") 
+                    : (shopStatus.reason === 'MANUAL_CLOSED' ? "مغلق (تجاوز يدوي)" : "مغلق")}
+                </span>
              </div>
 
              <Button variant="outline" onClick={handleOpenMaps} disabled={!shop.latitude && !shop.address}>
@@ -332,7 +351,7 @@ export default function ShopPage() {
           {isApproved && !shopStatus.isOpen && (
             <div className="mt-6 p-4 bg-muted border rounded-lg">
               <p className="text-sm text-muted-foreground">
-                 {shopStatus.isOverride && shop.override_mode === 'FORCE_CLOSED' 
+                 {shop.override_mode === 'FORCE_CLOSED' 
                    ? "المتجر مغلق مؤقتاً من قبل المالك. يرجى المحاولة لاحقاً."
                    : "المتجر مغلق حالياً حسب ساعات العمل. يمكنك تصفح المنتجات ولكن لا يمكنك الطلب."
                  }
@@ -520,7 +539,7 @@ export default function ShopPage() {
                               shopStatus.isOpen ? "text-success" : "text-destructive"
                             }`}
                           >
-                            {shopStatus.statusText}
+                            {shopStatus.isOpen ? "مفتوح" : "مغلق"}
                           </p>
                           <p className="text-xs text-muted-foreground" dir="ltr">
                              {todayTimeRange}

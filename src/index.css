@@ -5,7 +5,7 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+   :root {
     /* Marketplace Vibrant Theme - Fresh & Trustworthy */
     --background: 0 0% 98%;
     --foreground: 220 20% 15%;
@@ -410,5 +410,16 @@
       opacity: 1;
       transform: translateY(0);
     }
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }

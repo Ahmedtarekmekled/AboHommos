@@ -227,7 +227,8 @@ export const shopsService = {
       .from("shop_working_hours")
       .select("*")
       .eq("shop_id", shopId)
-      .order("day_of_week", { ascending: true });
+      .order("day_of_week", { ascending: true })
+      .order("period_index", { ascending: true });
 
     if (error) throw error;
     return data || [];
@@ -240,11 +241,13 @@ export const shopsService = {
         hours.map(h => ({
            shop_id: shopId,
            day_of_week: h.day_of_week,
-           is_day_off: h.is_day_off,
-           open_time: h.open_time,
-           close_time: h.close_time
+           period_index: h.period_index || 1, // Default to 1 if missing
+           is_enabled: h.is_enabled !== undefined ? h.is_enabled : true,
+           start_time: h.start_time,
+           end_time: h.end_time,
+           crosses_midnight: h.crosses_midnight || false
         } as any)),
-        { onConflict: 'shop_id, day_of_week' }
+        { onConflict: 'shop_id, day_of_week, period_index' }
       );
 
     if (error) throw error;
@@ -313,7 +316,7 @@ export const shopsService = {
     // 1. Fetch all approved & active shops
     let query = supabase
       .from("shops")
-      .select("*, category:categories(id, name, slug, icon)")
+      .select("*, category:categories(id, name, slug, icon), working_hours:shop_working_hours(*)")
       .eq("approval_status", "APPROVED")
       .eq("is_active", true)
       .order("rating", { ascending: false });
@@ -336,7 +339,8 @@ export const shopsService = {
     let salesMap = new Map<string, number>();
     try {
       const { data: stats, error: statsError } = await (supabase.rpc as any)(
-        "get_shop_30d_sales"
+        "get_shop_30d_sales",
+        {}
       );
       if (!statsError && stats) {
         stats.forEach((s: any) => salesMap.set(s.shop_id, Number(s.sales_count)));

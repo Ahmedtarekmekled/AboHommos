@@ -7,15 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { notify } from "@/lib/notify";
-import { Loader2, Save, Clock, AlertTriangle } from "lucide-react";
+import { Loader2, Save, Clock, AlertTriangle, Plus, Trash2, Moon } from "lucide-react";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 interface ShopHoursSettingsProps {
   shop: Shop;
@@ -48,25 +48,17 @@ export function ShopHoursSettings({ shop }: ShopHoursSettingsProps) {
 
   useEffect(() => {
     if (hours) {
-        // Map database hours to state, ensuring all days exist
-        const initialExcisting = hours || [];
-        const initializedState = DAYS.map(day => {
-            const existing = initialExcisting.find(h => h.day_of_week === day.id);
-            return existing || { 
-                day_of_week: day.id, 
-                shop_id: shop.id, 
-                is_day_off: false, 
-                open_time: "09:00", 
-                close_time: "22:00" 
-            };
-        });
-        setHoursState(initializedState);
+      // Load existing hours into state
+      // If no hours exist for a day, we don't create them yet until user interacts, 
+      // OR we can pre-fill empty enabled days if empty? 
+      // Better: Keep exact DB state, but map over DAYS when rendering.
+      // If a day has no records, we treat it as "Disabled" visually until toggled on.
+      setHoursState(hours);
     }
-  }, [hours, shop.id]);
+  }, [hours]);
 
   const updateOverrideMutation = useMutation({
     mutationFn: async (mode: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED') => {
-      // Optimistic Update
       setStatusOverride(mode);
       await shopsService.updateOverride(shop.id, mode);
     },
@@ -78,7 +70,6 @@ export function ShopHoursSettings({ shop }: ShopHoursSettingsProps) {
     },
     onError: () => {
       notify.error("حدث خطأ أثناء التحديث");
-      // Revert logic could go here if needed
       setStatusOverride(shop.override_mode);
     },
   });
@@ -95,10 +86,87 @@ export function ShopHoursSettings({ shop }: ShopHoursSettingsProps) {
     onError: () => notify.error("حدث خطأ أثناء الحفظ"),
   });
 
-  const handleHourChange = (dayId: number, field: keyof WorkingHours, value: any) => {
-    setHoursState(prev => prev.map(h => 
-        h.day_of_week === dayId ? { ...h, [field]: value } : h
-    ));
+  // Helper: Get shifts for a day
+  const getShiftsForDay = (dayId: number) => {
+    return hoursState
+      .filter(h => h.day_of_week === dayId)
+      .sort((a, b) => (a.period_index || 0) - (b.period_index || 0));
+  };
+
+  // Helper: Check if day is enabled (has at least one enabled shift)
+  const isDayEnabled = (dayId: number) => {
+    const shifts = getShiftsForDay(dayId);
+    return shifts.length > 0 && shifts.some(s => s.is_enabled);
+  };
+
+  // Action: Toggle Day
+  const handleToggleDay = (dayId: number, enabled: boolean) => {
+    setHoursState(prev => {
+      const existingShifts = prev.filter(h => h.day_of_week === dayId);
+      
+      if (enabled) {
+        // Enable: If no shifts exist, create default Period 1
+        if (existingShifts.length === 0) {
+          return [...prev, {
+            shop_id: shop.id,
+            day_of_week: dayId,
+            period_index: 1,
+            is_enabled: true,
+            start_time: "09:00",
+            end_time: "22:00",
+            crosses_midnight: false
+          }];
+        }
+        // If shifts exist, make sure at least one is enabled
+        return prev.map(h => h.day_of_week === dayId ? { ...h, is_enabled: true } : h);
+      } else {
+        // Disable: Mark all shifts as disabled
+        return prev.map(h => h.day_of_week === dayId ? { ...h, is_enabled: false } : h);
+      }
+    });
+    setHasChanges(true);
+  };
+
+  // Action: Update Shift Time
+  const handleTimeChange = (dayId: number, periodIndex: number, field: 'start_time' | 'end_time', value: string) => {
+    setHoursState(prev => prev.map(h => {
+      if (h.day_of_week === dayId && h.period_index === periodIndex) {
+        const updated = { ...h, [field]: value };
+        
+        // Auto-detect midnight crossing
+        if (updated.start_time && updated.end_time) {
+          const [startH, startM] = updated.start_time.split(':').map(Number);
+          const [endH, endM] = updated.end_time.split(':').map(Number);
+          
+          updated.crosses_midnight = (endH < startH) || (endH === startH && endM < startM);
+        }
+        return updated;
+      }
+      return h;
+    }));
+    setHasChanges(true);
+  };
+
+  // Action: Add Shift
+  const handleAddShift = (dayId: number) => {
+    const shifts = getShiftsForDay(dayId);
+    if (shifts.length >= 2) return;
+
+    setHoursState(prev => [...prev, {
+      shop_id: shop.id,
+      day_of_week: dayId,
+      period_index: 2,
+      is_enabled: true,
+      start_time: "17:00",
+      end_time: "23:00",
+      crosses_midnight: false
+    }]);
+    setHasChanges(true);
+  };
+
+  // Action: Remove Shift
+  const handleRemoveShift = (dayId: number, periodIndex: number) => {
+    setHoursState(prev => prev.filter(h => !(h.day_of_week === dayId && h.period_index === periodIndex)));
     setHasChanges(true);
   };
 
@@ -156,64 +224,108 @@ export function ShopHoursSettings({ shop }: ShopHoursSettingsProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Clock className="w-5 h-5 text-blue-500" />
-            جدول العمل الأسبوعي
+            جدول العمل الأسبوعي (نظام الورديات)
           </CardTitle>
           <CardDescription>
-            حدد ساعات العمل لكل يوم. سيتم اعتبار المتجر مغلقاً خارج هذه الأوقات في الوضع التلقائي.
+            يمكنك إضافة فترتين لكل يوم. يدعم النظام العمل بعد منتصف الليل.
           </CardDescription>
         </CardHeader>
         <CardContent>
-             <div className="space-y-4">
+             <Accordion type="single" collapsible className="w-full">
                 {DAYS.map(day => {
-                    const dayState = hoursState.find(h => h.day_of_week === day.id);
-                    if (!dayState) return null;
+                    const shifts = getShiftsForDay(day.id);
+                    const enabled = isDayEnabled(day.id);
 
                     return (
-                        <div key={day.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-3 border rounded-lg bg-card/50">
-                            <div className="w-24 font-medium flex items-center justify-between">
-                                {day.label}
-                                <Switch 
-                                    checked={!dayState.is_day_off}
-                                    onCheckedChange={(checked) => handleHourChange(day.id, 'is_day_off', !checked)}
-                                />
-                            </div>
-                            
-                            {!dayState.is_day_off ? (
-                                <div className="flex items-center gap-2 flex-1">
-                                    <div className="grid grid-cols-2 gap-2 flex-1">
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">فتح</Label>
-                                            <Input 
-                                                type="time" 
-                                                value={dayState.open_time || "09:00"} 
-                                                onChange={(e) => handleHourChange(day.id, 'open_time', e.target.value)}
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <Label className="text-xs text-muted-foreground">إغلاق</Label>
-                                            <Input 
-                                                type="time" 
-                                                value={dayState.close_time || "22:00"} 
-                                                onChange={(e) => handleHourChange(day.id, 'close_time', e.target.value)}
-                                            />
-                                        </div>
+                        <AccordionItem key={day.id} value={`day-${day.id}`}>
+                            <AccordionTrigger className="hover:no-underline">
+                                <div className="flex items-center gap-4 w-full">
+                                    <span className="font-medium min-w-[60px] text-right">{day.label}</span>
+                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                        <Switch 
+                                            checked={enabled}
+                                            onCheckedChange={(checked) => handleToggleDay(day.id, checked)}
+                                        />
+                                        <span className={`text-xs ${enabled ? "text-green-600 font-medium" : "text-muted-foreground"}`}>
+                                            {enabled ? 
+                                              (shifts.length > 1 ? "فترتان" : "متاح") 
+                                              : "مغلق"}
+                                        </span>
                                     </div>
                                 </div>
-                            ) : (
-                                <div className="flex-1 text-muted-foreground text-sm flex items-center justify-center bg-muted/20 rounded h-16">
-                                    مغلق طوال اليوم
-                                </div>
-                            )}
-                        </div>
+                            </AccordionTrigger>
+                            <AccordionContent className="px-1 pt-2 pb-4 space-y-4">
+                                {enabled && (
+                                  <>
+                                    {shifts.map((shift, index) => (
+                                        <div key={index} className="flex flex-col gap-2 p-3 bg-muted/30 rounded-lg border relative">
+                                            <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs font-semibold uppercase text-muted-foreground">
+                                                    الفترة {shift.period_index}
+                                                </span>
+                                                {shift.period_index === 2 && (
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => handleRemoveShift(day.id, shift.period_index!)}>
+                                                        <Trash2 className="w-3 h-3" />
+                                                    </Button>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs text-muted-foreground">من</Label>
+                                                    <Input 
+                                                        type="time" 
+                                                        value={shift.start_time || ""} 
+                                                        onChange={(e) => handleTimeChange(day.id, shift.period_index!, 'start_time', e.target.value)}
+                                                        className="h-9"
+                                                    />
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <Label className="text-xs text-muted-foreground">إلى</Label>
+                                                    <Input 
+                                                        type="time" 
+                                                        value={shift.end_time || ""} 
+                                                        onChange={(e) => handleTimeChange(day.id, shift.period_index!, 'end_time', e.target.value)}
+                                                        className="h-9"
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {shift.crosses_midnight && (
+                                                <div className="flex items-center gap-1.5 mt-2">
+                                                    <Badge variant="secondary" className="text-[10px] px-1.5 h-5 font-normal bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                                        <Moon className="w-3 h-3 mr-1" />
+                                                        يمتد لليوم التالي
+                                                    </Badge>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+
+                                    {shifts.length < 2 && (
+                                        <Button variant="outline" size="sm" className="w-full border-dashed" onClick={() => handleAddShift(day.id)}>
+                                            <Plus className="w-3 h-3 mr-2" />
+                                            إضافة فترة ثانية
+                                        </Button>
+                                    )}
+                                  </>
+                                )}
+                                {!enabled && (
+                                    <div className="text-center py-4 text-muted-foreground text-sm">
+                                        المتجر مغلق في يوم {day.label}
+                                    </div>
+                                )}
+                            </AccordionContent>
+                        </AccordionItem>
                     );
                 })}
-             </div>
+             </Accordion>
 
-             <div className="mt-6 flex justify-end">
+             <div className="mt-6 flex justify-end sticky bottom-0 bg-background pt-4 border-t">
                 <Button 
                     onClick={() => saveHoursMutation.mutate(hoursState)} 
                     disabled={!hasChanges || saveHoursMutation.isPending}
-                    className="gap-2"
+                    className="gap-2 w-full sm:w-auto"
                 >
                     {saveHoursMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : <Save className="w-4 h-4"/>}
                     حفظ التغييرات

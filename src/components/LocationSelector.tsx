@@ -218,7 +218,7 @@ export function LocationSelector({
     
     // Construct a temporary address object with the new coordinates
     const newAddressPart = {
-      address: `موقع GPS: ${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`,
+      // address: `موقع GPS: ${coordinates.lat.toFixed(6)}, ${coordinates.lng.toFixed(6)}`, // Removed auto-fill
       latitude: coordinates.lat,
       longitude: coordinates.lng,
       label: editingAddress?.label || "المنزل",
@@ -337,95 +337,58 @@ export function LocationSelector({
         </div>
       )}
 
-      {/* Manual Address Input (Fallback or if no saved addresses) */}
-      {!isAuthenticated && (
-          <div className="space-y-2">
-            <Label htmlFor="address" className="text-sm">
-              <MapPin className="w-4 h-4 inline ml-1" />
-              العنوان التفصيلي
-            </Label>
-            <Textarea
-              id="address"
-              placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5، شقة 12"
-              value={manualAddress}
-              onChange={(e) => {
-                setManualAddress(e.target.value);
-                setSelectedAddressId(null);
-              }}
-              disabled={disabled}
-              className="min-h-[80px]"
-            />
-          </div>
-      )}
-      
-      {/* Region & District Selection (Always visible for clarity or only when manual?) 
-          Keep it visible to allow district selection even without saved address 
-      */}
-      <div className="grid grid-cols-2 gap-3 pt-2 border-t">
-        <div className="space-y-2">
-          <Label htmlFor="region" className="text-sm">
-            المنطقة
-          </Label>
-          <Select
-            value={selectedRegionId || "placeholder"}
-            onValueChange={(val) => {
-              if (val !== "placeholder") {
-                setSelectedRegionId(val);
-                setSelectedDistrictId("");
-                setSelectedAddressId(null);
-              }
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="اختر المنطقة" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="placeholder" disabled>
-                اختر المنطقة
-              </SelectItem>
-              {regions.map((region) => (
-                <SelectItem key={region.id} value={region.id}>
-                  {region.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="district" className="text-sm">
-            الحي
-          </Label>
-          <Select
-            value={selectedDistrictId || "placeholder"}
-            onValueChange={(val) => {
-              if (val !== "placeholder") {
-                setSelectedDistrictId(val);
-                setSelectedAddressId(null);
-              }
-            }}
-            disabled={disabled || !selectedRegionId || districts.length === 0}
-          >
-            <SelectTrigger>
-              <SelectValue
-                placeholder={
-                  !selectedRegionId ? "اختر المنطقة أولاً" : "اختر الحي"
+      {/* Manual Entry Fields (Region, District, Address) - Only show if NO saved address is selected */ }
+      {!selectedAddressId && (
+        <>
+           {/* Region */}
+          <div className="space-y-2 pt-2 border-t">
+            <Label>المنطقة</Label>
+            <Select
+              value={selectedRegionId || "placeholder"}
+              onValueChange={(val) => {
+                if (val !== "placeholder") {
+                  setSelectedRegionId(val);
+                  setSelectedDistrictId("");
+                  setSelectedAddressId(null);
                 }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="placeholder" disabled>
-                اختر الحي
-              </SelectItem>
-              {districts.map((district) => (
-                <SelectItem key={district.id} value={district.id}>
-                  {district.name} - {formatPrice(district.delivery_fee)}
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="اختر المنطقة" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="placeholder" disabled>
+                  اختر المنطقة
                 </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+                {regions.map((region) => (
+                  <SelectItem key={region.id} value={region.id}>
+                    {region.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        
+            {/* Address */}
+           <div className="space-y-2">
+             <Label htmlFor="address" className="text-sm">
+               <MapPin className="w-4 h-4 inline ml-1" />
+               العنوان التفصيلي
+             </Label>
+             <Textarea
+               id="address"
+               placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5، شقة 12"
+               value={manualAddress}
+               onChange={(e) => {
+                 setManualAddress(e.target.value);
+                 setSelectedAddressId(null);
+               }}
+               disabled={disabled}
+               className="min-h-[80px]"
+             />
+           </div>
+        </>
+      )}
 
       {/* Add/Edit Address Dialog */}
       <AddressDialog
@@ -481,6 +444,7 @@ function AddressDialog({
   const [districts, setDistricts] = useState<District[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
+  const [addressError, setAddressError] = useState(false);
 
   useEffect(() => {
     if (regionId) {
@@ -516,6 +480,11 @@ function AddressDialog({
     }
   }, [address, open]);
 
+  // Reset error when dialog opens or address changes
+  useEffect(() => {
+    setAddressError(false);
+  }, [address, open]);
+
   const loadDistricts = async (rid: string) => {
     try {
       const data = await regionsService.getDistricts(rid);
@@ -539,6 +508,7 @@ function AddressDialog({
         setGpsLoading(false);
         const locationText = `موقع GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
         setAddressText((prev) => prev ? `${prev} (${locationText})` : locationText);
+        setAddressError(false);
         notify.success("تم تحديد موقعك بنجاح");
       },
       (error) => {
@@ -552,6 +522,7 @@ function AddressDialog({
   const handleSave = async () => {
     if (!addressText.trim()) {
       notify.error("يرجى إدخال العنوان");
+      setAddressError(true);
       return;
     }
 
@@ -607,15 +578,17 @@ function AddressDialog({
             
           {/* Location Tools */}
           <div className="flex gap-2 mb-2">
-             <Button type="button" variant="secondary" size="sm" className="flex-1" onClick={requestGPSLocation} disabled={gpsLoading}>
-                {gpsLoading ? <Loader2 className="w-4 h-4 ml-2 animate-spin" /> : <Navigation className="w-4 h-4 ml-2" />}
-                استخدم موقعي الحالي
-             </Button>
-             <Button type="button" variant="outline" size="sm" className="flex-1" onClick={onShowMap}>
+
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={onShowMap}>
                 <Map className="w-4 h-4 ml-2" />
-                تحديد على الخريطة
-             </Button>
+                {address?.latitude ? "تغيير الموقع على الخريطة" : "تحديد الموقع على الخريطة"}
+              </Button>
           </div>
+          {address?.latitude && address?.longitude && (
+             <div className="text-xs text-muted-foreground text-center bg-muted p-2 rounded" dir="ltr">
+                Selected: ({address.latitude.toFixed(6)}, {address.longitude.toFixed(6)})
+             </div>
+          )}
             
           {/* Label Selection */}
           <div className="space-y-2">
@@ -671,46 +644,27 @@ function AddressDialog({
           </div>
 
           {/* District */}
-          <div className="space-y-2">
-            <Label>الحي</Label>
-            <Select
-              value={districtId || "placeholder"}
-              onValueChange={(val) =>
-                val !== "placeholder" && setDistrictId(val)
-              }
-              disabled={!regionId || districts.length === 0}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    !regionId ? "اختر المنطقة أولاً" : "اختر الحي"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="placeholder" disabled>
-                  اختر الحي
-                </SelectItem>
-                {districts.map((district) => (
-                  <SelectItem key={district.id} value={district.id}>
-                    {district.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+
 
           {/* Address */}
           <div className="space-y-2">
-            <Label>العنوان التفصيلي</Label>
+            <Label className={cn(addressError && "text-destructive")}>
+              العنوان التفصيلي
+            </Label>
             <div className="relative">
                 <Textarea
                   placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5"
                   value={addressText}
-                  onChange={(e) => setAddressText(e.target.value)}
-                  className="min-h-[80px]"
+                  onChange={(e) => {
+                     setAddressText(e.target.value);
+                     if (e.target.value.trim()) setAddressError(false);
+                  }}
+                  className={cn("min-h-[80px]", addressError && "border-destructive focus-visible:ring-destructive")}
                 />
             </div>
+            {addressError && (
+               <p className="text-xs text-destructive">هذا الحقل مطلوب</p>
+            )}
           </div>
 
           {/* Phone */}
