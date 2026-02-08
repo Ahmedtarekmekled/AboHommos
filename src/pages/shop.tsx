@@ -251,42 +251,12 @@ export default function ShopPage() {
 
           {/* Rating & Stats Row */}
           <div className="flex flex-wrap items-center gap-4 mb-6">
-            {/* Rating */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1">
-                {shop.rating && shop.rating > 0 ? (
-                  <>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-4 h-4 ${
-                          i < Math.floor(shop.rating || 0)
-                            ? "fill-warning text-warning"
-                            : "text-muted-foreground/30"
-                        }`}
-                      />
-                    ))}
-                    <span className="text-sm font-medium mr-1">
-                      ({shop.rating.toFixed(1)})
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} className="w-4 h-4 text-muted-foreground/30" />
-                    ))}
-                    <span className="text-sm text-muted-foreground mr-1">
-                      (لا توجد تقييمات)
-                    </span>
-                  </>
-                )}
-              </div>
-            </div>
-
             {/* Orders Count */}
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
               {shop.total_orders || 0} طلب
             </span>
+
+
 
             {/* Phone */}
             {shop.phone && (

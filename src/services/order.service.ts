@@ -169,7 +169,7 @@ export const cartService = {
         )
       `)
       .eq("id", parentId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data;
@@ -183,7 +183,7 @@ export const orderService = {
       .from("parent_orders")
       .select("*")
       .eq("id", orderId)
-      .single();
+      .maybeSingle();
 
     if (error || !parentOrder) return null;
 
@@ -343,7 +343,7 @@ export const orderService = {
       `
       )
       .eq("id", orderId)
-      .single();
+      .maybeSingle();
 
     if (error) return null;
     return data as unknown as OrderWithItems;

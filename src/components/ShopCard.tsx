@@ -83,12 +83,7 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
             )}
 
             <div className="flex items-center gap-x-3 gap-y-1 flex-wrap mt-auto">
-              <div className="flex items-center gap-1 text-warning bg-warning/5 px-1.5 py-0.5 rounded-md">
-                <Star className="w-3.5 h-3.5 fill-current" />
-                <span className="text-sm font-bold">
-                  {shop.rating?.toFixed(1) || "4.5"}
-                </span>
-              </div>
+
               
               {shop.category && (
                 <Badge variant="outline" className="text-xs font-normal bg-background/50">

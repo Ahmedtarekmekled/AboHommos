@@ -240,8 +240,6 @@ export interface Database {
           disabled_reason: string | null;
           disabled_at: string | null;
           disabled_by: string | null;
-          rating: number;
-          total_ratings: number;
           total_orders: number;
           opening_time: string | null;
           closing_time: string | null;
@@ -280,8 +278,6 @@ export interface Database {
           disabled_reason?: string | null;
           disabled_at?: string | null;
           disabled_by?: string | null;
-          rating?: number;
-          total_ratings?: number;
           total_orders?: number;
           opening_time?: string | null;
           closing_time?: string | null;
@@ -320,8 +316,6 @@ export interface Database {
           disabled_reason?: string | null;
           disabled_at?: string | null;
           disabled_by?: string | null;
-          rating?: number;
-          total_ratings?: number;
           total_orders?: number;
           opening_time?: string | null;
           closing_time?: string | null;
@@ -667,48 +661,7 @@ export interface Database {
         };
         Relationships: [];
       };
-      reviews: {
-        Row: {
-          id: string;
-          user_id: string;
-          product_id: string;
-          order_id: string | null;
-          rating: number;
-          title: string | null;
-          comment: string | null;
-          is_verified_purchase: boolean;
-          helpful_count: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          product_id: string;
-          order_id?: string | null;
-          rating: number;
-          title?: string | null;
-          comment?: string | null;
-          is_verified_purchase?: boolean;
-          helpful_count?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Update: {
-          id?: string;
-          user_id?: string;
-          product_id?: string;
-          order_id?: string | null;
-          rating?: number;
-          title?: string | null;
-          comment?: string | null;
-          is_verified_purchase?: boolean;
-          helpful_count?: number;
-          created_at?: string;
-          updated_at?: string;
-        };
-        Relationships: [];
-      };
+
       parent_orders: {
         Row: {
           id: string;
@@ -905,7 +858,7 @@ export type Order = Tables<"orders">;
 export type OrderItem = Tables<"order_items">;
 export type OrderStatusHistory = Tables<"order_status_history">;
 export type Address = Tables<"addresses">;
-export type Review = Tables<"reviews">;
+
 export type ParentOrder = Tables<"parent_orders">;
 
 // =====================================================
@@ -951,15 +904,7 @@ export type DistrictWithRegion = District & {
   region: Region;
 };
 
-export type ReviewWithUser = Review & {
-  user: Pick<Profile, "id" | "full_name" | "avatar_url">;
-};
 
-export type ProductWithReviews = Product & {
-  reviews: ReviewWithUser[];
-  average_rating: number;
-  total_reviews: number;
-};
 
 // =====================================================
 // API RESPONSE TYPES

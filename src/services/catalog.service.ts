@@ -299,8 +299,7 @@ export const shopsService = {
     // NEW: Sort by premium first, then rating
     query = query
       .order("is_premium", { ascending: false })
-      .order("premium_sort_order", { ascending: true, nullsFirst: false })
-      .order("rating", { ascending: false });
+      .order("premium_sort_order", { ascending: true, nullsFirst: false });
 
     const { data, error } = await query;
 
@@ -319,7 +318,7 @@ export const shopsService = {
       .select("*, category:categories(id, name, slug, icon), working_hours:shop_working_hours(*)")
       .eq("approval_status", "APPROVED")
       .eq("is_active", true)
-      .order("rating", { ascending: false });
+      .eq("is_active", true);
 
     if (options?.regionId) {
       query = query.eq("region_id", options.regionId);

@@ -19,7 +19,7 @@ import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 import { productsService } from "@/services";
 import { useCart, useAuth } from "@/store";
-import { ProductReviews, StarRating } from "@/components/ProductReviews";
+import { SimilarProducts } from "@/components/SimilarProducts";
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
@@ -293,9 +293,13 @@ export default function ProductPage() {
           </div>
         </div>
 
-        {/* Product Reviews Section */}
+        {/* Similar Products Section */}
         <div className="mt-12">
-          <ProductReviews productId={product.id} />
+          <SimilarProducts 
+            shopId={product.shop_id} 
+            currentProductId={product.id}
+            categoryId={product.category_id}
+          />
         </div>
       </div>
     </div>
