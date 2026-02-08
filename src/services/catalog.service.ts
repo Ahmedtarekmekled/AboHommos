@@ -157,7 +157,7 @@ export const productsService = {
       .select(
         `
         *,
-        shop:shops(id, name, slug, logo_url, phone, address),
+        shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open),
         category:categories(id, name, slug)
       `
       )
@@ -177,7 +177,7 @@ export const productsService = {
       .select(
         `
         *,
-        shop:shops(id, name, slug, logo_url, phone, address),
+        shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open),
         category:categories(id, name, slug)
       `
       )

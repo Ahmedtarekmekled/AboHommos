@@ -866,7 +866,7 @@ export type ParentOrder = Tables<"parent_orders">;
 // =====================================================
 
 export type ProductWithShop = Product & {
-  shop: Pick<Shop, "id" | "name" | "slug" | "logo_url">;
+  shop: Pick<Shop, "id" | "name" | "slug" | "logo_url" | "phone" | "address" | "override_mode" | "is_open">;
   category: Pick<Category, "id" | "name" | "slug">;
 };
 
