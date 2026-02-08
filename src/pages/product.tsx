@@ -8,6 +8,7 @@ import {
   ShoppingCart,
   ArrowRight,
 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import { useState } from "react";
 import { notify } from "@/lib/notify";
 import { Card, CardContent } from "@/components/ui/card";
@@ -21,6 +22,9 @@ import { productsService } from "@/services";
 import { useCart, useAuth } from "@/store";
 import { SimilarProducts } from "@/components/SimilarProducts";
 
+// ... types and imports
+import { getShopOpenState } from "@/lib/shop-helpers";
+
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const { isAuthenticated } = useAuth();
@@ -28,19 +32,49 @@ export default function ProductPage() {
   const [quantity, setQuantity] = useState(1);
   const [isAdding, setIsAdding] = useState(false);
 
-  const { data: product, isLoading } = useQuery({
+  const { data: product, isLoading: isProductLoading } = useQuery({
     queryKey: ["product", id],
     queryFn: () => productsService.getById(id!),
     enabled: !!id,
   });
 
+  // Fetch Shop Open State if product exists
+  const { data: shopStatus, isLoading: isShopLoading } = useQuery({
+    queryKey: ["shop-status", product?.shop_id],
+    queryFn: async () => {
+      if (!product?.shop_id) return null;
+      // We need working hours.
+      const { data, error } = await supabase
+        .from("shop_working_hours")
+        .select("*")
+        .eq("shop_id", product.shop_id);
+      
+      if (error) throw error;
+      
+      return getShopOpenState(
+        product.shop as any, 
+        data || []
+      );
+    },
+    enabled: !!product?.shop_id,
+  });
+
+  const isLoading = isProductLoading || isShopLoading;
+  const isShopOpen = shopStatus?.isOpen ?? true;
+  
   const handleAddToCart = async () => {
     if (!isAuthenticated) {
       notify.error("يجب تسجيل الدخول أولاً");
       return;
     }
+    
+    if (!isShopOpen) {
+       notify.error("المتجر مغلق حالياً");
+       return;
+    }
 
     if (!product) return;
+// ... existing logic
 
     setIsAdding(true);
     try {
@@ -173,7 +207,15 @@ export default function ProductPage() {
                   </div>
                 )}
               </div>
-              <span>{product.shop?.name}</span>
+              <span className="font-medium text-foreground">{product.shop?.name}</span>
+              
+              {/* Status Dot */}
+              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/50 border ml-2">
+                <span className={`w-2 h-2 rounded-full ${isShopOpen ? 'bg-green-500 shadow-[0_0_4px_2px_rgba(34,197,94,0.2)]' : 'bg-red-500'}`} />
+                <span className={`text-xs ${isShopOpen ? 'text-green-600' : 'text-red-600'}`}>
+                  {isShopOpen ? 'مفتوح' : 'مغلق'}
+                </span>
+              </div>
             </Link>
 
             {/* Title */}

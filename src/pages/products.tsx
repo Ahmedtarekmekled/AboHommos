@@ -29,6 +29,9 @@ import { shopsService, productsService } from "@/services";
 import { useCart } from "@/store/app-context";
 import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
+import { getShopOpenState } from "@/lib/shop-helpers";
+import { supabase } from "@/lib/supabase";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ProductsPage() {
   const { cart, addToCart, clearCart } = useCart();
@@ -41,6 +44,31 @@ export default function ProductsPage() {
     queryKey: ["ranked-shops"],
     queryFn: () => shopsService.getRankedShops({ limit: 10 }), // Fetch Top 10 for tab bar
   });
+
+  const queryClient = useQueryClient();
+
+  // Real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('products-page-shops-update')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'shops',
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["ranked-shops"] });
+          queryClient.invalidateQueries({ queryKey: ["shop-products"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   // Set default shop selection
   useEffect(() => {
@@ -135,8 +163,12 @@ export default function ProductsPage() {
             {shops.map((shop) => {
               const isActive = shop.id === selectedShopId;
               const isPremium = shop.is_premium;
-              // Detect "Best Seller" if not premium but high sales? 
-              // (Actually getRankedShops returns based on logic, we trust the order)
+              
+              // Calculate Real-Time Status
+              // We cast shop because working_hours might be absent in type definition but present in query
+              // Actually getRankedShops includes working_hours
+              const shopStatus = getShopOpenState(shop as any, (shop as any).working_hours || []);
+              const isOpen = shopStatus.isOpen;
               
               return (
                 <button
@@ -173,22 +205,38 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      <div className="container-app py-6 space-y-8">
-        {selectedShop && (
+       <div className="container-app py-6 space-y-8">
+        {selectedShop && (() => {
+           // Calculate Status for Selected Shop
+           const shopStatus = getShopOpenState(selectedShop as any, (selectedShop as any).working_hours || []);
+           const isOpen = shopStatus.isOpen;
+
+           return (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
               <div>
-                <h2 className="text-xl font-bold flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-primary" />
-                  أسرع الاختيارات من {selectedShop.name}
-                </h2>
-                <p className="text-sm text-muted-foreground mt-1">
+                  <h2 className="text-lg md:text-xl font-bold flex items-center">
+                    أسرع الاختيارات من {selectedShop.name}
+                    {/* Status Dot */}
+                    <span 
+                      className={cn(
+                        "w-2.5 h-2.5 rounded-full mr-2 shrink-0",
+                        isOpen ? "bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.4)]" : "bg-red-500"
+                      )} 
+                      title={isOpen ? "مفتوح" : "مغلق"}
+                    />
+                  </h2>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1 pr-7">
                   أكثر المنتجات طلباً، تصلك بأسرع وقت
                 </p>
               </div>
-              <Link to={`/shops/${selectedShop.slug}`}>
-                 <Button variant="outline" size="sm" className="gap-2">
+              
+              <Link to={`/shops/${selectedShop.slug}`} className="w-full md:w-auto">
+                 <Button variant="outline" size="sm" className="w-full md:w-auto gap-2">
                     تصفح المتجر <ArrowRight className="w-4 h-4" />
                  </Button>
               </Link>
@@ -196,19 +244,19 @@ export default function ProductsPage() {
 
             {/* Products Grid */}
             {productsLoading ? (
-               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                   {[1,2,3,4].map(i => (
                     <div key={i} className="h-64 bg-muted rounded-xl animate-pulse" />
                   ))}
                </div>
             ) : products && products.length > 0 ? (
-               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                  {products.map(product => (
                    <ShopProductCard 
                      key={product.id} 
                      product={product} 
                      shopId={selectedShop.id} 
-                     canOrder={selectedShop.is_open}
+                     canOrder={isOpen}
                      onAddToCart={() => handleAddToCartRequest({ id: product.id, name: product.name })}
                    />
                  ))}
@@ -220,7 +268,8 @@ export default function ProductsPage() {
                 </div>
             )}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Logic Conflict Dialog */}

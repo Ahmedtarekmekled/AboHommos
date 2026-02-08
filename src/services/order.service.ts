@@ -48,6 +48,33 @@ export const cartService = {
     productId: string,
     quantity: number
   ): Promise<CartItem> {
+    // 1. Check Shop Open State first (Safeguard)
+    const { data: shop } = await supabase
+      .from("shops")
+      .select("override_mode")
+      .eq("id", shopId)
+      .single();
+
+    if (shop) {
+       const { data: hours } = await supabase
+         .from("shop_working_hours")
+         .select("*")
+         .eq("shop_id", shopId);
+       
+       // Using simpler logic here or importing the helper if it's safe to use in service
+       // Ideally services shouldn't depend on UI/Lib helpers if they are large, but getShopOpenState is pure logic.
+       // However, to keep service clean, we might just checking manual override or implement simple check.
+       // Let's strict it:
+       // If we can import getShopOpenState, that's best.
+       // Since it's in @/lib/shop-helpers, it should be fine.
+       const { getShopOpenState } = await import("@/lib/shop-helpers");
+       const status = getShopOpenState(shop as any, hours || []);
+       
+       if (!status.isOpen) {
+          throw new Error("المتجر مغلق حالياً");
+       }
+    }
+
     // Get or create multi-shop cart
     let { data: cart } = await supabase
       .from("carts")

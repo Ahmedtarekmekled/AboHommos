@@ -101,19 +101,19 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
         </div>
 
         {/* Content */}
-        <div className="p-3 md:p-4 flex flex-col gap-1.5">
-          <h3 className="font-semibold text-base line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.5rem]">
+        <div className="p-2.5 md:p-4 flex flex-col gap-1.5 flex-1">
+          <h3 className="font-semibold text-sm md:text-base line-clamp-2 leading-tight group-hover:text-primary transition-colors min-h-[2.5rem]">
             {product.name}
           </h3>
           
           <div className="flex items-end justify-between mt-auto pt-1">
              <div className="flex flex-col">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-lg text-primary">
+                  <span className="font-bold text-base md:text-lg text-primary">
                     {formatPrice(product.price)}
                   </span>
                   {product.compare_at_price && product.compare_at_price > product.price && (
-                    <span className="text-muted-foreground line-through text-xs decoration-destructive/50">
+                    <span className="text-muted-foreground line-through text-[10px] md:text-xs decoration-destructive/50">
                       {formatPrice(product.compare_at_price)}
                     </span>
                   )}

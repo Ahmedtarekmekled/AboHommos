@@ -9,6 +9,7 @@ import type {
   Address,
   WorkingHours,
 } from "@/types/database";
+import { getShopOpenState } from "@/lib/shop-helpers";
 
 // Extended Address type with district info
 export type AddressWithDistrict = Address & {
@@ -349,73 +350,51 @@ export const shopsService = {
     }
 
     // 3. Separate Logic
-    // Valid for Top 2: Must be OPEN
-    const candidates = shops.map((s) => ({
-      ...s,
-      _sales_score: salesMap.get(s.id) || 0,
-    }));
+    // Compute Real-Time Open Status
+    const now = new Date();
+    const candidates = shops.map((s) => {
+      const openState = getShopOpenState(s as any, s.working_hours || [], now);
+      return {
+        ...s,
+        _sales_score: salesMap.get(s.id) || 0,
+        _is_open_realtime: openState.isOpen,
+      };
+    });
 
-    // A. Premium Candidates (Open + Premium)
-    const premiumCandidates = candidates
-      .filter((s) => s.is_premium && s.is_open)
-      .sort((a, b) => (a.premium_sort_order || 99) - (b.premium_sort_order || 99));
+    // Strategy:
+    // 1. Filter OPEN shops
+    // 2. Filter CLOSED shops
+    // 3. Sort OPEN shops: Premium first, then Sales
+    // 4. Sort CLOSED shops: Sales
+    // 5. Concatenate: Open + Closed
 
-    // B. Best Seller Candidates (All Open) sorted by Sales
-    const bestSellerCandidates = candidates
-      .filter((s) => s.is_open)
-      .sort((a, b) => b._sales_score - a._sales_score);
+    const openShops = candidates.filter((s) => s._is_open_realtime);
+    const closedShops = candidates.filter((s) => !s._is_open_realtime);
 
-    const finalOrder: (Shop & { _sales_score: number })[] = [];
-    const usedIds = new Set<string>();
+    // Sort OPEN: Premium (order 1, 2, ...), then Sales Descending
+    openShops.sort((a, b) => {
+      // 1. Premium Priority
+      if (a.is_premium && !b.is_premium) return -1;
+      if (!a.is_premium && b.is_premium) return 1;
 
-    // SLOT 1
-    let slot1 = premiumCandidates.find((s) => s.premium_sort_order === 1);
-    if (!slot1 && premiumCandidates.length > 0) {
-      // Logic: If no explicit Slot 1, take first available premium
-      slot1 = premiumCandidates[0];
-    }
-    // Fallback: If still no premium, take #1 Best Seller
-    if (!slot1) {
-      slot1 = bestSellerCandidates[0];
-    }
+      // 2. Premium Sort Order (if both premium)
+      if (a.is_premium && b.is_premium) {
+        return (a.premium_sort_order || 99) - (b.premium_sort_order || 99);
+      }
 
-    if (slot1) {
-      finalOrder.push(slot1);
-      usedIds.add(slot1.id);
-    }
+      // 3. Sales Score (if both not premium, or equal premium rank?)
+      // Actually if both are premium, we used sort order. 
+      // If both are NOT premium, we use Sales Score.
+      return b._sales_score - a._sales_score;
+    });
 
-    // SLOT 2
-    let slot2 = premiumCandidates.find(
-      (s) => s.premium_sort_order === 2 && !usedIds.has(s.id)
-    );
-    if (!slot2) {
-       // Logic: Next available premium
-       slot2 = premiumCandidates.find(s => !usedIds.has(s.id));
-    }
-    // Fallback: Best Seller
-    if (!slot2) {
-      slot2 = bestSellerCandidates.find((s) => !usedIds.has(s.id));
-    }
+    // Sort CLOSED: Sales Descending
+    closedShops.sort((a, b) => b._sales_score - a._sales_score);
 
-    if (slot2) {
-      finalOrder.push(slot2);
-      usedIds.add(slot2.id);
-    }
+    // Combine
+    const finalOrder = [...openShops, ...closedShops];
 
-    // REST: Best Sellers (High->Low), then Closed
-    // First, add remaining OPEN shops by sales
-    const remainingOpen = bestSellerCandidates.filter(s => !usedIds.has(s.id));
-    finalOrder.push(...remainingOpen);
-    remainingOpen.forEach(s => usedIds.add(s.id));
-
-    // Finally, add Closed shops (usually at bottom)
-    const closedShops = candidates
-      .filter((s) => !s.is_open && !usedIds.has(s.id))
-      .sort((a, b) => b._sales_score - a._sales_score); // Sort closed by sales too
-
-    finalOrder.push(...closedShops);
-
-    // Filter limit if requested (only after ranking everything)
+    // Filter limit if requested
     if (options?.limit) {
       return finalOrder.slice(0, options.limit);
     }

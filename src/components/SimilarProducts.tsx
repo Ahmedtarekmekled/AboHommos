@@ -10,12 +10,41 @@ interface SimilarProductsProps {
   categoryId?: string;
 }
 
+// ... imports
+import { getShopOpenState } from "@/lib/shop-helpers";
+import { supabase } from "@/lib/supabase";
+
 export function SimilarProducts({ shopId, currentProductId, categoryId }: SimilarProductsProps) {
+  // Fetch Shop Open State
+  const { data: shopStatus } = useQuery({
+    queryKey: ["shop-status", shopId],
+    queryFn: async () => {
+      // We need shop details (override_mode) and working hours
+      const { data: shop } = await supabase
+        .from("shops")
+        .select("override_mode")
+        .eq("id", shopId)
+        .single();
+        
+      const { data: workingHours } = await supabase
+        .from("shop_working_hours")
+        .select("*")
+        .eq("shop_id", shopId);
+      
+      if (!shop) return { isOpen: true }; // Fallback
+
+      return getShopOpenState(
+        shop as any, 
+        workingHours || []
+      );
+    },
+    enabled: !!shopId,
+  });
+
   const { data: products, isLoading } = useQuery({
     queryKey: ["similar-products", shopId, currentProductId],
     queryFn: async () => {
       // Fetch all products from the shop
-      // In a real app, we might have a specific endpoint for 'similar' or filter by category server-side
       const allShopProducts = await productsService.getAll({ shopId });
       
       // Filter out current product and optionally prioritize same category
@@ -37,17 +66,10 @@ export function SimilarProducts({ shopId, currentProductId, categoryId }: Simila
     enabled: !!shopId,
   });
 
+  const isShopOpen = shopStatus?.isOpen ?? true;
+
   if (isLoading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <div className="flex gap-4 overflow-x-auto pb-4">
-          {Array(4).fill(0).map((_, i) => (
-             <Skeleton key={i} className="min-w-[200px] h-[300px] rounded-xl" />
-          ))}
-        </div>
-      </div>
-    );
+// ... skeleton
   }
 
   if (!products || products.length === 0) return null;
@@ -63,7 +85,7 @@ export function SimilarProducts({ shopId, currentProductId, categoryId }: Simila
                <ShopProductCard 
                   product={product} 
                   shopId={shopId} 
-                  canOrder={true} // Assuming user can order if viewing product
+                  canOrder={isShopOpen} 
                />
             </div>
           ))}
