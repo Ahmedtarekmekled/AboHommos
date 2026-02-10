@@ -20,6 +20,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
+import { deliveryAdminService } from "@/services/delivery-admin.service";
 
 // Hook for Available Orders (Marketplace)
 function useAvailableOrders() {
@@ -170,6 +171,17 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [orderToConfirm, setOrderToConfirm] = useState<ParentOrderWithSuborders | null>(null);
 
+  // Settings & Limits
+  const [settings, setSettings] = useState<any>(null);
+
+  useEffect(() => {
+    deliveryAdminService.getSettings().then(setSettings).catch(console.error);
+  }, []);
+
+  const activeOrdersCount = myOrders.filter(o => ['READY_FOR_PICKUP', 'OUT_FOR_DELIVERY'].includes(o.status)).length;
+  const maxActive = settings?.max_active_orders || 3;
+  const isLimitReached = activeOrdersCount >= maxActive;
+
   // Sound Controls
   const toggleMute = () => {
     const newMuteStatus = SoundService.toggleMute();
@@ -271,6 +283,12 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
            </div>
         </div>
         <div className="flex gap-2">
+           <div className="hidden md:flex flex-col items-end justify-center mr-4">
+              <span className="text-xs text-muted-foreground">الطلبات النشطة</span>
+              <span className={`text-sm font-bold ${isLimitReached ? 'text-destructive' : 'text-primary'}`}>
+                {activeOrdersCount} / {maxActive}
+              </span>
+           </div>
            <Button variant="outline" size="icon" onClick={toggleMute} title={isMuted ? "تفعيل الصوت" : "كتم الصوت"}>
              {isMuted ? <VolumeX className="w-4 h-4 text-muted-foreground" /> : <Volume2 className="w-4 h-4 text-primary" />}
            </Button>
@@ -337,13 +355,14 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
                        <AddressDisplay address={order.delivery_address} />
                   </div>
 
-                  <Button 
+                   <Button 
                       className="w-full mt-4" 
                       size="lg" 
                       onClick={() => handleAcceptOrder(order.id)}
-                      disabled={isAccepting === order.id}
+                      disabled={isAccepting === order.id || isLimitReached}
+                      title={isLimitReached ? "وصلت للحد الأقصى من الطلبات النشطة" : ""}
                     >
-                      {isAccepting === order.id ? "جاري القبول..." : "قبول الطلب"}
+                      {isAccepting === order.id ? "جاري القبول..." : isLimitReached ? `الحد الأقصى (${maxActive})` : "قبول الطلب"}
                     </Button>
                 </CardContent>
               </Card>

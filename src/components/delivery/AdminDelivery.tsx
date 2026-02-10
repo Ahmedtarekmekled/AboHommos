@@ -408,6 +408,26 @@ function SettingsTab() {
              </CardContent>
           </Card>
 
+
+          
+          {/* Limits & Constraints */}
+          <Card>
+             <CardHeader><CardTitle>القيود والحدود</CardTitle></CardHeader>
+             <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                   <Label>الحد الأقصى للطلبات النشطة (للمندوب الواحد)</Label>
+                   <p className="text-xs text-muted-foreground">عدد الطلبات التي يمكن للمندوب قبولها في نفس الوقت (قيد التوصيل أو الاستلام)</p>
+                   <Input 
+                      type="number" 
+                      min="1" 
+                      max="10" 
+                      value={settings.max_active_orders || 3} 
+                      onChange={e => setSettings({...settings, max_active_orders: +e.target.value})} 
+                   />
+                </div>
+             </CardContent>
+          </Card>
+
           <Card>
              <CardHeader><CardTitle>التوجيه والسلوك</CardTitle></CardHeader>
              <CardContent className="space-y-4">
