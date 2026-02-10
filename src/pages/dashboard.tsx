@@ -44,6 +44,7 @@ import { CourierAccount } from "@/components/delivery/CourierAccount";
 import { ShopAnalytics } from "./dashboard/shop-analytics";
 import { AdminCategories } from "@/components/dashboard/AdminCategories";
 import { cn } from "@/lib/utils";
+import { ShopOrders } from "@/components/dashboard/ShopOrders";
 import { DashboardProductCard } from "@/components/dashboard/DashboardProductCard";
 import { ProductFilterBar } from "@/components/dashboard/ProductFilterBar";
 import { useProductFilters } from "@/hooks/useProductFilters";
@@ -1237,7 +1238,8 @@ function DashboardProducts() {
   );
 }
 
-function DashboardOrders() {
+// Deprecated: DashboardOrders replaced by ShopOrders
+function DashboardOrders_Deprecated() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [shop, setShop] = useState<Shop | null>(null);
@@ -3192,7 +3194,7 @@ export default function DashboardPage() {
                 }
               />
               <Route path="products" element={<DashboardProducts />} />
-              <Route path="orders" element={isDelivery ? <Navigate to="/dashboard" replace /> : <DashboardOrders />} />
+              <Route path="orders" element={isDelivery ? <Navigate to="/dashboard" replace /> : <ShopOrders />} />
               <Route path="settings" element={<DashboardSettings />} />
               <Route path="account" element={isDelivery ? <CourierAccount /> : <DashboardSettings />} />
               <Route path="delivery" element={isAdmin ? <AdminDelivery /> : <DeliveryDashboard />} />

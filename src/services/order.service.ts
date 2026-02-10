@@ -358,6 +358,31 @@ export const orderService = {
     return (data as unknown as OrderWithItems[]) || [];
   },
 
+  async getShopOrdersEnhanced(shopId: string): Promise<any[]> {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(
+        `
+        *,
+        shop:shops(id, name, slug, logo_url, phone),
+        items:order_items(*),
+        status_history:order_status_history(*),
+        delivery_user:profiles!delivery_user_id(id, full_name, phone, avatar_url),
+        parent_order:parent_orders!parent_order_id(
+            id, 
+            status, 
+            delivery_user_id, 
+            delivery_user:profiles!delivery_user_id(id, full_name, phone, avatar_url)
+        )
+      `
+      )
+      .eq("shop_id", shopId)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
   async getById(orderId: string): Promise<OrderWithItems | null> {
     const { data, error } = await supabase
       .from("orders")
