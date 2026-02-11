@@ -15,7 +15,8 @@ import {
   Image as ImageIcon,
   Upload,
   LayoutGrid,
-  List
+  List,
+  Smile
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +41,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export function AdminCategories() {
   // --- State ---
@@ -215,11 +217,14 @@ export function AdminCategories() {
                         [1,2,3].map(i => <div key={i} className="h-12 bg-muted/50 rounded-lg animate-pulse" />)
                     ) : (
                         shopTypes.map(shopType => (
-                            <button
+                            <div
                                 key={shopType.id}
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => setSelectedShopTypeId(shopType.id)}
+                                onKeyDown={(e) => e.key === 'Enter' && setSelectedShopTypeId(shopType.id)}
                                 className={cn(
-                                    "w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors text-right relative group",
+                                    "w-full flex items-center gap-3 p-3 rounded-lg text-sm transition-colors text-right relative group cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary",
                                     selectedShopTypeId === shopType.id 
                                         ? "bg-primary/10 text-primary font-medium" 
                                         : "hover:bg-muted/50 text-muted-foreground hover:text-foreground"
@@ -242,7 +247,7 @@ export function AdminCategories() {
                                         <Pencil className="w-3 h-3" />
                                     </Button>
                                 </div>
-                            </button>
+                            </div>
                         ))
                     )}
                 </div>
@@ -367,10 +372,11 @@ function CategoryDialog({
     parentId: string | null;
     onSuccess: () => void;
 }) {
+    const [activeTab, setActiveTab] = useState<'image' | 'icon'>('icon');
     const [formData, setFormData] = useState({
         name: "",
         description: "",
-        icon: "", // We'll keep this as a fallback or for actual emoji
+        icon: "",
         image_url: ""
     });
     const [isSaving, setIsSaving] = useState(false);
@@ -387,14 +393,23 @@ function CategoryDialog({
             });
             setImagePreview(category?.image_url || null);
             setImageFile(null);
+            
+            // Determine active tab
+            if (mode === 'PRODUCT') {
+                setActiveTab('icon'); // Products forced to icon for now
+            } else {
+                // For shops, if it has an image use image tab, otherwise icon
+                setActiveTab(category?.image_url ? 'image' : 'icon');
+            }
         }
-    }, [open, category]);
+    }, [open, category, mode]);
 
     const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
-            if (file.size > 2 * 1024 * 1024) {
-                notify.error("حجم الصورة يجب أن يكون أقل من 2 ميجابايت");
+            // 5MB Limit
+            if (file.size > 5 * 1024 * 1024) {
+                notify.error("حجم الصورة يجب أن يكون أقل من 5 ميجابايت");
                 return;
             }
             setImageFile(file);
@@ -414,26 +429,48 @@ function CategoryDialog({
 
         setIsSaving(true);
         try {
-            let finalImageUrl = formData.image_url;
+            let finalImageUrl: string | null = formData.image_url || null;
+            let finalIcon: string | null = formData.icon || null;
 
-            // Upload Image if Changed
-            if (imageFile) {
-                const fileExt = imageFile.name.split(".").pop();
-                const fileName = `cat_${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from("categories")
-                    .upload(fileName, imageFile);
-                
-                if (uploadError) throw uploadError;
-                
-                const { data } = supabase.storage.from("categories").getPublicUrl(fileName);
-                finalImageUrl = data.publicUrl;
+            // Handle Image Upload Logic
+            if (activeTab === 'image' && mode === 'SHOP') {
+                if (imageFile) {
+                    const fileExt = imageFile.name.split(".").pop();
+                    const fileName = `cat_${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage
+                        .from("categories")
+                        .upload(fileName, imageFile);
+                    
+                    if (uploadError) throw uploadError;
+                    
+                    const { data } = supabase.storage.from("categories").getPublicUrl(fileName);
+                    finalImageUrl = data.publicUrl;
+                }
+                // If switching to image tab, we generally want to clear the icon, 
+                // but keeping it as fallback is also fine. 
+                // We'll clear icon if we have a valid image URL to ensure unique presentation logic if needed.
+                if (finalImageUrl) {
+                    finalIcon = null; 
+                }
+            } else {
+                // Icon Mode
+                finalImageUrl = null; // Clear image if using icon
+                if (!finalIcon) {
+                    // Default fallback icon if none selected
+                    finalIcon = "📦"; 
+                }
+            }
+            
+            // Force Product Categories to be Icon ONLY (for now)
+            if (mode === 'PRODUCT') {
+                 finalImageUrl = null;
+                 if (!finalIcon) finalIcon = "📦";
             }
 
             const payload = {
                 name: formData.name,
                 description: formData.description,
-                icon: formData.icon, // Optional fallback
+                icon: finalIcon,
                 image_url: finalImageUrl,
                 type: mode,
                 parent_id: mode === 'PRODUCT' ? parentId : null,
@@ -449,9 +486,13 @@ function CategoryDialog({
                 notify.success("تم الإنشاء بنجاح");
             }
             onSuccess();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            notify.error("حدث خطأ أثناء الحفظ");
+            if (error.message && error.message.includes("row-level security")) {
+                 notify.error("خطأ في الصلاحيات: تأكد من إعدادات التخزين (RLS) في Supabase");
+            } else {
+                 notify.error("حدث خطأ أثناء الحفظ");
+            }
         } finally {
             setIsSaving(false);
         }
@@ -472,23 +513,58 @@ function CategoryDialog({
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
-                    {/* Image Upload */}
-                    <div className="flex justify-center mb-4">
-                        <div className="relative group cursor-pointer w-24 h-24 rounded-full overflow-hidden border-2 border-dashed border-muted-foreground/30 hover:border-primary transition-colors bg-muted/30">
-                            {imagePreview ? (
-                                <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
-                            ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                                    <Upload className="w-6 h-6 mb-1" />
-                                    <span className="text-[10px]">رفع صورة</span>
+                    {/* Media Type Selection */}
+                    <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+                        <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="icon" className="gap-2">
+                                <Smile className="w-4 h-4" />
+                                أيقونة (إيموجي)
+                            </TabsTrigger>
+                            <TabsTrigger value="image" className="gap-2" disabled={mode === 'PRODUCT'}>
+                                <ImageIcon className="w-4 h-4" />
+                                صورة {mode === 'PRODUCT' && "(غير متاح)"}
+                            </TabsTrigger>
+                        </TabsList>
+                        
+                        <div className="mt-4 min-h-[120px] flex flex-col items-center justify-center border rounded-lg bg-muted/20 p-4">
+                            <TabsContent value="image" className="w-full mt-0">
+                                <div className="flex flex-col items-center">
+                                    <div className="relative group cursor-pointer w-24 h-24 rounded-full overflow-hidden border-2 border-dashed border-muted-foreground/30 hover:border-primary transition-colors bg-muted/30">
+                                        {imagePreview ? (
+                                            <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                                                <Upload className="w-6 h-6 mb-1" />
+                                                <span className="text-[10px]">رفع صورة (max 5MB)</span>
+                                            </div>
+                                        )}
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Pencil className="w-6 h-6 text-white" />
+                                        </div>
+                                        <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageSelect} />
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2">يفضل استخدام صور شفافة (PNG) أو أيقونات ملونة</p>
                                 </div>
-                            )}
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                <Pencil className="w-6 h-6 text-white" />
-                            </div>
-                            <input type="file" accept="image/*" className="absolute inset-0 opacity-0 cursor-pointer" onChange={handleImageSelect} />
+                            </TabsContent>
+                            
+                            <TabsContent value="icon" className="w-full mt-0">
+                                <div className="flex flex-col items-center gap-3">
+                                    <div className="w-20 h-20 rounded-full bg-background border flex items-center justify-center text-4xl shadow-sm">
+                                        {formData.icon || "📦"}
+                                    </div>
+                                    <div className="w-full max-w-[200px]">
+                                        <Label className="text-xs mb-1.5 block text-center">اختر إيموجي أو أيقونة</Label>
+                                        <Input 
+                                            value={formData.icon} 
+                                            onChange={e => setFormData({...formData, icon: e.target.value})} 
+                                            placeholder="إيموجي (مثال: 🍔)"
+                                            className="text-center text-lg"
+                                        />
+                                    </div>
+                                </div>
+                            </TabsContent>
                         </div>
-                    </div>
+                    </Tabs>
 
                     <div className="space-y-2">
                         <Label>الاسم</Label>
