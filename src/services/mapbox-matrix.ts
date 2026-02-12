@@ -52,7 +52,7 @@ export class MapboxMatrixService {
 
     const cacheKey = this.getCacheKey(coordinates);
     if (this.cache.has(cacheKey)) {
-      console.log('✅ using cached matrix result');
+
       return this.cache.get(cacheKey)!;
     }
 
@@ -62,8 +62,7 @@ export class MapboxMatrixService {
 
     const url = `https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${coordsString}`;
     
-    console.log(`📍 Calling Mapbox Matrix API: ${coordinates.length} points`);
-    // console.log('Request URL:', url); // Uncomment for debugging if needed (hiding token)
+
 
     try {
       const response = await axios.get(url, {
@@ -86,7 +85,7 @@ export class MapboxMatrixService {
         destinations: coordinates,
       };
 
-      console.log('✅ Mapbox Matrix Success');
+
       this.cache.set(cacheKey, result);
       return result;
     } catch (error: any) {

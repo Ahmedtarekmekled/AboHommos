@@ -171,7 +171,7 @@ export function LocationSelector({
     setIsLoadingAddresses(true);
     try {
       const data = await addressesService.getByUser(user.id);
-      console.log("DEBUG: loadSavedAddresses - Fetched:", data);
+
       setSavedAddresses(data);
       // Auto-select default address
       const defaultAddress = data.find((a) => a.is_default);
@@ -197,13 +197,13 @@ export function LocationSelector({
     
     // Set coordinates if available in saved address
     if (address.latitude && address.longitude) {
-      console.log("DEBUG: selectSavedAddress - Found coordinates:", address.latitude, address.longitude);
+
       setSelectedCoordinates({
         lat: address.latitude,
         lng: address.longitude
       });
     } else {
-      console.warn("DEBUG: selectSavedAddress - No coordinates found for address:", address.id);
+
       // Ensure we clear previous coordinates if switching to an address without them
       setSelectedCoordinates(null);
       notify.warning("هذا العنوان لا يحتوي على إحداثيات GPS. يرجى تحديث الموقع من الخريطة لحساب رسوم التوصيل بدقة.");

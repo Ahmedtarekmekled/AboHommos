@@ -110,15 +110,11 @@ export default function CheckoutPage() {
   // Trigger Fee Calculation when location changes
   useEffect(() => {
     const calculateFee = async () => {
-      console.log("DEBUG: calculateFee triggered.", {
-        lat: locationData.lat,
-        lng: locationData.lng,
-        cartItems: cart?.items?.length
-      });
+
       
       // Only calculate if we have coordinates and items in cart
       if (!locationData.lat || !locationData.lng || !cart?.items?.length) {
-        console.warn("DEBUG: Skipping calculation. Missing lat/lng or cart items.");
+
         if (!locationData.lat && locationData.address) {
              // If address is selected but no coords, we rely on the District Fee (which is already set in locationData.deliveryFee)
              // We can optionally set that as the calculated fee if we want to show *something*

@@ -1,6 +1,4 @@
 export { default as HomePage } from "./home";
-export { default as CategoriesPage } from "./categories";
-export { default as CategoryPage } from "./category";
 export { default as ShopsPage } from "./shops";
 export { default as ShopPage } from "./shop";
 export { default as ProductsPage } from "./products";
