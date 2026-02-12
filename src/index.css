@@ -423,3 +423,11 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  /* Map Boundary Mask */
+  .boundary-mask {
+    pointer-events: none !important;
+    cursor: default !important;
+  }
+}

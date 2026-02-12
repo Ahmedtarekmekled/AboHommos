@@ -12,6 +12,7 @@ import {
   Loader2,
   MapPinOff,
   Map,
+  Edit, // Added Edit
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,7 @@ import {
   regionsService,
   type AddressWithDistrict,
 } from "@/services";
+import { AddressFormDialog } from "@/components/address/AddressFormDialog"; // Added AddressFormDialog
 import type { Region, District } from "@/types/database";
 import {
   MapLocationPicker,
@@ -266,6 +268,17 @@ export function LocationSelector({
         }}
         onLocationSelect={handleMapLocationSelect}
         initialPosition={selectedCoordinates || undefined}
+        // Pass the selected region's boundary
+        regionBoundary={
+             editingAddress?.district?.region?.boundary_coordinates || 
+             regions.find(r => r.id === editingAddress?.district?.region_id)?.boundary_coordinates ||
+             undefined
+        }
+        regionName={
+             editingAddress?.district?.region?.name ||
+             regions.find(r => r.id === editingAddress?.district?.region_id)?.name ||
+             undefined
+        }
       />
 
       {/* Saved Addresses (Expanded by default or if available) */}
@@ -278,53 +291,61 @@ export function LocationSelector({
           <div className="grid gap-2">
             {savedAddresses.map((address) => {
               const Icon = getLabelIcon(address.label);
-              const isSelected = selectedAddressId === address.id;
               return (
-                <Card
+                <div
                   key={address.id}
                   className={cn(
-                    "cursor-pointer transition-all hover:border-primary/50",
-                    isSelected && "border-primary bg-primary/5"
+                    "relative flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-all hover:bg-accent/50",
+                    selectedAddressId === address.id
+                      ? "border-primary bg-primary/5 ring-1 ring-primary"
+                      : "hover:border-primary/50"
                   )}
                   onClick={() => selectSavedAddress(address)}
                 >
-                  <CardContent className="p-3">
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0",
-                          isSelected
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted"
-                        )}
-                      >
-                        <Icon className="w-5 h-5" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{address.label}</span>
-                          {address.is_default && (
-                            <span className="text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                              افتراضي
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {address.address}
-                        </p>
-                        {address.district && (
-                          <p className="text-xs text-muted-foreground">
-                            {address.district.name} -{" "}
-                            {formatPrice(address.district.delivery_fee)} توصيل
-                          </p>
-                        )}
-                      </div>
-                      {isSelected && (
-                        <Check className="w-5 h-5 text-primary flex-shrink-0" />
+                  <div
+                    className={cn(
+                      "w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors",
+                      selectedAddressId === address.id
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-sm">{address.label}</span>
+                      {address.is_default && (
+                        <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                          افتراضي
+                        </span>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {address.address}
+                    </p>
+                    {address.district && (
+                      <p className="text-[10px] text-muted-foreground mt-1">
+                        {address.district.name}
+                      </p>
+                    )}
+                  </div>
+                  
+                  {/* Edit Button */}
+                  <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 hover:bg-primary/10 hover:text-primary z-10"
+                      onClick={(e) => {
+                          e.stopPropagation(); // Prevent selection
+                          setEditingAddress(address);
+                          setShowAddDialog(true);
+                      }}
+                  >
+                      <Edit className="w-4 h-4" />
+                  </Button>
+                </div>
               );
             })}
 
@@ -399,7 +420,7 @@ export function LocationSelector({
       )}
 
       {/* Add/Edit Address Dialog */}
-      <AddressDialog
+      <AddressFormDialog
         open={showAddDialog}
         onClose={() => {
           setShowAddDialog(false);
@@ -413,303 +434,33 @@ export function LocationSelector({
           setEditingAddress(null);
           await loadSavedAddresses();
         }}
-        onShowMap={() => {
+        onShowMap={(selectedRegionId: string | undefined) => {
             setShowAddDialog(false); // Close dialog to show map
+            // Update editingAddress with the selected region so the map knows boundaries
+            if (selectedRegionId) {
+                const region = regions.find(r => r.id === selectedRegionId);
+                if (region) {
+                    setEditingAddress(prev => {
+                        const base = prev || { 
+                             id: "", user_id: user?.id || "", label: "المنزل", address: "", 
+                             is_default: false, created_at: "", updated_at: "" 
+                        } as AddressWithDistrict;
+                        
+                        return {
+                            ...base,
+                            district: { 
+                                 ...(base.district || {}), 
+                                 region_id: selectedRegionId,
+                                 region: region
+                            } as any
+                        };
+                    });
+                }
+            }
             setShowMapPicker(true);
         }}
       />
     </div>
-  );
-}
-
-// Address Dialog Component
-interface AddressDialogProps {
-  open: boolean;
-  onClose: () => void;
-  address?: AddressWithDistrict | null;
-  regions: Region[];
-  userId: string;
-  onSave: () => Promise<void>;
-  onShowMap: () => void;
-}
-
-function AddressDialog({
-  open,
-  onClose,
-  address,
-  regions,
-  userId,
-  onSave,
-  onShowMap,
-}: AddressDialogProps) {
-  const [label, setLabel] = useState(address?.label || "المنزل");
-  const [customLabel, setCustomLabel] = useState("");
-  const [addressText, setAddressText] = useState(address?.address || "");
-  const [phone, setPhone] = useState(address?.phone || "");
-  const [regionId, setRegionId] = useState(address?.district?.region_id || "");
-  const [districtId, setDistrictId] = useState(address?.district_id || "");
-  const [isDefault, setIsDefault] = useState(address?.is_default || false);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-  const [gpsLoading, setGpsLoading] = useState(false);
-  const [addressError, setAddressError] = useState(false);
-
-  useEffect(() => {
-    if (regionId) {
-      loadDistricts(regionId);
-    }
-  }, [regionId]);
-
-  useEffect(() => {
-    // When address prop changes (e.g. returning from map), update fields
-    if (address) {
-      setLabel(address.label);
-      setAddressText(address.address);
-      setPhone(address.phone || "");
-      // Only overwrite region/district if they are present in the 'address' object
-      // (Map return might not have district, preserve previous selection if possible?)
-      // Actually map return only gives lat/lng and formatted text. 
-      if (address.district?.region_id) setRegionId(address.district.region_id);
-      if (address.district_id) setDistrictId(address.district_id);
-      
-      setIsDefault(address.is_default);
-    } 
-    // If opening fresh (no address), reset is handled by parent passing null or key?
-    // Parent passes `editingAddress`. If null, we should reset.
-    else if (open) { 
-       // Only reset if opening fresh. 
-       // Note: This effect runs on every 'address' change.
-       setLabel("المنزل");
-       setAddressText("");
-       setPhone("");
-       setRegionId("");
-       setDistrictId("");
-       setIsDefault(false);
-    }
-  }, [address, open]);
-
-  // Reset error when dialog opens or address changes
-  useEffect(() => {
-    setAddressError(false);
-  }, [address, open]);
-
-  const loadDistricts = async (rid: string) => {
-    try {
-      const data = await regionsService.getDistricts(rid);
-      setDistricts(data);
-    } catch (error) {
-      console.error("Failed to load districts:", error);
-    }
-  };
-  
-  const requestGPSLocation = async () => {
-    if (!navigator.geolocation) {
-      notify.error("متصفحك لا يدعم خدمات تحديد الموقع");
-      return;
-    }
-
-    setGpsLoading(true);
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const { latitude, longitude } = position.coords;
-        setGpsLoading(false);
-        const locationText = `موقع GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
-        setAddressText((prev) => prev ? `${prev} (${locationText})` : locationText);
-        setAddressError(false);
-        notify.success("تم تحديد موقعك بنجاح");
-      },
-      (error) => {
-        setGpsLoading(false);
-        notify.error("فشل تحديد الموقع: " + error.message);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
-
-  const handleSave = async () => {
-    if (!addressText.trim()) {
-      notify.error("يرجى إدخال العنوان");
-      setAddressError(true);
-      return;
-    }
-
-    const finalLabel = label === "آخر" && customLabel ? customLabel : label;
-
-    setIsSaving(true);
-    try {
-      // Prepare payload
-      const payload: any = {
-          label: finalLabel,
-          address: addressText,
-          district_id: districtId || null,
-          phone: phone || null,
-          is_default: isDefault,
-      };
-      
-      // If the address object has lat/lng (from Map pick), include them
-      if (address?.latitude && address?.longitude) {
-         payload.latitude = address.latitude;
-         payload.longitude = address.longitude;
-      }
-      
-      // If we are editing an existing real DB address (it has an ID)
-      if (address?.id) {
-        await addressesService.update(address.id, userId, payload);
-        notify.success("تم تحديث العنوان بنجاح");
-      } else {
-        await addressesService.create({
-          user_id: userId,
-          ...payload
-        });
-        notify.success("تم إضافة العنوان بنجاح");
-      }
-      await onSave();
-    } catch (error) {
-      console.error("Failed to save address:", error);
-      notify.error("حدث خطأ أثناء حفظ العنوان");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {address?.id ? "تعديل العنوان" : "إضافة عنوان جديد"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-            
-          {/* Location Tools */}
-          <div className="flex gap-2 mb-2">
-
-              <Button type="button" variant="outline" size="sm" className="w-full" onClick={onShowMap}>
-                <Map className="w-4 h-4 ml-2" />
-                {address?.latitude ? "تغيير الموقع على الخريطة" : "تحديد الموقع على الخريطة"}
-              </Button>
-          </div>
-          {address?.latitude && address?.longitude && (
-             <div className="text-xs text-muted-foreground text-center bg-muted p-2 rounded" dir="ltr">
-                Selected: ({address.latitude.toFixed(6)}, {address.longitude.toFixed(6)})
-             </div>
-          )}
-            
-          {/* Label Selection */}
-          <div className="space-y-2">
-            <Label>تصنيف العنوان</Label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_LABELS.map((preset) => (
-                <Button
-                  key={preset}
-                  type="button"
-                  variant={label === preset ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setLabel(preset)}
-                >
-                  {preset}
-                </Button>
-              ))}
-            </div>
-            {label === "آخر" && (
-              <Input
-                placeholder="أدخل اسم للعنوان"
-                value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
-              />
-            )}
-          </div>
-
-          {/* Region */}
-          <div className="space-y-2">
-            <Label>المنطقة</Label>
-            <Select
-              value={regionId || "placeholder"}
-              onValueChange={(val) => {
-                if (val !== "placeholder") {
-                  setRegionId(val);
-                  setDistrictId("");
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="اختر المنطقة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="placeholder" disabled>
-                  اختر المنطقة
-                </SelectItem>
-                {regions.map((region) => (
-                  <SelectItem key={region.id} value={region.id}>
-                    {region.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* District */}
-
-
-          {/* Address */}
-          <div className="space-y-2">
-            <Label className={cn(addressError && "text-destructive")}>
-              العنوان التفصيلي
-            </Label>
-            <div className="relative">
-                <Textarea
-                  placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5"
-                  value={addressText}
-                  onChange={(e) => {
-                     setAddressText(e.target.value);
-                     if (e.target.value.trim()) setAddressError(false);
-                  }}
-                  className={cn("min-h-[80px]", addressError && "border-destructive focus-visible:ring-destructive")}
-                />
-            </div>
-            {addressError && (
-               <p className="text-xs text-destructive">هذا الحقل مطلوب</p>
-            )}
-          </div>
-
-          {/* Phone */}
-          <div className="space-y-2">
-            <Label>رقم الهاتف (اختياري)</Label>
-            <Input
-              type="tel"
-              dir="ltr"
-              placeholder="01xxxxxxxxx"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-
-          {/* Default checkbox */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              className="rounded border-input"
-            />
-            <span className="text-sm">تعيين كعنوان افتراضي</span>
-          </label>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            إلغاء
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
-            {address?.id ? "حفظ التغييرات" : "إضافة العنوان"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { notify } from "@/lib/notify";
 import {
   User,
@@ -35,15 +35,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { AR } from "@/lib/i18n";
 import { getInitials, formatPrice, cn } from "@/lib/utils";
 import { useAuth } from "@/store";
@@ -52,7 +44,9 @@ import {
   regionsService,
   type AddressWithDistrict,
 } from "@/services";
-import type { Region, District } from "@/types/database";
+import type { Region } from "@/types/database";
+import { AddressFormDialog } from "@/components/address/AddressFormDialog";
+import { MapLocationPicker, type GeoCoordinates } from "@/components/MapLocationPicker";
 
 // Label icons mapping
 const LABEL_ICONS: Record<string, React.ElementType> = {
@@ -60,8 +54,6 @@ const LABEL_ICONS: Record<string, React.ElementType> = {
   العمل: Briefcase,
   default: Star,
 };
-
-const PRESET_LABELS = ["المنزل", "العمل", "آخر"];
 
 export default function AccountPage() {
   const { user, isAuthenticated } = useAuth();
@@ -72,10 +64,15 @@ export default function AccountPage() {
   const [editingAddress, setEditingAddress] =
     useState<AddressWithDistrict | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  
+  // Map Picker State
+  const [showMapPicker, setShowMapPicker] = useState(false);
+  const [regions, setRegions] = useState<Region[]>([]);
 
   useEffect(() => {
     if (isAuthenticated && user?.id) {
       loadAddresses();
+      loadRegions();
     }
   }, [isAuthenticated, user?.id]);
 
@@ -89,6 +86,15 @@ export default function AccountPage() {
       console.error("Failed to load addresses:", error);
     } finally {
       setIsLoadingAddresses(false);
+    }
+  };
+  
+  const loadRegions = async () => {
+    try {
+      const data = await regionsService.getAll();
+      setRegions(data);
+    } catch (error) {
+      console.error("Failed to load regions:", error);
     }
   };
 
@@ -120,6 +126,30 @@ export default function AccountPage() {
       notify.error("حدث خطأ");
     }
   };
+  
+  const handleMapLocationSelect = useCallback((coordinates: GeoCoordinates) => {
+    // When returning from map, we want to open the dialog again with these coords
+    
+    // Construct a temporary address object with the new coordinates
+    const newAddressPart = {
+      latitude: coordinates.lat,
+      longitude: coordinates.lng,
+      label: editingAddress?.label || "المنزل",
+      is_default: editingAddress?.is_default || false,
+    } as AddressWithDistrict;
+
+    setEditingAddress((prev) => ({
+       ...prev, 
+       ...newAddressPart,
+       // Merge existing text if it was editing
+       address: prev?.address ? prev.address : newAddressPart.address 
+    } as AddressWithDistrict));
+    
+    // Re-open dialog
+    setShowMapPicker(false);
+    setShowAddDialog(true);
+    notify.success("تم تحديد الموقع بنجاح");
+  }, [editingAddress]);
 
   const getLabelIcon = (label: string) => {
     return LABEL_ICONS[label] || LABEL_ICONS.default;
@@ -234,7 +264,10 @@ export default function AccountPage() {
                 variant="outline"
                 size="sm"
                 className="gap-2"
-                onClick={() => setShowAddDialog(true)}
+                onClick={() => {
+                    setEditingAddress(null);
+                    setShowAddDialog(true);
+                }}
               >
                 <Plus className="w-4 h-4" />
                 إضافة عنوان
@@ -334,7 +367,10 @@ export default function AccountPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
-                            onClick={() => setEditingAddress(address)}
+                            onClick={() => {
+                                setEditingAddress(address);
+                                setShowAddDialog(true);
+                            }}
                           >
                             <Edit className="w-4 h-4 ml-2" />
                             تعديل
@@ -414,20 +450,72 @@ export default function AccountPage() {
           )}
         </div>
 
-        {/* Add/Edit Address Dialog */}
-        <AddressDialog
-          open={showAddDialog || !!editingAddress}
+        {/* Add/Edit Address Dialog (Reusable) */}
+        <AddressFormDialog
+          open={showAddDialog}
           onClose={() => {
             setShowAddDialog(false);
             setEditingAddress(null);
           }}
           address={editingAddress}
+          regions={regions}
           userId={user.id}
           onSave={async () => {
             setShowAddDialog(false);
             setEditingAddress(null);
             await loadAddresses();
           }}
+          onShowMap={(selectedRegionId) => {
+            setShowAddDialog(false); // Close dialog to show map
+            // Update editingAddress with the selected region so the map knows boundaries
+            if (selectedRegionId) {
+                const region = regions.find(r => r.id === selectedRegionId);
+                if (region) {
+                    setEditingAddress(prev => {
+                        const base = prev || { 
+                             id: "", user_id: user?.id || "", label: "المنزل", address: "", 
+                             is_default: false, created_at: "", updated_at: "" 
+                        } as AddressWithDistrict;
+                        
+                        return {
+                            ...base,
+                            district: { 
+                                 ...(base.district || {}), 
+                                 region_id: selectedRegionId,
+                                 region: region
+                            } as any
+                        };
+                    });
+                }
+            }
+            setShowMapPicker(true);
+          }}
+        />
+
+        {/* Map Picker Modal */}
+        <MapLocationPicker
+            open={showMapPicker}
+            onClose={() => {
+                setShowMapPicker(false);
+                setShowAddDialog(true); // Re-open dialog on cancel
+            }}
+            onLocationSelect={handleMapLocationSelect}
+            initialPosition={
+                editingAddress?.latitude && editingAddress?.longitude 
+                ? { lat: editingAddress.latitude, lng: editingAddress.longitude } 
+                : undefined
+            }
+            // Pass the selected region's boundary
+            regionBoundary={
+                editingAddress?.district?.region?.boundary_coordinates || 
+                regions.find(r => r.id === editingAddress?.district?.region_id)?.boundary_coordinates ||
+                undefined
+            }
+            regionName={
+                editingAddress?.district?.region?.name ||
+                regions.find(r => r.id === editingAddress?.district?.region_id)?.name ||
+                undefined
+            }
         />
 
         {/* Edit Profile Dialog */}
@@ -519,231 +607,6 @@ function EditProfileDialog({
           <Button onClick={handleSave} disabled={isLoading}>
             {isLoading && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
             حفظ التغييرات
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-// Address Dialog Component
-interface AddressDialogProps {
-  open: boolean;
-  onClose: () => void;
-  address?: AddressWithDistrict | null;
-  userId: string;
-  onSave: () => Promise<void>;
-}
-
-function AddressDialog({
-  open,
-  onClose,
-  address,
-  userId,
-  onSave,
-}: AddressDialogProps) {
-  const [label, setLabel] = useState(address?.label || "المنزل");
-  const [customLabel, setCustomLabel] = useState("");
-  const [addressText, setAddressText] = useState(address?.address || "");
-  const [phone, setPhone] = useState(address?.phone || "");
-  const [regionId, setRegionId] = useState(address?.district?.region_id || "");
-  const [districtId, setDistrictId] = useState(address?.district_id || "");
-  const [isDefault, setIsDefault] = useState(address?.is_default || false);
-  const [regions, setRegions] = useState<Region[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    loadRegions();
-  }, []);
-
-  useEffect(() => {
-    if (regionId) {
-      loadDistricts(regionId);
-    }
-  }, [regionId]);
-
-  useEffect(() => {
-    if (address) {
-      setLabel(address.label);
-      setAddressText(address.address);
-      setPhone(address.phone || "");
-      setRegionId(address.district?.region_id || "");
-      setDistrictId(address.district_id || "");
-      setIsDefault(address.is_default);
-    } else {
-      setLabel("المنزل");
-      setAddressText("");
-      setPhone("");
-      setRegionId("");
-      // setDistrictId("");
-      setIsDefault(false);
-    }
-  }, [address]);
-
-  const loadRegions = async () => {
-    try {
-      const data = await regionsService.getAll();
-      setRegions(data);
-    } catch (error) {
-      console.error("Failed to load regions:", error);
-    }
-  };
-
-  const loadDistricts = async (rid: string) => {
-    try {
-      const data = await regionsService.getDistricts(rid);
-      setDistricts(data);
-    } catch (error) {
-      console.error("Failed to load districts:", error);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!addressText.trim()) {
-      notify.error("يرجى إدخال العنوان");
-      return;
-    }
-
-    const finalLabel = label === "آخر" && customLabel ? customLabel : label;
-
-    setIsSaving(true);
-    try {
-      if (address) {
-        await addressesService.update(address.id, userId, {
-          label: finalLabel,
-          address: addressText,
-          district_id: districtId || null,
-          phone: phone || null,
-          is_default: isDefault,
-        });
-        notify.success("تم تحديث العنوان بنجاح");
-      } else {
-        await addressesService.create({
-          user_id: userId,
-          label: finalLabel,
-          address: addressText,
-          district_id: districtId || null,
-          phone: phone || null,
-          is_default: isDefault,
-        });
-        notify.success("تم إضافة العنوان بنجاح");
-      }
-      await onSave();
-    } catch (error) {
-      console.error("Failed to save address:", error);
-      notify.error("حدث خطأ أثناء حفظ العنوان");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {address ? "تعديل العنوان" : "إضافة عنوان جديد"}
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
-          {/* Label Selection */}
-          <div className="space-y-2">
-            <Label>تصنيف العنوان</Label>
-            <div className="flex flex-wrap gap-2">
-              {PRESET_LABELS.map((preset) => (
-                <Button
-                  key={preset}
-                  type="button"
-                  variant={label === preset ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setLabel(preset)}
-                >
-                  {preset}
-                </Button>
-              ))}
-            </div>
-            {label === "آخر" && (
-              <Input
-                placeholder="أدخل اسم للعنوان"
-                value={customLabel}
-                onChange={(e) => setCustomLabel(e.target.value)}
-              />
-            )}
-          </div>
-
-          {/* Region */}
-          <div className="space-y-2">
-            <Label>المنطقة</Label>
-            <Select
-              value={regionId || "placeholder"}
-              onValueChange={(val) => {
-                if (val !== "placeholder") {
-                  setRegionId(val);
-                  setDistrictId("");
-                }
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="اختر المنطقة" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="placeholder" disabled>
-                  اختر المنطقة
-                </SelectItem>
-                {regions.map((region) => (
-                  <SelectItem key={region.id} value={region.id}>
-                    {region.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-
-
-          {/* Address */}
-          <div className="space-y-2">
-            <Label>العنوان التفصيلي</Label>
-            <Textarea
-              placeholder="مثال: شارع النيل، بجوار مسجد السلام، عمارة 5"
-              value={addressText}
-              onChange={(e) => setAddressText(e.target.value)}
-            />
-          </div>
-
-          {/* Phone */}
-          <div className="space-y-2">
-            <Label>رقم الهاتف (اختياري)</Label>
-            <Input
-              type="tel"
-              dir="ltr"
-              placeholder="01xxxxxxxxx"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-          </div>
-
-          {/* Default checkbox */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={isDefault}
-              onChange={(e) => setIsDefault(e.target.checked)}
-              className="rounded border-input"
-            />
-            <span className="text-sm">تعيين كعنوان افتراضي</span>
-          </label>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            إلغاء
-          </Button>
-          <Button onClick={handleSave} disabled={isSaving}>
-            {isSaving && <Loader2 className="w-4 h-4 ml-2 animate-spin" />}
-            {address ? "حفظ التغييرات" : "إضافة العنوان"}
           </Button>
         </DialogFooter>
       </DialogContent>

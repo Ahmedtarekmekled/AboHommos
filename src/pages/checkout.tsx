@@ -177,6 +177,11 @@ export default function CheckoutPage() {
         notify.error("يرجى إدخال عنوان صالح (10 حروف على الأقل)");
         return;
       }
+      // Strict Check: Must have coordinates (from map selection)
+      if (!locationData.lat || !locationData.lng) {
+        notify.error("يرجى تحديد موقع التوصيل على الخريطة");
+        return;
+      }
     }
     if (step === "review") {
       const isValid = await trigger();

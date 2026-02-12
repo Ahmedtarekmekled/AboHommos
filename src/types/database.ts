@@ -68,6 +68,7 @@ export interface Database {
           is_active: boolean;
           created_at: string;
           updated_at: string;
+          boundary_coordinates: any | null; // using any for jsonb for now, or {lat:number, lng:number}[]
         };
         Insert: {
           id?: string;
@@ -77,6 +78,7 @@ export interface Database {
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
+          boundary_coordinates?: any | null;
         };
         Update: {
           id?: string;
@@ -86,6 +88,7 @@ export interface Database {
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
+          boundary_coordinates?: any | null;
         };
         Relationships: [];
       };

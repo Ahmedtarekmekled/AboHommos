@@ -48,6 +48,7 @@ import { ShopOrders } from "@/components/dashboard/ShopOrders";
 import { DashboardProductCard } from "@/components/dashboard/DashboardProductCard";
 import { ProductFilterBar } from "@/components/dashboard/ProductFilterBar";
 import { useProductFilters } from "@/hooks/useProductFilters";
+import { MapLocationPicker, LocationPreviewMap } from "@/components/MapLocationPicker";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -66,7 +67,17 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from "@/components/ui/dialog";
+import { 
+  MapContainer, 
+  TileLayer, 
+  Marker, 
+  useMap, 
+  useMapEvents, 
+  Polygon, 
+  Polyline 
+} from "react-leaflet";
 import {
   Tabs,
   TabsContent,
@@ -1677,7 +1688,7 @@ function DashboardOrders_Deprecated() {
   );
 }
 
-import { LocationPreviewMap, MapLocationPicker } from "@/components/MapLocationPicker"; // Ensure import
+
 import { ShopHoursSettings } from "@/components/dashboard/ShopHoursSettings";
 
 // Shop Settings / Registration
@@ -2145,10 +2156,16 @@ function DashboardSettings() {
                   <MapLocationPicker 
                     open={showMapPicker}
                     onClose={() => setShowMapPicker(false)}
-                    initialPosition={{ lat: formData.latitude, lng: formData.longitude }}
+                    initialPosition={
+                        formData.latitude && formData.longitude 
+                        ? { lat: formData.latitude, lng: formData.longitude }
+                        : undefined
+                    }
                     onLocationSelect={(loc) => {
                         setFormData(prev => ({ ...prev, latitude: loc.lat, longitude: loc.lng }));
                     }}
+                    regionBoundary={(regions.find(r => r.id === formData.region_id) as any)?.boundary_coordinates}
+                    regionName={regions.find(r => r.id === formData.region_id)?.name}
                   />
                 </div>
 
@@ -2186,11 +2203,19 @@ function AdminRegions() {
   const [isLoading, setIsLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [editingRegion, setEditingRegion] = useState<Region | null>(null);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    name: string;
+    delivery_fee: string;
+    boundary_coordinates: { lat: number; lng: number }[];
+  }>({
     name: "",
     delivery_fee: "15",
+    boundary_coordinates: [],
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Map drawing status
+  const [isDrawing, setIsDrawing] = useState(false);
 
   useEffect(() => {
     if (isAdmin) {
@@ -2216,8 +2241,9 @@ function AdminRegions() {
   };
 
   const resetForm = () => {
-    setFormData({ name: "", delivery_fee: "15" });
+    setFormData({ name: "", delivery_fee: "15", boundary_coordinates: [] });
     setEditingRegion(null);
+    setIsDrawing(false);
   };
 
   const openAddDialog = () => {
@@ -2230,6 +2256,7 @@ function AdminRegions() {
     setFormData({
       name: region.name,
       delivery_fee: (region as any).delivery_fee?.toString() || "15",
+      boundary_coordinates: (region as any).boundary_coordinates || [],
     });
     setShowDialog(true);
   };
@@ -2240,15 +2267,24 @@ function AdminRegions() {
       return;
     }
 
+    if (formData.boundary_coordinates.length < 3) {
+      notify.error("يرجى تحديد حدود المنطقة (3 نقاط على الأقل)");
+      return;
+    }
+
     setIsSaving(true);
     try {
+      // Ensure first and last points match to close the polygon (Leaflet does this visually, but good for data)
+      // Actually typically we store points, visualization handles closure.
+      
       const regionData = {
         name: formData.name,
-        // delivery_fee: parseFloat(formData.delivery_fee) || 15, // Not supported in regions table yet
+        // delivery_fee: parseFloat(formData.delivery_fee) || 15,
         slug: `region-${Date.now()}-${Math.random()
           .toString(36)
           .substring(2, 8)}`,
         is_active: true,
+        boundary_coordinates: formData.boundary_coordinates
       };
 
       if (editingRegion) {
@@ -2336,7 +2372,8 @@ function AdminRegions() {
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold truncate">{region.name}</h3>
                     <p className="text-sm text-muted-foreground">
-                      رسوم التوصيل: {formatPrice((region as any).delivery_fee || 15)}
+                       {/* رسوم التوصيل: {formatPrice((region as any).delivery_fee || 15)} */}
+                       {(region as any).boundary_coordinates?.length > 0 ? "تم تحديد الحدود" : "لم يتم تحديد الحدود"}
                     </p>
                   </div>
                 </div>
@@ -2363,37 +2400,66 @@ function AdminRegions() {
       )}
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingRegion ? "تعديل المنطقة" : "إضافة منطقة جديدة"}
             </DialogTitle>
+            <DialogDescription>
+              قم برسم حدود المنطقة على الخريطة لتحديد نطاق التوصيل.
+            </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="regionName">اسم المنطقة *</Label>
-              <Input
-                id="regionName"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                placeholder="مثال: أبو حمص"
-              />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-4">
+            {/* Form Fields & Instructions */}
+            <div className="space-y-4 md:col-span-1">
+              <div className="space-y-2">
+                <Label htmlFor="regionName">اسم المنطقة *</Label>
+                <Input
+                  id="regionName"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  placeholder="مثال: أبو حمص"
+                />
+              </div>
+
+              <div className="bg-muted p-4 rounded-lg text-sm space-y-2">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <MapPin className="w-4 h-4" />
+                  رسم الحدود
+                </h4>
+                <p className="text-muted-foreground">
+                  1. اضغط على الخريطة لإضافة نقاط الحدود.
+                </p>
+                <p className="text-muted-foreground">
+                  2. حدد 3 نقاط على الأقل لإغلاق الشكل.
+                </p>
+                <p className="text-muted-foreground">
+                  3. يمكنك سحب النقاط لتعديل مكانها.
+                </p>
+                <Button 
+                   variant="outline" 
+                   size="sm" 
+                   className="w-full mt-2 text-destructive hover:bg-destructive/10"
+                   onClick={() => setFormData(prev => ({ ...prev, boundary_coordinates: [] }))}
+                >
+                  <Trash2 className="w-3 h-3 ml-2" />
+                  مسح الحدود الحالية
+                </Button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="deliveryFee">رسوم التوصيل (ج.م)</Label>
-              <Input
-                id="deliveryFee"
-                type="number"
-                value={formData.delivery_fee}
-                onChange={(e) =>
-                  setFormData({ ...formData, delivery_fee: e.target.value })
-                }
-                placeholder="15"
-              />
+
+            {/* Map Area */}
+            <div className="md:col-span-2 h-[400px] border rounded-lg overflow-hidden relative">
+               <RegionMapDrawer 
+                  initialCoordinates={formData.boundary_coordinates}
+                  onCoordinatesChange={(coords) => setFormData(prev => ({ ...prev, boundary_coordinates: coords }))}
+               />
             </div>
-            <div className="flex gap-3 pt-4">
+          </div>
+          
+          <div className="flex gap-3 pt-4 border-t">
               <Button
                 onClick={handleSave}
                 disabled={isSaving}
@@ -2404,12 +2470,87 @@ function AdminRegions() {
               <Button variant="outline" onClick={() => setShowDialog(false)}>
                 إلغاء
               </Button>
-            </div>
           </div>
         </DialogContent>
       </Dialog>
     </div>
   );
+}
+
+// -----------------------------------------------------------------------------
+// NEW: Map Drawer Helper Component for Admin
+// -----------------------------------------------------------------------------
+
+function RegionMapDrawer({ 
+   initialCoordinates, 
+   onCoordinatesChange 
+}: { 
+   initialCoordinates: {lat: number, lng: number}[],
+   onCoordinatesChange: (coords: {lat: number, lng: number}[]) => void
+}) {
+  // Center map on existing polygon or default
+  const defaultCenter = initialCoordinates.length > 0
+    ? [initialCoordinates[0].lat, initialCoordinates[0].lng]
+    : [31.0603, 30.3254]; // Abo Hommos
+
+  return (
+    <div className="h-full w-full">
+       <MapContainer
+          center={defaultCenter as [number, number]}
+          zoom={14}
+          scrollWheelZoom={true}
+          style={{ height: "100%", width: "100%" }}
+       >
+          <TileLayer
+             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+             attribution='&copy; OpenStreetMap contributors'
+          />
+          <MapClickAccumulator 
+             points={initialCoordinates} 
+             onChange={onCoordinatesChange} 
+          />
+       </MapContainer>
+    </div>
+  );
+}
+
+// Handles clicks to add points and rendering of partial polygon
+function MapClickAccumulator({points, onChange}: {points: {lat:number, lng:number}[], onChange: (pts: {lat:number, lng:number}[]) => void}) {
+   useMapEvents({
+      click(e) {
+         onChange([...points, {lat: e.latlng.lat, lng: e.latlng.lng}]);
+      }
+   });
+
+   // Convert points to Leaflet format
+   // Explicit cast to fix TS error: number[][] not assignable to LatLngExpression[]
+   const positions = points.map(p => [p.lat, p.lng] as [number, number]);
+
+   return (
+      <>
+         {/* Render Markers for each point to allow deletion/drag (future enhancement) */}
+         {positions.map((pos, idx) => (
+            <Marker 
+               key={idx} 
+               position={pos}
+               eventHandlers={{
+                  click: () => {
+                     // Click existing marker to remove it
+                     const newPoints = points.filter((_, i) => i !== idx);
+                     onChange(newPoints);
+                  }
+               }}
+            />
+         ))}
+
+         {/* Render Polyline if open, Polygon if closed (3+ points) */}
+         {points.length >= 3 ? (
+             <Polygon positions={positions} pathOptions={{ color: 'blue' }} />
+         ) : points.length > 0 ? (
+             <Polyline positions={positions} pathOptions={{ color: 'blue', dashArray: '5, 5' }} />
+         ) : null}
+      </>
+   );
 }
 
 // Admin Shops Management
