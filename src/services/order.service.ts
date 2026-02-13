@@ -533,7 +533,7 @@ export const orderService = {
       .eq("delivery_user_id", userId)
       .neq("status", "DELIVERED")
       .neq("status", "CANCELLED")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     if (!parentOrders) return [];

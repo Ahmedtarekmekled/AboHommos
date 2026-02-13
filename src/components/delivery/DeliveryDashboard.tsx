@@ -35,7 +35,7 @@ function useAvailableOrders() {
         .select("*")
         .eq("status", "READY_FOR_PICKUP")
         .is("delivery_user_id", null)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
 
       if (error) throw error;
       
@@ -102,9 +102,9 @@ function useMyDeliveries(userId: string | undefined) {
   const [orders, setOrders] = useState<ParentOrderWithSuborders[]>([]); // Changed type to ParentOrderWithSuborders
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchMyOrders = async () => {
+  const fetchMyOrders = async (silent = false) => {
     if (!userId) return;
-    setIsLoading(true);
+    if (!silent) setIsLoading(true);
     try {
       // 1. Get raw parent orders
       const rawOrders = await orderService.getByDeliveryUser(userId);
@@ -121,7 +121,7 @@ function useMyDeliveries(userId: string | undefined) {
     } catch (error) {
       console.error("Failed to load delivery orders:", error);
     } finally {
-      setIsLoading(false);
+      if (!silent) setIsLoading(false);
     }
   };
 
@@ -139,7 +139,7 @@ function useMyDeliveries(userId: string | undefined) {
             table: "parent_orders", // Watch parent_orders instead of orders
             filter: `delivery_user_id=eq.${userId}`,
           },
-          () => fetchMyOrders()
+          () => fetchMyOrders(true) // Silent refresh on realtime update
         )
         .subscribe();
 
@@ -201,8 +201,8 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
       await orderService.assignDriverToParent(orderId, user.id);
       notify.success("تم قبول الطلب بنجاح! 🚀");
       await SoundService.playNewOrderSound(); 
-      refreshAvailable();
-      refreshMy();
+      refreshAvailable(true); // Silent refresh
+      refreshMy(true);        // Silent refresh
     } catch (err: any) {
       console.error("Accept order failed:", err);
       notify.error("حدث خطأ أثناء قبول الطلب");
