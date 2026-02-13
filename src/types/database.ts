@@ -19,7 +19,10 @@ export type OrderStatus =
   | "READY_FOR_PICKUP"
   | "OUT_FOR_DELIVERY"
   | "DELIVERED"
-  | "CANCELLED";
+  | "DELIVERED"
+  | "CANCELLED"
+  | "CANCELLED_BY_SHOP"
+  | "CANCELLED_BY_ADMIN";
 export type ShopStatus = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
 // Database interface for Supabase client
@@ -495,7 +498,7 @@ export interface Database {
           parent_order_id: string | null;
           is_critical: boolean;
           pickup_sequence_index: number | null;
-          cancelled_by: string | null;
+          cancelled_by: string | null; // UUID
           refund_amount: number;
           created_at: string;
           updated_at: string;
@@ -519,13 +522,13 @@ export interface Database {
           payment_status?: string;
           estimated_delivery?: string | null;
           delivered_at?: string | null;
-          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           cancellation_reason?: string | null;
+          cancelled_at?: string | null;
           delivery_user_id?: string | null;
           parent_order_id?: string | null;
           is_critical?: boolean;
           pickup_sequence_index?: number | null;
-          cancelled_by?: string | null;
           refund_amount?: number;
           created_at?: string;
           updated_at?: string;
@@ -549,13 +552,13 @@ export interface Database {
           payment_status?: string;
           estimated_delivery?: string | null;
           delivered_at?: string | null;
-          cancelled_at?: string | null;
+          cancelled_by?: string | null;
           cancellation_reason?: string | null;
+          cancelled_at?: string | null;
           delivery_user_id?: string | null;
           parent_order_id?: string | null;
           is_critical?: boolean;
           pickup_sequence_index?: number | null;
-          cancelled_by?: string | null;
           refund_amount?: number;
           created_at?: string;
           updated_at?: string;

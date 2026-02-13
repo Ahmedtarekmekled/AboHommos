@@ -42,6 +42,8 @@ const statusIcons: Record<OrderStatus, typeof Package> = {
   OUT_FOR_DELIVERY: Truck,
   DELIVERED: CheckCircle2,
   CANCELLED: XCircle,
+  CANCELLED_BY_SHOP: Store,
+  CANCELLED_BY_ADMIN: XCircle,
 };
 
 const statusOrder: OrderStatus[] = [
@@ -61,6 +63,8 @@ const statusColors: Record<OrderStatus, string> = {
   OUT_FOR_DELIVERY: "bg-cyan-500",
   DELIVERED: "bg-success",
   CANCELLED: "bg-destructive",
+  CANCELLED_BY_SHOP: "bg-destructive",
+  CANCELLED_BY_ADMIN: "bg-destructive",
 };
 
 export default function OrderPage() {
@@ -339,6 +343,11 @@ export default function OrderPage() {
                                <Badge variant="outline" className="text-xs mt-1">
                                  {ORDER_STATUS_CONFIG[suborder.status].label}
                                </Badge>
+                               {(suborder.status === 'CANCELLED' || suborder.status === 'CANCELLED_BY_SHOP' || suborder.status === 'CANCELLED_BY_ADMIN') && suborder.cancellation_reason && (
+                                 <div className="mt-2 text-sm text-destructive bg-destructive/5 p-2 rounded border border-destructive/10">
+                                   <p><span className="font-semibold">سبب الإلغاء:</span> {suborder.cancellation_reason}</p>
+                                 </div>
+                               )}
                             </div>
                           </div>
                           {suborder.shop?.phone && (
@@ -532,10 +541,20 @@ export default function OrderPage() {
                     </div>
                     <div>
                       <p className="font-semibold text-lg">تم إلغاء الطلب</p>
+                      {order.cancellation_reason && (
+                        <div className="mt-1">
+                          <p className="text-sm">
+                            <span className="font-bold text-destructive">السبب:</span> {order.cancellation_reason}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {order.cancelled_by ? (order.status === 'CANCELLED_BY_ADMIN' ? 'بواسطة الإدارة' : 'بواسطة المتجر') : ''}
+                          </p>
+                        </div>
+                      )}
                       {order.status_history?.find(
                         (h) => h.status === "CANCELLED"
                       ) && (
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground mt-1">
                           {formatDateTime(
                             order.status_history.find(
                               (h) => h.status === "CANCELLED"

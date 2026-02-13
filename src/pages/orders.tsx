@@ -47,6 +47,8 @@ const statusVariantMap: Record<
   OUT_FOR_DELIVERY: "outForDelivery",
   DELIVERED: "delivered",
   CANCELLED: "cancelled",
+  CANCELLED_BY_SHOP: "cancelled",
+  CANCELLED_BY_ADMIN: "cancelled",
 };
 
 const statusIcons: Record<OrderStatus, typeof Package> = {
@@ -57,6 +59,8 @@ const statusIcons: Record<OrderStatus, typeof Package> = {
   OUT_FOR_DELIVERY: Truck,
   DELIVERED: CheckCircle,
   CANCELLED: XCircle,
+  CANCELLED_BY_SHOP: Store,
+  CANCELLED_BY_ADMIN: XCircle,
 };
 
 export default function OrdersPage() {
@@ -107,6 +111,8 @@ export default function OrdersPage() {
       OUT_FOR_DELIVERY: 80,
       DELIVERED: 100,
       CANCELLED: 0,
+      CANCELLED_BY_SHOP: 0,
+      CANCELLED_BY_ADMIN: 0,
     };
     return progressMap[status];
   };

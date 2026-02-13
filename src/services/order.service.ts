@@ -620,6 +620,8 @@ export const orderService = {
       OUT_FOR_DELIVERY: ["DELIVERED", "CANCELLED"],
       DELIVERED: [],
       CANCELLED: [],
+      CANCELLED_BY_SHOP: [],
+      CANCELLED_BY_ADMIN: [],
     };
 
 
@@ -666,6 +668,38 @@ export const orderService = {
     return order as Order;
   },
 
+  async cancelOrder(
+    orderId: string,
+    reason: string,
+    actor: 'SHOP' | 'ADMIN' = 'SHOP'
+  ): Promise<void> {
+    if (!reason || reason.trim().length === 0) {
+      throw new Error("سبب الإلغاء مطلوب");
+    }
+
+    // Get current user ID
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("يجب تسجيل الدخول لإلغاء الطلب");
+
+    const status = actor === 'SHOP' ? 'CANCELLED_BY_SHOP' : 'CANCELLED_BY_ADMIN';
+
+    // Cast 'cancel_shop_order' to any to avoid TS error if types aren't fully updated yet
+    const { data, error } = await supabase.rpc('cancel_shop_order' as any, {
+      p_order_id: orderId,
+      p_reason: reason,
+      p_actor_id: user.id, // Pass UUID
+      p_status: status
+    });
+
+    if (error) throw error;
+    
+    // RPC returns JSONB, check success field
+    const result = data as any;
+    if (result && !result.success) {
+      throw new Error(result.message || 'فشل إلغاء الطلب');
+    }
+  },
+
   async getStatusHistory(orderId: string): Promise<OrderStatusHistory[]> {
     const { data, error } = await supabase
       .from("order_status_history")
@@ -692,7 +726,7 @@ export const orderService = {
 
     // 2. Cascade to Sub-Orders (Simple approach)
     // If Parent is Delivered/Cancelled/Out, Sub-orders should match.
-    if (["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED"].includes(status)) {
+    if (["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "CANCELLED_BY_SHOP", "CANCELLED_BY_ADMIN"].includes(status)) {
         await supabase
           .from("orders")
           .update({ status })
@@ -727,22 +761,32 @@ export const ORDER_STATUS_CONFIG: Record<
   },
   READY_FOR_PICKUP: {
     label: "جاهز للاستلام",
-    color: "info",
-    icon: "PackageCheck",
+    color: "success",
+    icon: "ShoppingBag",
   },
   OUT_FOR_DELIVERY: {
-    label: "في الطريق",
-    color: "accent",
+    label: "جاري التوصيل",
+    color: "secondary",
     icon: "Truck",
   },
   DELIVERED: {
-    label: "تم التسليم",
+    label: "تم التوصيل",
     color: "success",
-    icon: "CheckCircle2",
+    icon: "CheckCheck",
   },
   CANCELLED: {
-    label: "تم الإلغاء",
+    label: "ملغى",
     color: "destructive",
     icon: "XCircle",
+  },
+  CANCELLED_BY_SHOP: {
+    label: "ملغى من المتجر",
+    color: "destructive",
+    icon: "Store",
+  },
+  CANCELLED_BY_ADMIN: {
+    label: "ملغى من الإدارة",
+    color: "destructive",
+    icon: "ShieldAlert",
   },
 };

@@ -34,7 +34,8 @@ import {
   ClipboardList,
   Bell,
   Volume2,
-  VolumeX
+  VolumeX,
+  AlertCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -58,6 +59,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -126,6 +129,40 @@ export function ShopOrders() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [sortBy, setSortBy] = useState("newest");
+
+  // Cancellation
+  const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [showCancelDialog, setShowCancelDialog] = useState(false);
+
+  const openCancelDialog = (orderId: string) => {
+    setOrderToCancel(orderId);
+    setCancelReason("");
+    setShowCancelDialog(true);
+  };
+
+  const handleCancelOrder = async () => {
+    if (!orderToCancel || !cancelReason.trim()) return;
+    
+    setIsUpdating(true);
+    try {
+        await orderService.cancelOrder(orderToCancel, cancelReason, "SHOP");
+        toast({ title: "تم بنجاح", description: "تم إلغاء الطلب" });
+        setShowCancelDialog(false);
+        setOrderToCancel(null);
+        setCancelReason("");
+        loadData(true);
+    } catch (error: any) {
+        console.error("Cancellation failed:", error);
+         toast({ 
+          title: "خطأ", 
+          description: error.message || "فشل إلغاء الطلب", 
+          variant: "destructive" 
+      });
+    } finally {
+        setIsUpdating(false);
+    }
+  };
 
   // Load Data
   // Load Data
@@ -364,17 +401,25 @@ export function ShopOrders() {
                  <p className="text-muted-foreground">حاول تغيير خيارات البحث أو التصفية</p>
              </div>
          ) : (
-             filteredOrders.map(order => (
-                <OrderCard 
-                    key={order.id} 
-                    order={order} 
-                    onUpdateStatus={handleUpdateStatus} 
-                    onViewDetails={() => openOrderDetails(order)}
-                    isUpdating={isUpdating}
-                    getNextStatus={getNextStatus}
-                    getNextStatusLabel={getNextStatusLabel}
-                />
-             ))
+             filteredOrders.map(order => {
+                 // Handle Cancel Trigger from Child
+                 const handleCardAction = (id: string, action: string) => {
+                    if (action === 'CANCEL_TRIGGER') openCancelDialog(id);
+                    else handleUpdateStatus(id, action);
+                 };
+
+                 return (
+                    <OrderCard 
+                        key={order.id} 
+                        order={order} 
+                        onUpdateStatus={handleCardAction} 
+                        onViewDetails={() => openOrderDetails(order)}
+                        isUpdating={isUpdating}
+                        getNextStatus={getNextStatus}
+                        getNextStatusLabel={getNextStatusLabel}
+                    />
+                 );
+             })
          )}
       </div>
 
@@ -384,6 +429,37 @@ export function ShopOrders() {
         open={showOrderDialog} 
         onOpenChange={setShowOrderDialog} 
       />
+
+      {/* Cancellation Dialog */}
+      <Dialog open={showCancelDialog} onOpenChange={setShowCancelDialog}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>إلغاء الطلب</DialogTitle>
+                <CardDescription>يرجى ذكر سبب الإلغاء لإتمام العملية.</CardDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                    <Label>سبب الإلغاء (مطلوب)</Label>
+                    <Textarea 
+                        placeholder="يرجى توضيح سبب الإلغاء..." 
+                        value={cancelReason}
+                        onChange={(e) => setCancelReason(e.target.value)}
+                        rows={3}
+                    />
+                </div>
+                <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setShowCancelDialog(false)}>تراجع</Button>
+                    <Button 
+                        variant="destructive" 
+                        onClick={handleCancelOrder}
+                        disabled={isUpdating || !cancelReason.trim()}
+                    >
+                        {isUpdating ? "جاري الإلغاء..." : "تأكيد الإلغاء"}
+                    </Button>
+                </div>
+            </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -464,12 +540,12 @@ const OrderCard = ({ order, onUpdateStatus, onViewDetails, isUpdating, getNextSt
                     <Button variant="outline" className="flex-1" onClick={onViewDetails}>
                         التفاصيل
                     </Button>
-                    {order.status === 'PLACED' && (
+                    {['PLACED', 'CONFIRMED', 'PREPARING', 'READY_FOR_PICKUP'].includes(order.status) && (
                         <Button 
                             variant="ghost" 
                             size="icon" 
                             className="text-destructive hover:bg-destructive/10"
-                            onClick={() => onUpdateStatus(order.id, 'CANCELLED')}
+                            onClick={() => onUpdateStatus(order.id, 'CANCEL_TRIGGER')} // Pass special flag or handle in parent
                         >
                             <X className="w-5 h-5" />
                         </Button>
@@ -500,12 +576,27 @@ function OrderDetailsDialog({ order, open, onOpenChange }: any) {
                     <DialogTitle className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                             <span>تفاصيل الطلب #{order.order_number}</span>
-                            <Badge>{ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]?.label}</Badge>
+                            <Badge className={ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]?.color}>
+                                {ORDER_STATUS_CONFIG[order.status as keyof typeof ORDER_STATUS_CONFIG]?.label}
+                            </Badge>
                         </div>
                         <span className="text-sm font-normal text-muted-foreground">
                             {format(new Date(order.created_at), "PPP p", { locale: ar })}
                         </span>
                     </DialogTitle>
+                    {/* Cancellation Reason Display */}
+                    {(order.status === 'CANCELLED' || order.status === 'CANCELLED_BY_SHOP' || order.status === 'CANCELLED_BY_ADMIN') && order.cancellation_reason && (
+                        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm font-medium flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
+                            <div>
+                                <p className="font-bold mb-1">سبب الإلغاء:</p>
+                                <p>{order.cancellation_reason}</p>
+                                <p className="text-xs opacity-70 mt-1">
+                                    {order.cancelled_by ? (order.status === 'CANCELLED_BY_ADMIN' ? 'بواسطة الإدارة' : 'بواسطة المتجر') : ''} • {order.cancelled_at ? format(new Date(order.cancelled_at), 'p', { locale: ar }) : ''}
+                                </p>
+                            </div>
+                        </div>
+                    )}
                 </DialogHeader>
 
                 <div className="grid md:grid-cols-2 gap-6 py-4">
