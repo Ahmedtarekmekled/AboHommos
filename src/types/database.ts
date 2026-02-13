@@ -484,6 +484,7 @@ export interface Database {
           customer_phone: string;
           delivery_address: string;
           delivery_notes: string | null;
+          platform_fee: number;
           payment_method: string;
           payment_status: string;
           estimated_delivery: string | null;
@@ -513,6 +514,7 @@ export interface Database {
           customer_phone: string;
           delivery_address: string;
           delivery_notes?: string | null;
+          platform_fee?: number;
           payment_method?: string;
           payment_status?: string;
           estimated_delivery?: string | null;
@@ -542,6 +544,7 @@ export interface Database {
           customer_phone?: string;
           delivery_address?: string;
           delivery_notes?: string | null;
+          platform_fee?: number;
           payment_method?: string;
           payment_status?: string;
           estimated_delivery?: string | null;
@@ -686,6 +689,7 @@ export interface Database {
           delivery_latitude: number | null;
           delivery_longitude: number | null;
           delivery_notes: string | null;
+          platform_fee: number;
           payment_method: string;
           payment_status: string;
           delivery_user_id: string | null;
@@ -713,6 +717,7 @@ export interface Database {
           delivery_latitude?: number | null;
           delivery_longitude?: number | null;
           delivery_notes?: string | null;
+          platform_fee?: number;
           payment_method?: string;
           payment_status?: string;
           delivery_user_id?: string | null;
@@ -739,6 +744,7 @@ export interface Database {
           delivery_latitude?: number | null;
           delivery_longitude?: number | null;
           delivery_notes?: string | null;
+          platform_fee?: number;
           payment_method?: string;
           payment_status?: string;
           delivery_user_id?: string | null;
@@ -755,6 +761,8 @@ export interface Database {
           pickup_stop_fee: number;
           min_fee: number;
           max_fee: number;
+          platform_fee_fixed: number;
+          platform_fee_percent: number;
           rounding_rule: string;
           fallback_mode: string;
           fixed_fallback_fee: number;
@@ -888,6 +896,7 @@ export type OrderWithItems = Order & {
   items: OrderItem[];
   shop: Pick<Shop, "id" | "name" | "slug" | "logo_url" | "phone">;
   status_history: OrderStatusHistory[];
+  parent_order?: Pick<ParentOrder, "id" | "order_number" | "total" | "platform_fee" | "total_delivery_fee"> | null;
 };
 
 export type ParentOrderWithSuborders = ParentOrder & {

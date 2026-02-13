@@ -428,6 +428,33 @@ function SettingsTab() {
              </CardContent>
           </Card>
 
+          {/* Platform Fee */}
+          <Card>
+             <CardHeader><CardTitle>رسوم الخدمة (Platform Fee)</CardTitle></CardHeader>
+             <CardContent className="space-y-4">
+                <div className="grid gap-2">
+                   <Label>رسوم ثابتة (EGP)</Label>
+                   <Input 
+                      type="number" 
+                      value={settings.platform_fee_fixed || 0} 
+                      onChange={e => setSettings({...settings, platform_fee_fixed: +e.target.value})} 
+                   />
+                </div>
+                <div className="grid gap-2">
+                   <Label>نسبة مئوية (%)</Label>
+                   <p className="text-xs text-muted-foreground">تحسب من مجموع المنتجات (Subtotal)</p>
+                   <Input 
+                      type="number" 
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={settings.platform_fee_percent || 0} 
+                      onChange={e => setSettings({...settings, platform_fee_percent: +e.target.value})} 
+                   />
+                </div>
+             </CardContent>
+          </Card>
+
           <Card>
              <CardHeader><CardTitle>التوجيه والسلوك</CardTitle></CardHeader>
              <CardContent className="space-y-4">

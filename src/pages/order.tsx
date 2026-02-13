@@ -409,6 +409,12 @@ export default function OrderPage() {
                       <span className="text-muted-foreground">{AR.cart.deliveryFee}</span>
                       <span>{formatPrice(order.total_delivery_fee)}</span>
                     </div>
+                    {order.platform_fee > 0 && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">رسوم الخدمة</span>
+                        <span>{formatPrice(order.platform_fee)}</span>
+                      </div>
+                    )}
                   </div>
 
                   <Separator />
@@ -484,6 +490,29 @@ export default function OrderPage() {
             {ORDER_STATUS_CONFIG[order.status as OrderStatus]?.label}
           </Badge>
         </div>
+
+        {/* Multi-Store Parent Link Banner */}
+        {order.parent_order && (
+          <div className="mb-8 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center justify-between gap-4">
+             <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-full">
+                   <Package className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                   <p className="font-semibold text-sm">هذا الطلب جزء من طلب مجمّع</p>
+                   <p className="text-xs text-muted-foreground">
+                      تم دمج الرسوم والتوصيل في الطلب الرئيسي #{order.parent_order.order_number}
+                   </p>
+                </div>
+             </div>
+             <Link to={`/orders/${order.parent_order.id}`}>
+                <Button size="sm" variant="outline" className="gap-2">
+                   عرض الطلب المجمّع
+                   <ArrowRight className="w-4 h-4 rotate-180" />
+                </Button>
+             </Link>
+          </div>
+        )}
 
         <div className="grid lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
@@ -784,8 +813,25 @@ export default function OrderPage() {
                     <span className="text-muted-foreground">
                       {AR.cart.deliveryFee}
                     </span>
-                    <span>{formatPrice(order.delivery_fee)}</span>
+                    <span>
+                      {order.parent_order ? (
+                         <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">مشترك</span>
+                      ) : (
+                         formatPrice(order.delivery_fee) 
+                      )}
+                    </span>
                   </div>
+                  {order.platform_fee > 0 ? (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">رسوم الخدمة</span>
+                      <span>{formatPrice(order.platform_fee)}</span>
+                    </div>
+                  ) : order.parent_order && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">رسوم الخدمة</span>
+                      <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">مشترك</span>
+                    </div>
+                  )}
                 </div>
 
                 <Separator />

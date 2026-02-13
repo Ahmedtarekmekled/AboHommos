@@ -8,6 +8,8 @@ import type {
   OrderStatus,
   OrderStatusHistory,
 } from "@/types/database";
+import { deliverySettingsService } from "./delivery-settings.service";
+import type { CheckoutCalculation } from "./multi-store-checkout.service";
 
 // Cart Service
 export const cartService = {
@@ -254,7 +256,13 @@ export const orderService = {
       0
     );
     const deliveryFee = orderData.deliveryFee || 0;
-    const total = subtotal + deliveryFee;
+
+    // Calculate Platform Fee
+    const settings = await deliverySettingsService.getSettings();
+    const platformFeeRaw = settings.platform_fee_fixed + (subtotal * settings.platform_fee_percent / 100);
+    const platformFee = Math.round(platformFeeRaw * 100) / 100;
+
+    const total = subtotal + deliveryFee + platformFee;
 
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${Math.random()
@@ -272,6 +280,7 @@ export const orderService = {
         status: "PLACED",
         subtotal,
         delivery_fee: deliveryFee,
+        platform_fee: platformFee,
         total,
         customer_name: orderData.customerName,
         customer_phone: orderData.deliveryPhone,
@@ -310,6 +319,120 @@ export const orderService = {
     await cartService.clearCart(orderData.userId);
 
     return order;
+  },
+
+  /**
+   * Create multi-store order with authoritative Platform Fee calculation
+   */
+  async createMultiStoreOrder(
+    calculation: CheckoutCalculation
+  ): Promise<{ parent_order_id: string; order_number: string }> {
+    const { parent_order_data, suborders_data } = calculation;
+
+    // 1. Re-calculate Platform Fee Authoritatively
+    const totalSubtotal = suborders_data.reduce((sum: number, sub: any) => sum + sub.subtotal, 0);
+    
+    const settings = await deliverySettingsService.getSettings();
+    const platformFeeRaw = settings.platform_fee_fixed + (totalSubtotal * settings.platform_fee_percent / 100);
+    const platformFee = Math.round(platformFeeRaw * 100) / 100;
+
+    // 2. Re-calculate Total
+    const deliveryFee = parent_order_data.total_delivery_fee;
+    const total = totalSubtotal + deliveryFee + platformFee;
+
+    // Generate order number
+    const orderNumber = `PO-${Date.now()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`;
+
+    // Append GPS to Address String
+    const addressWithGPS = parent_order_data.delivery_latitude && parent_order_data.delivery_longitude 
+        ? `${parent_order_data.delivery_address} \nموقع GPS: ${parent_order_data.delivery_latitude},${parent_order_data.delivery_longitude}`
+        : parent_order_data.delivery_address;
+
+    // Create parent order
+    const { data: parentOrder, error: parentError } = await supabase
+      .from('parent_orders')
+      .insert({
+        ...parent_order_data,
+        delivery_address: addressWithGPS,
+        order_number: orderNumber,
+        status: 'PLACED',
+        payment_method: 'COD',
+        payment_status: 'PENDING',
+        platform_fee: platformFee, // Authoritative value
+        total: total, // Authoritative total
+      })
+      .select()
+      .single();
+
+    if (parentError) {
+      console.error('Failed to create parent order:', parentError);
+      throw new Error('فشل إنشاء الطلب');
+    }
+
+    // Create suborders
+    for (const suborderData of suborders_data) {
+      const subOrderNumber = `${orderNumber}-${suborderData.shop_id.slice(0, 4).toUpperCase()}`;
+      
+      const { data: suborder, error: suborderError } = await supabase
+        .from('orders')
+        .insert({
+          parent_order_id: parentOrder.id,
+          order_number: subOrderNumber,
+          shop_id: suborderData.shop_id,
+          user_id: parent_order_data.user_id,
+          status: 'PLACED',
+          subtotal: suborderData.subtotal,
+          delivery_fee: 0,
+          platform_fee: 0, // Fee is on parent
+          total: suborderData.subtotal,
+          customer_name: parent_order_data.customer_name,
+          customer_phone: parent_order_data.customer_phone,
+          delivery_address: parent_order_data.delivery_address,
+          delivery_notes: parent_order_data.delivery_notes,
+          payment_method: 'COD',
+          payment_status: 'PENDING',
+          pickup_sequence_index: suborderData.pickup_sequence_index,
+        })
+        .select()
+        .single();
+
+      if (suborderError) {
+        console.error('Failed to create suborder:', suborderError);
+        throw new Error('فشل إنشاء تفاصيل الطلب');
+      }
+
+      // Create order items
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .insert(
+          suborderData.items.map((item: any) => ({
+            order_id: suborder.id,
+            product_id: item.product_id,
+            product_name: item.product_name,
+            product_image: item.product_image,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            total_price: item.total_price,
+          }))
+        );
+
+      if (itemsError) {
+        console.error('Failed to create order items:', itemsError);
+        throw new Error('فشل إنشاء منتجات الطلب');
+      }
+
+      // Create status history
+      await supabase.from('order_status_history').insert({
+        order_id: suborder.id,
+        status: 'PLACED',
+        created_by: parent_order_data.user_id,
+      });
+    }
+
+    return {
+      parent_order_id: parentOrder.id,
+      order_number: orderNumber,
+    };
   },
 
   async getByUser(userId: string): Promise<OrderWithItems[]> {
@@ -391,7 +514,8 @@ export const orderService = {
         *,
         shop:shops(id, name, slug, logo_url, phone),
         items:order_items(*),
-        status_history:order_status_history(*)
+        status_history:order_status_history(*),
+        parent_order:parent_orders(id, order_number, total, platform_fee, total_delivery_fee)
       `
       )
       .eq("id", orderId)

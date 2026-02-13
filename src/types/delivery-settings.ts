@@ -12,6 +12,8 @@ export interface DeliverySettings {
   pickup_stop_fee: number;
   min_fee: number;
   max_fee: number;
+  platform_fee_fixed: number;
+  platform_fee_percent: number;
   rounding_rule: RoundingRule;
   
   // Fallback
@@ -59,6 +61,7 @@ export interface ParentOrder {
   
   subtotal: number;
   total_delivery_fee: number;
+  platform_fee: number;
   discount: number;
   total: number;
   

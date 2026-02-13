@@ -72,8 +72,23 @@ export default function CheckoutPage() {
     deliveryFee: 0, 
   });
   const [calculatedDeliveryFee, setCalculatedDeliveryFee] = useState<number | null>(null);
+  const [platformFee, setPlatformFee] = useState(0);
   const [isFallbackFee, setIsFallbackFee] = useState(false);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
+
+  useEffect(() => {
+    const loadSettings = async () => {
+       try {
+         const { deliverySettingsService } = await import('@/services/delivery-settings.service');
+         const s = await deliverySettingsService.getSettings();
+         const raw = s.platform_fee_fixed + (cartTotal * s.platform_fee_percent / 100);
+         setPlatformFee(Math.round(raw * 100) / 100);
+       } catch (e) {
+         console.error("Failed to load settings", e);
+       }
+    };
+    loadSettings();
+  }, [cartTotal]);
   
   const {
     register,
@@ -260,7 +275,8 @@ export default function CheckoutPage() {
 
       if (isMultiShop) {
         // Use new multi-store checkout
-        const { calculateMultiStoreCheckout, createMultiStoreOrder } = await import('@/services/multi-store-checkout.service');
+        // Use new multi-store checkout
+        const { calculateMultiStoreCheckout } = await import('@/services/multi-store-checkout.service');
         
         // Calculate checkout with route/pricing
         const calculation = await calculateMultiStoreCheckout({
@@ -286,7 +302,8 @@ export default function CheckoutPage() {
         }
 
         // Create the multi-store order
-        const result = await createMultiStoreOrder(calculation);
+        // Create the multi-store order
+        const result = await orderService.createMultiStoreOrder(calculation);
         
         // Clear cart after successful order
         await clearCart();
@@ -839,6 +856,12 @@ export default function CheckoutPage() {
                       </span>
                       <span>{formatPrice(deliveryFee || 0)}</span>
                     </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        رسوم الخدمة
+                      </span>
+                      <span>{formatPrice(platformFee)}</span>
+                    </div>
                   </div>
 
                   <Separator />
@@ -846,7 +869,7 @@ export default function CheckoutPage() {
                   <div className="flex justify-between text-lg font-bold">
                     <span>{AR.cart.total}</span>
                     <span className="text-primary">
-                      {formatPrice(cartTotal + (deliveryFee || 0))}
+                      {formatPrice(cartTotal + (deliveryFee || 0) + platformFee)}
                     </span>
                   </div>
 
