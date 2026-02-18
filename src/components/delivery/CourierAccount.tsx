@@ -7,6 +7,7 @@ import { formatPrice } from "@/lib/utils";
 import { Loader2, Calendar, PackageCheck, Wallet, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import { TelegramConnect } from "@/components/notifications/TelegramConnect";
 
 export function CourierAccount() {
   const { user } = useAuth();
@@ -48,6 +49,9 @@ export function CourierAccount() {
         </Button>
         <h1 className="text-2xl font-bold">حسابي</h1>
       </div>
+
+      {/* Telegram Settings */}
+      <TelegramConnect />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4">

@@ -37,6 +37,8 @@ export interface Database {
           phone: string | null;
           role: UserRole;
           avatar_url: string | null;
+          telegram_chat_id?: string | null; // Optional because legacy users might not have it
+          telegram_enabled?: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -47,6 +49,8 @@ export interface Database {
           phone?: string | null;
           role?: UserRole;
           avatar_url?: string | null;
+          telegram_chat_id?: string | null;
+          telegram_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -57,6 +61,8 @@ export interface Database {
           phone?: string | null;
           role?: UserRole;
           avatar_url?: string | null;
+          telegram_chat_id?: string | null;
+          telegram_enabled?: boolean;
           created_at?: string;
           updated_at?: string;
         };
