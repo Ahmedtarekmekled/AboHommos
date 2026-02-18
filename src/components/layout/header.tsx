@@ -35,6 +35,7 @@ const navLinks = [
 ];
 
 import { CartDropdown } from "@/components/cart/cart-drawer";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 export function Header() {
   const location = useLocation();
@@ -97,6 +98,9 @@ export function Header() {
 
           {/* Left Section: Actions */}
           <div className="flex items-center gap-2">
+            {/* Notifications */}
+            {isAuthenticated && <NotificationBell />}
+
             {/* Cart */}
             <Button 
                variant="ghost" 
