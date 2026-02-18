@@ -3,14 +3,14 @@ import { supabase } from "@/lib/supabase";
 import { Order } from "@/types/database";
 
 export function useLiveQueue() {
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [orders, setOrders] = useState<any[]>([]); // Using any[] to support ParentOrder structure
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     // 1. Initial Fetch
     const fetchOrders = async () => {
       const { data, error } = await supabase
-        .from("orders")
+        .from("parent_orders")
         .select("*")
         .eq("status", "READY_FOR_PICKUP")
         .is("delivery_user_id", null)
@@ -32,16 +32,19 @@ export function useLiveQueue() {
         {
           event: "*",
           schema: "public",
-          table: "orders",
+          table: "parent_orders",
         },
         (payload) => {
-          const newOrder = payload.new as Order;
-          const oldOrder = payload.old as Order;
+          const newOrder = payload.new as any;
+          const oldOrder = payload.old as any;
 
           if (payload.eventType === "INSERT") {
              // If new order is ready and unassigned -> Add
              if (newOrder.status === 'READY_FOR_PICKUP' && !newOrder.delivery_user_id) {
-                setOrders(prev => [...prev, newOrder]);
+                setOrders(prev => {
+                    if (prev.find(o => o.id === newOrder.id)) return prev;
+                    return [newOrder, ...prev]; // Add to top
+                });
              }
           } 
           else if (payload.eventType === "UPDATE") {

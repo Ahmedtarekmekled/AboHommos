@@ -17,6 +17,7 @@ import { useLiveQueue } from "@/hooks/useLiveQueue";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 import { useNavigate } from "react-router-dom";
+import { formatPrice } from "@/lib/utils";
 import { Order } from "@/types/database";
 
 export function NotificationBell() {
@@ -144,20 +145,59 @@ export function NotificationBell() {
               {isDelivery && liveQueue.map((order) => (
                  <DropdownMenuItem
                   key={order.id}
-                  className="flex flex-col items-start gap-1 p-3 cursor-pointer bg-accent/20 border-b last:border-0"
+                  className="flex flex-col gap-3 p-3 cursor-pointer bg-white hover:bg-accent/5 border-b last:border-0 transition-all focus:bg-accent/5"
                   onClick={() => handleNotificationClick(order)}
+                  dir="rtl"
                 >
-                  <div className="flex w-full justify-between items-start gap-2">
-                    <span className="text-sm font-semibold">
-                        طلب جديد #{order.order_number || order.id.slice(0,6)}
-                    </span>
-                    <Badge variant="outline" className="text-[10px] bg-green-50 text-green-700 border-green-200">
-                        متاح للاستلام
-                    </Badge>
+                  {/* Header: Icon & Title & Time */}
+                  <div className="flex w-full items-center justify-between">
+                     <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                           <Truck className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="text-sm font-bold text-foreground">طلب جديد</span>
+                     </div>
+                     <span className="text-[10px] text-muted-foreground font-medium bg-muted/50 px-2 py-0.5 rounded-full">
+                        {format(new Date(order.created_at), "h:mm a")}
+                     </span>
                   </div>
-                  <span className="text-xs text-muted-foreground">
-                     منذ {format(new Date(order.created_at), "mm", { locale: ar })} دقيقة
-                  </span>
+
+                  {/* Order Details */}
+                  <div className="flex flex-col gap-1 pr-10">
+                      <span className="text-xs font-mono text-muted-foreground">
+                        {order.order_number}#
+                      </span>
+                      <span className="text-xs text-foreground font-medium truncate">
+                        {order.customer_name || "عميل تطبيق"}
+                      </span>
+                  </div>
+
+                  {/* Footer Stats Box */}
+                  <div className="w-full flex items-center justify-between bg-muted/30 rounded-md p-2 mt-1 border border-border/50">
+                      {/* Price (Earnings) */}
+                      <div className="flex flex-col gap-0.5">
+                          <span className="text-[10px] text-muted-foreground">الأرباح المتوقعة</span>
+                          <span className="text-sm font-extrabold text-emerald-600">
+                             {formatPrice(order.total_delivery_fee || order.delivery_fee || 0)}
+                          </span>
+                      </div>
+                      
+                      {/* Distance & Status */}
+                      <div className="flex flex-col items-end gap-0.5">
+                          <div className="flex items-center gap-1">
+                              <span className="relative flex h-1.5 w-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-green-500"></span>
+                              </span>
+                              <span className="text-[10px] text-green-600 font-medium">متاح للقبول</span>
+                          </div>
+                          {order.route_km && (
+                             <span className="text-[10px] text-muted-foreground dir-ltr">
+                                {order.route_km} km
+                             </span>
+                          )}
+                      </div>
+                  </div>
                 </DropdownMenuItem>
               ))}
 
