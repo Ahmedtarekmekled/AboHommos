@@ -128,10 +128,10 @@ export default function ProductPage() {
     : 0;
 
   return (
-    <div className="py-8">
+    <div className="pt-4 pb-28 md:py-8">
       <div className="container-app">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+        <nav className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
           <Link to="/" className="hover:text-foreground">
             {AR.nav.home}
           </Link>
@@ -146,21 +146,21 @@ export default function ProductPage() {
         <div className="grid md:grid-cols-2 gap-8 lg:gap-12">
           {/* Product Image */}
           <div className="space-y-4">
-            <div className="aspect-square rounded-2xl overflow-hidden bg-muted relative">
+            <div className="aspect-square rounded-[2rem] overflow-hidden bg-muted/20 relative shadow-sm border border-border/40 group">
               {product.image_url ? (
                 <img
                   src={product.image_url}
                   alt={product.name}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-secondary/10">
-                  <ShoppingBag className="w-24 h-24 text-muted-foreground" />
+                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/5 to-secondary/5">
+                  <ShoppingBag className="w-24 h-24 text-muted-foreground/40 transition-transform duration-700 group-hover:scale-110" />
                 </div>
               )}
               {discount > 0 && (
                 <Badge
-                  className="absolute top-4 right-4 text-lg px-4 py-2"
+                  className="absolute top-5 right-5 text-base md:text-lg px-4 py-1.5 shadow-md font-bold"
                   variant="destructive"
                 >
                   خصم {discount}%
@@ -188,115 +188,140 @@ export default function ProductPage() {
           </div>
 
           {/* Product Info */}
-          <div className="flex flex-col gap-6 pt-4 md:pt-0">
-            {/* Top Row: Shop Link */}
-            <Link
-              to={`/shops/${product.shop?.slug}`}
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 w-fit"
-            >
-              <Store className="w-4 h-4" />
-              {product.shop?.name}
-              <span className={`w-1.5 h-1.5 rounded-full ${isShopOpen ? 'bg-green-500' : 'bg-red-500'}`} />
-            </Link>
-
-            {/* Title & Category */}
-            <div className="flex flex-col gap-1">
-              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">{product.name}</h1>
-              {product.category && (
-                <Link to={`/categories/${product.category.slug}`} className="text-sm text-primary hover:underline w-fit">
-                  {product.category.name}
+          <div className="flex flex-col gap-5 pt-2 md:pt-0">
+            {/* Header: Title & Shop */}
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-foreground leading-tight tracking-tight">
+                  {product.name}
+                </h1>
+                <Link
+                  to={`/shops/${product.shop?.slug}`}
+                  className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors flex items-center gap-1.5 w-fit mt-1"
+                >
+                  <Store className="w-4 h-4" />
+                  {product.shop?.name}
+                  <span className={`w-1.5 h-1.5 rounded-full ${isShopOpen ? 'bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.4)]' : 'bg-red-500'} mr-1.5`} />
                 </Link>
+              </div>
+
+              {/* Price */}
+              <div className="flex flex-col mt-2">
+                <div className={`flex items-baseline gap-3 transition-opacity ${product.stock_quantity <= 0 ? 'opacity-50' : ''}`}>
+                  <span className="text-4xl md:text-5xl font-black text-primary tracking-tighter">
+                    {formatPrice(product.price)}
+                  </span>
+                  {product.compare_at_price && product.compare_at_price > product.price && (
+                    <span className="text-xl text-muted-foreground line-through decoration-destructive/40 font-medium">
+                      {formatPrice(product.compare_at_price)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Badges / Meta Info */}
+            <div className="flex flex-wrap items-center gap-2.5 py-1">
+              {product.category && (
+                <Link to={`/categories/${product.category.slug}`}>
+                  <Badge variant="secondary" className="hover:bg-secondary/80 font-medium bg-secondary/30 text-secondary-foreground border-transparent px-3 py-1 text-sm shadow-sm">
+                    {product.category.name}
+                  </Badge>
+                </Link>
+              )}
+              {product.unit && (
+                <div className="flex items-center gap-1.5 text-sm bg-muted/40 px-3 py-1 rounded-full text-muted-foreground font-medium border border-border/40 shrink-0 shadow-sm">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  {product.unit}
+                </div>
+              )}
+              {product.stock_quantity > 0 ? (
+                <Badge variant="outline" className="border-green-200 bg-green-50 text-green-700 font-semibold px-3 py-1 shadow-sm shrink-0">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-2 -ml-1 animate-pulse"></span>
+                  {AR.products.inStock}
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="font-bold px-3 py-1 shadow-sm shrink-0">
+                  {AR.products.outOfStock}
+                </Badge>
               )}
             </div>
 
-            {/* Price Row */}
-            <div className="flex items-end justify-between border-y border-border/60 py-5">
-              <div className="flex items-baseline gap-3">
-                 <span className="text-3xl font-bold text-foreground tracking-tight">
-                   {formatPrice(product.price)}
-                 </span>
-                 {product.compare_at_price &&
-                   product.compare_at_price > product.price && (
-                     <span className="text-lg text-muted-foreground line-through">
-                       {formatPrice(product.compare_at_price)}
-                     </span>
-                   )}
-              </div>
+            <Separator className="opacity-40 my-1" />
 
-              <div className="pb-1">
-                {product.stock_quantity > 0 ? (
-                  <span className="text-sm text-muted-foreground font-medium">
-                    {product.stock_quantity} متوفر
-                  </span>
-                ) : (
-                  <span className="text-sm font-bold text-destructive">{AR.products.outOfStock}</span>
-                )}
-              </div>
-            </div>
-
-            {/* Description & Unit */}
-            <div className="flex flex-col gap-4 py-2">
-               {product.description && (
-                 <div className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                   {product.description}
-                 </div>
-               )}
-
-               {product.unit && (
-                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                   <span className="font-semibold text-foreground">{AR.products.unit}:</span>
-                   <span>{product.unit}</span>
-                 </div>
-               )}
-            </div>
-
-            {/* Add to Cart Footer */}
-            {product.stock_quantity > 0 ? (
-              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border/60 mt-2">
-                {/* Quantity Control */}
-                <div className="flex items-center justify-between w-full sm:w-32 border rounded-lg p-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 hover:bg-muted"
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    disabled={quantity <= 1}
-                  >
-                    <Minus className="w-4 h-4" />
-                  </Button>
-                  <span className="w-10 text-center font-bold text-base">
-                    {quantity}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 hover:bg-muted"
-                    onClick={() =>
-                      setQuantity(
-                        Math.min(product.stock_quantity, quantity + 1)
-                      )
-                    }
-                    disabled={quantity >= product.stock_quantity}
-                  >
-                    <Plus className="w-4 h-4" />
-                  </Button>
+            {/* Description */}
+            {product.description && (
+              <div className="flex flex-col gap-2 py-1">
+                <div className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {product.description}
                 </div>
-
-                {/* Add Button */}
-                <Button
-                  className="flex-1 h-12 text-base font-bold shadow-sm"
-                  onClick={handleAddToCart}
-                >
-                  <ShoppingCart className="w-5 h-5 ml-2" />
-                  إضافة • {formatPrice(product.price * quantity)}
-                </Button>
               </div>
-            ) : (
-                <div className="pt-6 border-t border-border/60 mt-2 text-center text-muted-foreground">
-                  <p className="font-semibold text-destructive mb-1 text-lg">هذا المنتج غير متوفر حالياً</p>
-                  <p className="text-sm">نعتذر، يتم إعادة تعبئة المخزون قريباً.</p>
-                </div>
             )}
+
+            {/* Add to Cart Area */}
+            <div className="mt-auto pt-4 relative">
+              {product.stock_quantity > 0 ? (
+                <div className="flex flex-col gap-4">
+                  {/* Quantity Control Desktop & Flow */}
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm font-semibold text-muted-foreground">{AR.products.quantity}:</span>
+                    <div className="flex items-center justify-between w-32 border border-border/70 rounded-xl overflow-hidden bg-background shadow-sm hover:border-border transition-colors">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 hover:bg-muted/80 rounded-none border-l border-border/30"
+                        onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                        disabled={quantity <= 1}
+                      >
+                        <Minus className="w-4 h-4" />
+                      </Button>
+                      <span className="w-10 text-center font-bold text-base flex-1">
+                        {quantity}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 hover:bg-muted/80 rounded-none border-r border-border/30"
+                        onClick={() =>
+                          setQuantity(
+                            Math.min(product.stock_quantity, quantity + 1)
+                          )
+                        }
+                        disabled={quantity >= product.stock_quantity}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Sticky Mobile Add to Cart Block or Standard Block */}
+                  <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/85 backdrop-blur-xl border-t border-border/50 shadow-[0_-10px_40px_rgba(0,0,0,0.06)] md:relative md:p-0 md:bg-transparent md:border-t-0 md:shadow-none md:backdrop-blur-none z-50 transition-all">
+                    <div className="container-app md:px-0 md:max-w-none">
+                      <Button
+                        className="w-full h-14 md:h-12 text-lg md:text-base font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:shadow-md transition-all duration-300 relative overflow-hidden group rounded-2xl md:rounded-xl"
+                        onClick={handleAddToCart}
+                      >
+                        <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
+                        <ShoppingCart className="w-6 h-6 md:w-5 md:h-5 ml-2 relative z-10" />
+                        <span className="relative z-10">إضافة • {formatPrice(product.price * quantity)}</span>
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-8 px-6 border border-border/50 rounded-2xl bg-muted/10 text-center flex flex-col items-center justify-center">
+                  <p className="font-bold text-destructive mb-2 text-xl flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-destructive shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse" />
+                    المنتج غير متوفر حالياً
+                  </p>
+                  <p className="text-sm font-medium text-muted-foreground opacity-90 mb-6">نعتذر، يتم إعادة تعبئة المخزون قريباً.</p>
+                  <Button disabled variant="outline" className="w-full md:w-3/4 h-12 rounded-xl opacity-60 cursor-not-allowed text-base font-semibold border-destructive/20 text-destructive/80">
+                    <ShoppingBag className="w-5 h-5 ml-2" />
+                    غير متاح للطلب
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
