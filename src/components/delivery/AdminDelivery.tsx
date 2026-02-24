@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/store";
 import { profileService } from "@/services/auth.service";
 import { deliveryAdminService, CourierSummary, CourierAnalytics } from "@/services/delivery-admin.service";
+import { supabase } from "@/lib/supabase";
 import { ParentOrder, Profile } from "@/types/database";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -350,6 +351,86 @@ function OrdersTab({ couriers }: { couriers: CourierSummary[] }) {
   );
 }
 
+// --- REGION LIMITS COMPONENT ---
+function RegionStoreLimitsSettings() {
+  const [limits, setLimits] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadLimits();
+  }, []);
+
+  const loadLimits = async () => {
+    try {
+      const { data: regions } = await supabase.from('regions').select('*').eq('is_active', true);
+      const { data: regionLimits } = await supabase.from('region_limits').select('*');
+      
+      if (regions) {
+        const combined = regions.map((r: any) => {
+          const limit = regionLimits?.find((l: any) => l.region_id === r.id);
+          return {
+            region_id: r.id,
+            region_name: r.name,
+            max_stores_allowed: limit?.max_stores_allowed || 3,
+            is_active: limit?.is_active ?? true,
+            exists: !!limit
+          };
+        });
+        setLimits(combined);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async (region_id: string, max_stores: number, is_active: boolean, exists: boolean) => {
+    try {
+      if (exists) {
+        await supabase.from('region_limits').update({ max_stores_allowed: max_stores, is_active }).eq('region_id', region_id);
+      } else {
+        await supabase.from('region_limits').insert({ region_id, max_stores_allowed: max_stores, is_active });
+      }
+      notify.success("تم تحديث حدود المنطقة");
+      loadLimits();
+    } catch(e) {
+      notify.error("حدث خطأ أثناء التحديث");
+    }
+  };
+
+  if (loading) return null;
+
+  return (
+    <Card>
+      <CardHeader><CardTitle>الحد الأقصى للمتاجر (حسب المنطقة)</CardTitle></CardHeader>
+      <CardContent className="space-y-4">
+        {limits.map(l => (
+          <div key={l.region_id} className="flex items-center justify-between border-b pb-2 last:border-0 last:pb-0">
+             <div>
+                <Label>{l.region_name}</Label>
+                <div className="flex items-center gap-2 mt-1">
+                   <Label className="text-xs text-muted-foreground">مفعل؟</Label>
+                   <Switch checked={l.is_active} onCheckedChange={(c) => handleUpdate(l.region_id, l.max_stores_allowed, c, l.exists)} />
+                </div>
+             </div>
+             <div className="flex items-center gap-2">
+                <Label className="text-xs">أقصى عدد متاجر:</Label>
+                <Input type="number" className="w-20" value={l.max_stores_allowed} onChange={(e) => {
+                   const val = parseInt(e.target.value);
+                   const newLimits = [...limits];
+                   const obj = newLimits.find(x => x.region_id === l.region_id);
+                   if (obj) obj.max_stores_allowed = val;
+                   setLimits(newLimits);
+                }} onBlur={() => handleUpdate(l.region_id, l.max_stores_allowed, l.is_active, l.exists)} />
+             </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 // --- SETTINGS TAB ---
 function SettingsTab() {
   const [settings, setSettings] = useState<any>({});
@@ -427,6 +508,8 @@ function SettingsTab() {
                 </div>
              </CardContent>
           </Card>
+
+          <RegionStoreLimitsSettings />
 
           {/* Platform Fee */}
           <Card>

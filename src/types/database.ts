@@ -95,11 +95,44 @@ export interface Database {
           name_en?: string | null;
           slug?: string;
           is_active?: boolean;
-          created_at?: string;
           updated_at?: string;
           boundary_coordinates?: any | null;
         };
         Relationships: [];
+      };
+      region_limits: {
+        Row: {
+          id: string;
+          region_id: string;
+          max_stores_allowed: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          region_id: string;
+          max_stores_allowed?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          region_id?: string;
+          max_stores_allowed?: number;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "region_limits_region_id_fkey";
+            columns: ["region_id"];
+            referencedRelation: "regions";
+            referencedColumns: ["id"];
+          }
+        ];
       };
       districts: {
         Row: {
@@ -891,6 +924,10 @@ export interface Database {
       update_shop_order_status: {
         Args: { p_order_id: string; p_status: string };
         Returns: void;
+      };
+      update_driver_order_status: {
+        Args: { p_parent_id: string; p_status: string; p_driver_id: string };
+        Returns: { success: boolean; message: string };
       };
     };
     Enums: {

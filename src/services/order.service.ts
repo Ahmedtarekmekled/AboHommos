@@ -261,6 +261,9 @@ export const orderService = {
         status_history:order_status_history(*)
       `)
       .eq("parent_order_id", orderId)
+      .neq("status", "CANCELLED")
+      .neq("status", "CANCELLED_BY_SHOP")
+      .neq("status", "CANCELLED_BY_ADMIN")
       .order("created_at", { ascending: true });
 
     if (subError) throw subError;
@@ -751,21 +754,20 @@ export const orderService = {
     status: OrderStatus,
     userId: string
   ): Promise<void> {
-    // 1. Update Parent
-    const { error: pError } = await supabase
-      .from("parent_orders")
-      .update({ status })
-      .eq("id", parentId);
+    // We use a backend RPC to bypass strict RLS on the orders table.
+    // This allows assigned drivers to safely push 'OUT_FOR_DELIVERY' to all relevant sub-orders.
+    const { data, error } = await supabase.rpc('update_driver_order_status', {
+        p_parent_id: parentId,
+        p_status: status,
+        p_driver_id: userId
+    });
 
-    if (pError) throw pError;
-
-    // 2. Cascade to Sub-Orders (Simple approach)
-    // If Parent is Delivered/Cancelled/Out, Sub-orders should match.
-    if (["OUT_FOR_DELIVERY", "DELIVERED", "CANCELLED", "CANCELLED_BY_SHOP", "CANCELLED_BY_ADMIN"].includes(status)) {
-        await supabase
-          .from("orders")
-          .update({ status })
-          .eq("parent_order_id", parentId);
+    if (error) throw error;
+    
+    // Fallback error-handling from custom script payload
+    const result = data as any;
+    if (result && !result.success) {
+      throw new Error(result.message || 'فشل تحديث حالة الطلب');
     }
   },
 };

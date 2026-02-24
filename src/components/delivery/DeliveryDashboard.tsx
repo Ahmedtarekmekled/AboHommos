@@ -80,7 +80,7 @@ function useAvailableOrders() {
             // Specifically check for new available orders to play sound
             if (
               (payload.eventType === 'INSERT' && newOrder.status === 'READY_FOR_PICKUP') ||
-              (payload.eventType === 'UPDATE' && newOrder.status === 'READY_FOR_PICKUP')
+              (payload.eventType === 'UPDATE' && newOrder.status === 'READY_FOR_PICKUP' && (payload.old as any)?.status !== 'READY_FOR_PICKUP')
             ) {
                SoundService.playNewOrderSound();
             }

@@ -51,22 +51,52 @@ export async function calculateMultiStoreCheckout(
   const shopIds = Object.keys(itemsByShop);
   const settings = await deliverySettingsService.getSettings();
 
-  // Check max shops limit
-  if (shopIds.length > settings.max_shops_per_order) {
-    errors.push(`الحد الأقصى المسموح به هو ${settings.max_shops_per_order} متاجر في الطلب الواحد`);
-  }
-
   // Validate customer coordinates
   const customerCoord = normalizeCoordinate(params.deliveryLatitude, params.deliveryLongitude);
-  if (!customerCoord) {
-    errors.push('الرجاء تحديد موقع التوصيل على الخريطة');
-  }
 
   // Fetch shop data with coordinates
   const { data: shopsData, error: shopsError } = await supabase
     .from('shops')
-    .select('id, name, latitude, longitude')
+    .select('id, name, latitude, longitude, region_id')
     .in('id', shopIds);
+
+  if (shopsError) {
+    errors.push('فشل تحميل بيانات المتاجر');
+    return { 
+      parent_order_data: null, 
+      suborders_data: [], 
+      delivery_fee_breakdown: null, 
+      route_plan: null, 
+      validation_errors: errors,
+      is_fallback: false,
+    };
+  }
+
+  // Check max shops limit based on region
+  let maxAllowed = settings.max_shops_per_order;
+  if (shopsData && shopsData.length > 0) {
+    const regionId = shopsData[0].region_id;
+    if (regionId) {
+      const { data: regionLimit } = await supabase
+        .from('region_limits')
+        .select('max_stores_allowed')
+        .eq('region_id', regionId)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (regionLimit) {
+        maxAllowed = regionLimit.max_stores_allowed;
+      }
+    }
+  }
+
+  if (shopIds.length > maxAllowed) {
+    errors.push(`لا يمكنك الطلب من أكثر من ${maxAllowed} متاجر في نفس الطلب`);
+  }
+
+  if (!customerCoord) {
+    errors.push('الرجاء تحديد موقع التوصيل على الخريطة');
+  }
 
   if (shopsError) {
     errors.push('فشل تحميل بيانات المتاجر');

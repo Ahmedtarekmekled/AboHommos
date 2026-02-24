@@ -1022,6 +1022,16 @@ function DashboardProducts() {
 
   return (
     <div className="space-y-6">
+      {shop?.approval_status !== "APPROVED" && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4 flex items-start gap-3">
+           <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5" />
+           <div>
+             <h3 className="font-semibold text-amber-800">إضافة المنتجات متوقفة</h3>
+             <p className="text-sm text-amber-700">لا يمكنك إضافة أو تعديل المنتجات حتى تتم الموافقة على متجرك من قبل الإدارة.</p>
+           </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">{AR.dashboard.products}</h1>
@@ -1029,7 +1039,11 @@ function DashboardProducts() {
             إدارة منتجات متجرك ({products.length} منتج)
           </p>
         </div>
-        <Button className="gap-2 shrink-0" onClick={openAddDialog}>
+        <Button 
+          className="gap-2 shrink-0" 
+          onClick={openAddDialog}
+          disabled={shop?.approval_status !== "APPROVED"}
+        >
           <Plus className="w-4 h-4" />
           {AR.dashboard.addProduct}
         </Button>
@@ -1058,7 +1072,10 @@ function DashboardProducts() {
                 لا توجد منتجات تطابق معايير البحث
               </p>
               {products.length === 0 && (
-                <Button onClick={openAddDialog}>
+                <Button 
+                  onClick={openAddDialog}
+                  disabled={shop?.approval_status !== "APPROVED"}
+                >
                   <Plus className="w-4 h-4 ml-2" />
                   إضافة منتج
                 </Button>
@@ -2584,7 +2601,7 @@ function AdminShops() {
   const loadShops = async () => {
     setIsLoading(true);
     try {
-      const data = await shopsService.getAll({});
+      const data = await shopsService.getAll({ approvedOnly: false });
       setShops(data);
     } catch (error) {
       console.error("Failed to load shops:", error);
