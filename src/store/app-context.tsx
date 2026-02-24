@@ -215,13 +215,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addToCart = async (
+  const addToCart = (
     shopId: string,
     productId: string,
     quantity: number,
     productPayload?: any
   ) => {
-    const { user } = await getCurrentUser();
+    const user = state.user;
     if (!user) throw new Error("يجب تسجيل الدخول أولاً");
 
     const previousCart = state.cart;
@@ -286,22 +286,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
        }
     }
 
-    try {
-      const addedItem = await cartService.addItem(user.id, shopId, productId, quantity);
-      
-      // If it was a new item but we didn't have the payload, we MUST refresh to get data.
-      // If we DID have the payload, we can silently refresh in the background to swap the temp ID for the real ID.
-      // Or we can just refresh Cart silently. Let's refreshCart silently to ensure DB sync.
-      if (isNewItem && !productPayload) {
-        await refreshCart();
-      } else {
-        refreshCart(); // Background sync, no await! This ensures 0ms UI blocking.
+    const syncWithServer = async () => {
+      try {
+        await cartService.addItem(user.id, shopId, productId, quantity);
+        
+        if (isNewItem && !productPayload) {
+          await refreshCart();
+        } else {
+          refreshCart(); 
+        }
+      } catch (error) {
+        dispatch({ type: "SET_CART", payload: previousCart });
+        throw error;
       }
-    } catch (error) {
-      // Rollback on any failure
-      dispatch({ type: "SET_CART", payload: previousCart });
-      throw error;
-    }
+    };
+
+    return syncWithServer();
   };
 
   const updateCartItem = async (itemId: string, quantity: number) => {

@@ -30,7 +30,6 @@ export default function ProductPage() {
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
-  const [isAdding, setIsAdding] = useState(false);
 
   const { data: product, isLoading: isProductLoading } = useQuery({
     queryKey: ["product", id],
@@ -76,14 +75,15 @@ export default function ProductPage() {
     if (!product) return;
 // ... existing logic
 
-    setIsAdding(true);
     try {
-      await addToCart(product.shop_id, product.id, quantity, product);
+      const promise = addToCart(product.shop_id, product.id, quantity, product);
       notify.success(AR.cart.itemAdded);
+      
+      promise.catch(() => {
+        // Rollback handled internally by context dispatch
+      });
     } catch (error: any) {
       notify.error(error.message || "حدث خطأ أثناء الإضافة");
-    } finally {
-      setIsAdding(false);
     }
   };
 
@@ -325,7 +325,6 @@ export default function ProductPage() {
                   className="w-full gap-2"
                   size="xl"
                   onClick={handleAddToCart}
-                  loading={isAdding}
                 >
                   <ShoppingCart className="w-5 h-5" />
                   {AR.products.addToCart}

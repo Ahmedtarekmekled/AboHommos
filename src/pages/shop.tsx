@@ -183,8 +183,8 @@ export default function ShopPage() {
   return (
     <div className="min-h-screen" dir="rtl">
       {/* Cover Hero Section */}
-      <div className="relative mb-16">
-        <div className="relative h-48 md:h-64 bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden rounded-b-3xl">
+      <div className="relative mb-8 md:mb-12">
+        <div className="relative h-32 md:h-48 bg-gradient-to-br from-primary/10 to-secondary/10 overflow-hidden rounded-b-3xl">
           {shop.cover_url ? (
             <img
               src={shop.cover_url}
@@ -193,14 +193,14 @@ export default function ShopPage() {
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
-              <Store className="w-24 h-24 text-primary/20" />
+              <Store className="w-16 h-16 md:w-24 md:h-24 text-primary/20" />
             </div>
           )}
         </div>
         
-        {/* Logo Overlay - Positioned at bottom right with white border (Outside overflow-hidden) */}
-        <div className="absolute bottom-0 right-6 translate-y-1/2 z-10">
-          <div className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-white p-2 shadow-lg ring-1 ring-black/5">
+        {/* Logo Overlay - Positioned at bottom right with white border */}
+        <div className="absolute bottom-0 right-4 md:right-6 translate-y-1/2 z-10">
+          <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl bg-white p-1.5 shadow-lg ring-1 ring-black/5">
             {shop.logo_url ? (
               <img
                 src={shop.logo_url}
@@ -209,7 +209,7 @@ export default function ShopPage() {
               />
             ) : (
               <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/20 to-secondary/20 rounded-xl">
-                <Store className="w-10 h-10 text-primary" />
+                <Store className="w-8 h-8 text-primary" />
               </div>
             )}
           </div>
@@ -218,31 +218,26 @@ export default function ShopPage() {
 
       {/* Shop Info Section */}
       <div className="bg-background">
-        <div className="container-app pb-6">
-          <div className="flex items-center gap-3 mb-4">
-            {/* Category Badge */}
-            <div>
-              {(shop as any).category && (
-                <Badge variant="outline" className="text-sm px-3 py-1">
-                  {(shop as any).category?.icon && <span className="ml-1">{(shop as any).category.icon}</span>}
-                  {(shop as any).category?.name}
-                </Badge>
-              )}
-            </div>
+        <div className="container-app pb-2">
+          {/* Main Title Row: Name, Badges, Orders */}
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <h1 className="text-xl md:text-2xl font-bold leading-tight">{shop.name}</h1>
             
-            {/* Premium Badge - Moved to ensure it stays on the right/start */}
             {shop.is_premium && (
-              <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0">
-                <Star className="w-3 h-3 ml-1 fill-current" />
+              <Badge className="bg-gradient-to-r from-amber-500 to-yellow-500 border-0 text-[10px] md:text-xs py-0 h-5 md:h-6 px-1.5 md:px-2">
+                <Star className="w-2.5 h-2.5 md:w-3 md:h-3 ml-1 fill-current" />
                 مميز
               </Badge>
             )}
-          </div>
 
-          {/* Shop Name and Orders Count */}
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl md:text-3xl font-bold">{shop.name}</h1>
-            <span className="text-sm font-medium text-muted-foreground bg-muted/60 px-3 py-1 rounded-md">
+            {(shop as any).category && (
+              <Badge variant="outline" className="text-[10px] md:text-xs py-0 h-5 md:h-6 px-1.5 md:px-2">
+                {(shop as any).category?.icon && <span className="ml-1">{(shop as any).category.icon}</span>}
+                {(shop as any).category?.name}
+              </Badge>
+            )}
+
+            <span className="text-[10px] md:text-xs font-medium text-muted-foreground bg-muted/60 px-1.5 md:px-2 py-0.5 md:py-1 rounded-md">
               {shop.total_orders || 0} طلب
             </span>
           </div>
@@ -250,7 +245,7 @@ export default function ShopPage() {
 
           {/* Warning if not approved */}
           {!isApproved && (
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg">
               <p className="text-sm text-amber-800">
                 هذا المتجر قيد المراجعة ولا يقبل طلبات حالياً
               </p>
@@ -259,7 +254,7 @@ export default function ShopPage() {
 
           {/* Warning if closed */}
           {isApproved && !shopStatus.isOpen && (
-            <div className="mt-6 p-4 bg-muted border rounded-lg">
+            <div className="mt-4 p-3 bg-muted border rounded-lg">
               <p className="text-sm text-muted-foreground">
                  {shop.override_mode === 'FORCE_CLOSED' 
                    ? "المتجر مغلق مؤقتاً من قبل المالك. يرجى المحاولة لاحقاً."
@@ -273,9 +268,9 @@ export default function ShopPage() {
 
       {/* Tabs Section */}
       <div className="bg-muted/30">
-        <div className="container-app py-8">
+        <div className="container-app py-4 md:py-6">
           <Tabs defaultValue="products" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2 mb-6">
+            <TabsList className="grid w-full max-w-md grid-cols-2 mb-4">
               <TabsTrigger value="products" className="text-base">
                 المنتجات
               </TabsTrigger>

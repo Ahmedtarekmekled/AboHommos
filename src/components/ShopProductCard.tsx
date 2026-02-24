@@ -18,10 +18,9 @@ interface ShopProductCardProps {
 
 export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: ShopProductCardProps) {
   const { addToCart } = useCart();
-  const [isAdding, setIsAdding] = useState(false);
 
   // Helper to handle add to cart
-  const handleAddToCart = async (e: React.MouseEvent) => {
+  const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault(); // Prevent navigation
     e.stopPropagation();
     
@@ -33,14 +32,15 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
       return;
     }
 
-    setIsAdding(true);
     try {
-      await addToCart(shopId, product.id, 1, product);
+      const promise = addToCart(shopId, product.id, 1, product);
       notify.success("تمت الإضافة للسلة");
+      
+      promise.catch(() => {
+        // Silently caught, UI rolls back via dispatch inside addToCart
+      });
     } catch (error: any) {
       notify.error(error.message || "فشل إضافة المنتج: يرجى تسجيل الدخول أولاً");
-    } finally {
-      setIsAdding(false);
     }
   };
 
@@ -86,16 +86,11 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
                 size="icon"
                 className={cn(
                   "absolute bottom-3 right-3 rounded-full shadow-lg transition-all duration-300 opacity-100 md:opacity-0 md:translate-y-4 group-hover:opacity-100 group-hover:translate-y-0 z-20",
-                  isAdding ? "bg-primary/80" : "bg-primary hover:bg-primary/90"
+                  "bg-primary hover:bg-primary/90"
                 )}
                 onClick={handleAddToCart}
-                disabled={isAdding}
               >
-                {isAdding ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Plus className="w-5 h-5" />
-                )}
+                <Plus className="w-5 h-5" />
               </Button>
           )}
         </div>

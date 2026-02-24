@@ -39,12 +39,15 @@ const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'inf
     const variant = variants[type];
 
     toast({
-        title: variant.title,
-        description: message,
-        className: `${variant.className} flex gap-3 items-center`,
-        // Custom content can be achieved via action or description too, 
-        // but styling the root toast is easier with shadcn
-        variant: "default", // We use custom styles
+        description: (
+            <div className={`flex items-center gap-2 ${variant.className} bg-transparent border-0 p-0 text-inherit`}>
+                {variant.icon}
+                <span className="font-medium text-sm leading-tight">{message}</span>
+            </div>
+        ),
+        className: `${variant.className} p-3 min-h-0 shadow-md sm:right-0 w-auto rounded-lg`,
+        variant: "default",
+        duration: 2500,
     })
 }
 

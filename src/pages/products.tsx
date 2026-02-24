@@ -103,14 +103,14 @@ export default function ProductsPage() {
     }
 
     // No conflict, add directly
-    await performAddToCart(selectedShopId, product);
+    performAddToCart(selectedShopId, product);
   };
 
-  const performAddToCart = async (shopId: string, product: any) => {
-    setIsProcessing(true);
+  const performAddToCart = (shopId: string, product: any) => {
     try {
-      await addToCart(shopId, product.id, 1, product);
+      const promise = addToCart(shopId, product.id, 1, product);
       notify.success("تمت الإضافة للسلة");
+      promise.catch(() => {});
     } catch (error: any) {
       notify.error(error.message || "فشل إضافة المنتج: يرجى المحاولة مرة أخرى");
     } finally {
@@ -119,13 +119,13 @@ export default function ProductsPage() {
     }
   };
 
-  const handleConfirmAdd = async () => {
+  const handleConfirmAdd = () => {
     if (!pendingProduct || !selectedShopId) return;
-    setIsProcessing(true);
     try {
       // Don't clear cart, just add new item. User accepted the fee warning.
-      await addToCart(selectedShopId, pendingProduct.id, 1, pendingProduct);
+      const promise = addToCart(selectedShopId, pendingProduct.id, 1, pendingProduct);
       notify.success("تمت إضافة المنتج للسلة");
+      promise.catch(() => {});
     } catch (error: any) {
        notify.error(error.message || "حدث خطأ في الإضافة");
     } finally {
