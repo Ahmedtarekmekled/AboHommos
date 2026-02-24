@@ -188,148 +188,114 @@ export default function ProductPage() {
           </div>
 
           {/* Product Info */}
-          <div className="space-y-6">
-            {/* Shop */}
+          <div className="flex flex-col gap-6 pt-4 md:pt-0">
+            {/* Top Row: Shop Link */}
             <Link
               to={`/shops/${product.shop?.slug}`}
-              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2 w-fit"
             >
-              <div className="w-8 h-8 rounded-full overflow-hidden bg-muted">
-                {product.shop?.logo_url ? (
-                  <img
-                    src={product.shop.logo_url}
-                    alt={product.shop.name}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <Store className="w-4 h-4" />
-                  </div>
-                )}
-              </div>
-              <span className="font-medium text-foreground">{product.shop?.name}</span>
-              
-              {/* Status Dot */}
-              <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-muted/50 border ml-2">
-                <span className={`w-2 h-2 rounded-full ${isShopOpen ? 'bg-green-500 shadow-[0_0_4px_2px_rgba(34,197,94,0.2)]' : 'bg-red-500'}`} />
-                <span className={`text-xs ${isShopOpen ? 'text-green-600' : 'text-red-600'}`}>
-                  {isShopOpen ? 'مفتوح' : 'مغلق'}
-                </span>
-              </div>
+              <Store className="w-4 h-4" />
+              {product.shop?.name}
+              <span className={`w-1.5 h-1.5 rounded-full ${isShopOpen ? 'bg-green-500' : 'bg-red-500'}`} />
             </Link>
 
-            {/* Title */}
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold">{product.name}</h1>
+            {/* Title & Category */}
+            <div className="flex flex-col gap-1">
+              <h1 className="text-2xl md:text-3xl font-bold text-foreground mb-1">{product.name}</h1>
               {product.category && (
-                <Link to={`/categories/${product.category.slug}`}>
-                  <Badge variant="secondary" className="mt-2">
-                    {product.category.name}
-                  </Badge>
+                <Link to={`/categories/${product.category.slug}`} className="text-sm text-primary hover:underline w-fit">
+                  {product.category.name}
                 </Link>
               )}
             </div>
 
-            {/* Price */}
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl md:text-4xl font-bold text-primary">
-                {formatPrice(product.price)}
-              </span>
-              {product.compare_at_price &&
-                product.compare_at_price > product.price && (
-                  <span className="text-xl text-muted-foreground line-through">
-                    {formatPrice(product.compare_at_price)}
-                  </span>
-                )}
-            </div>
+            {/* Price Row */}
+            <div className="flex items-end justify-between border-y border-border/60 py-5">
+              <div className="flex items-baseline gap-3">
+                 <span className="text-3xl font-bold text-foreground tracking-tight">
+                   {formatPrice(product.price)}
+                 </span>
+                 {product.compare_at_price &&
+                   product.compare_at_price > product.price && (
+                     <span className="text-lg text-muted-foreground line-through">
+                       {formatPrice(product.compare_at_price)}
+                     </span>
+                   )}
+              </div>
 
-            {/* Stock */}
-            <div className="flex items-center gap-2">
-              {product.stock_quantity > 0 ? (
-                <>
-                  <Badge variant="success">{AR.products.inStock}</Badge>
-                  <span className="text-muted-foreground text-sm">
+              <div className="pb-1">
+                {product.stock_quantity > 0 ? (
+                  <span className="text-sm text-muted-foreground font-medium">
                     {product.stock_quantity} متوفر
                   </span>
-                </>
-              ) : (
-                <Badge variant="destructive">{AR.products.outOfStock}</Badge>
-              )}
+                ) : (
+                  <span className="text-sm font-bold text-destructive">{AR.products.outOfStock}</span>
+                )}
+              </div>
             </div>
 
-            <Separator />
+            {/* Description & Unit */}
+            <div className="flex flex-col gap-4 py-2">
+               {product.description && (
+                 <div className="text-sm md:text-base text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                   {product.description}
+                 </div>
+               )}
 
-            {/* Description */}
-            {product.description && (
-              <div>
-                <h3 className="font-semibold mb-2">
-                  {AR.products.description}
-                </h3>
-                <p className="text-muted-foreground">{product.description}</p>
-              </div>
-            )}
+               {product.unit && (
+                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                   <span className="font-semibold text-foreground">{AR.products.unit}:</span>
+                   <span>{product.unit}</span>
+                 </div>
+               )}
+            </div>
 
-            {/* Unit */}
-            {product.unit && (
-              <div className="flex items-center gap-2">
-                <span className="font-medium">{AR.products.unit}:</span>
-                <span className="text-muted-foreground">{product.unit}</span>
-              </div>
-            )}
-
-            <Separator />
-
-            {/* Add to Cart */}
-            {product.stock_quantity > 0 && (
-              <div className="space-y-4">
-                {/* Quantity */}
-                <div className="flex items-center gap-4">
-                  <span className="font-medium">{AR.products.quantity}:</span>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                      disabled={quantity <= 1}
-                    >
-                      <Minus className="w-4 h-4" />
-                    </Button>
-                    <span className="w-12 text-center text-lg font-medium">
-                      {quantity}
-                    </span>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() =>
-                        setQuantity(
-                          Math.min(product.stock_quantity, quantity + 1)
-                        )
-                      }
-                      disabled={quantity >= product.stock_quantity}
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Total */}
-                <div className="flex items-center justify-between py-4 px-6 bg-muted/50 rounded-xl">
-                  <span className="font-medium">الإجمالي:</span>
-                  <span className="text-2xl font-bold text-primary">
-                    {formatPrice(product.price * quantity)}
+            {/* Add to Cart Footer */}
+            {product.stock_quantity > 0 ? (
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border/60 mt-2">
+                {/* Quantity Control */}
+                <div className="flex items-center justify-between w-full sm:w-32 border rounded-lg p-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 hover:bg-muted"
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    disabled={quantity <= 1}
+                  >
+                    <Minus className="w-4 h-4" />
+                  </Button>
+                  <span className="w-10 text-center font-bold text-base">
+                    {quantity}
                   </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-10 w-10 hover:bg-muted"
+                    onClick={() =>
+                      setQuantity(
+                        Math.min(product.stock_quantity, quantity + 1)
+                      )
+                    }
+                    disabled={quantity >= product.stock_quantity}
+                  >
+                    <Plus className="w-4 h-4" />
+                  </Button>
                 </div>
 
                 {/* Add Button */}
                 <Button
-                  className="w-full gap-2"
-                  size="xl"
+                  className="flex-1 h-12 text-base font-bold shadow-sm"
                   onClick={handleAddToCart}
                 >
-                  <ShoppingCart className="w-5 h-5" />
-                  {AR.products.addToCart}
+                  <ShoppingCart className="w-5 h-5 ml-2" />
+                  إضافة • {formatPrice(product.price * quantity)}
                 </Button>
               </div>
+            ) : (
+                <div className="pt-6 border-t border-border/60 mt-2 text-center text-muted-foreground">
+                  <p className="font-semibold text-destructive mb-1 text-lg">هذا المنتج غير متوفر حالياً</p>
+                  <p className="text-sm">نعتذر، يتم إعادة تعبئة المخزون قريباً.</p>
+                </div>
             )}
           </div>
         </div>

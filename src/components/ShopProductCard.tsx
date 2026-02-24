@@ -63,7 +63,7 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
             <img
               src={product.image_url}
               alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              className={cn("w-full h-full object-cover transition-transform duration-500 group-hover:scale-110", product.stock_quantity <= 0 && "grayscale opacity-80")}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -79,9 +79,16 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
               </Badge>
             )}
           </div>
+
+          {/* Out of Stock Overlay */}
+          {product.stock_quantity <= 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/40 backdrop-blur-[2px] z-10">
+               <Badge variant="secondary" className="font-bold text-sm px-3 py-1 shadow-md opacity-90">غير متوفر</Badge>
+            </div>
+          )}
           
           {/* Quick Add Button - Appears on Hover (Desktop) / Always Visible (Mobile) */}
-          {canOrder && (
+          {canOrder && product.stock_quantity > 0 && (
              <Button
                 size="icon"
                 className={cn(
