@@ -239,72 +239,12 @@ export default function ShopPage() {
             )}
           </div>
 
-          {/* Shop Name */}
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">{shop.name}</h1>
-
-          {/* Description */}
-          {shop.description && (
-            <p className="text-muted-foreground mb-4 max-w-2xl">
-              {shop.description}
-            </p>
-          )}
-
-          {/* Rating & Stats Row */}
-          <div className="flex flex-wrap items-center gap-4 mb-6">
-            {/* Orders Count */}
-            <span className="text-sm text-muted-foreground bg-muted/50 px-2 py-1 rounded-md">
+          {/* Shop Name and Orders Count */}
+          <div className="flex items-center gap-3 mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold">{shop.name}</h1>
+            <span className="text-sm font-medium text-muted-foreground bg-muted/60 px-3 py-1 rounded-md">
               {shop.total_orders || 0} طلب
             </span>
-
-
-
-            {/* Phone */}
-            {shop.phone && (
-              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                <Phone className="w-4 h-4" />
-                <span>{shop.phone}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Address */}
-          {shop.address && (
-            <div className="flex items-start gap-2 mb-6 text-muted-foreground">
-              <MapPin className="w-5 h-5 flex-shrink-0 mt-0.5" />
-              <span className="text-sm">{shop.address}</span>
-            </div>
-          )}
-
-          {/* Status & Action Buttons */}
-
-
-          <div className="flex flex-wrap gap-3">
-             {/* Status Badge */}
-             <div className={`px-4 py-2 rounded-full flex items-center gap-2 text-sm font-medium ${
-                shopStatus.isOpen ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-             }`}>
-                <Clock className="w-4 h-4" />
-                <span>
-                  {shopStatus.isOpen 
-                    ? (shopStatus.reason === 'MANUAL_OPEN' ? "مفتوح (تجاوز يدوي)" : "مفتوح الآن") 
-                    : (shopStatus.reason === 'MANUAL_CLOSED' ? "مغلق (تجاوز يدوي)" : "مغلق")}
-                </span>
-             </div>
-
-             <Button variant="outline" onClick={handleOpenMaps} disabled={!shop.latitude && !shop.address}>
-               <MapPin className="w-4 h-4 ml-2" />
-               Google Maps
-             </Button>
-
-            <Button variant="outline" onClick={handleCall} disabled={!shop.phone}>
-              <Phone className="w-4 h-4 ml-2" />
-              اتصال
-            </Button>
-            
-            <Button variant="outline" onClick={handleWhatsApp} disabled={!shop.whatsapp && !shop.phone}>
-               <MessageCircle className="w-4 h-4 ml-2" />
-               واتساب
-            </Button>
           </div>
 
 
@@ -517,7 +457,23 @@ export default function ShopPage() {
                         </div>
                       </div>
                     </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-3 pt-4 border-t">
+                    <Button variant="outline" onClick={handleOpenMaps} disabled={!shop.latitude && !shop.address} className="flex-1 sm:flex-none">
+                      <MapPin className="w-4 h-4 ml-2" />
+                      Google Maps
+                    </Button>
+                    <Button variant="outline" onClick={handleCall} disabled={!shop.phone} className="flex-1 sm:flex-none">
+                      <Phone className="w-4 h-4 ml-2" />
+                      اتصال
+                    </Button>
+                    <Button variant="outline" onClick={handleWhatsApp} disabled={!shop.whatsapp && !shop.phone} className="flex-1 sm:flex-none">
+                      <MessageCircle className="w-4 h-4 ml-2" />
+                      واتساب
+                    </Button>
                   </div>
+                </div>
                 </CardContent>
               </Card>
             </TabsContent>
