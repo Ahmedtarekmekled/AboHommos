@@ -124,6 +124,7 @@ $$ LANGUAGE plpgsql;
 
 
 -- 2. DRIVERS FINANCIAL DASHBOARD
+DROP FUNCTION IF EXISTS get_financial_dashboard_drivers(TIMESTAMPTZ, TIMESTAMPTZ, INT, INT);
 CREATE OR REPLACE FUNCTION get_financial_dashboard_drivers(
     p_start_date TIMESTAMPTZ DEFAULT NULL,
     p_end_date TIMESTAMPTZ DEFAULT NULL,
@@ -283,3 +284,50 @@ GRANT EXECUTE ON FUNCTION public.get_financial_dashboard_platform TO authenticat
 
 -- RELOAD SCHEMA CACHE
 NOTIFY pgrst, 'reload schema';
+
+-- 4. DRIVER PERSONAL FINANCIAL DASHBOARD
+CREATE OR REPLACE FUNCTION get_my_driver_financials()
+RETURNS JSONB
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_user_id UUID := auth.uid();
+    v_role TEXT;
+    
+    v_deliveries_owed DECIMAL := 0;
+    v_customer_cash_owed DECIMAL := 0;
+    v_total_paid DECIMAL := 0;
+BEGIN
+    -- Security Check
+    SELECT role INTO v_role FROM profiles WHERE id = v_user_id;
+    IF v_role != 'DELIVERY' AND v_role != 'ADMIN' THEN
+        RAISE EXCEPTION 'Access Denied: Drivers only.';
+    END IF;
+
+    -- Aggregate Owed
+    SELECT 
+        COALESCE(SUM(driver_platform_fee_amount), 0),
+        COALESCE(SUM(platform_fee), 0)
+    INTO 
+        v_deliveries_owed,
+        v_customer_cash_owed
+    FROM parent_orders 
+    WHERE status = 'DELIVERED' AND delivery_user_id = v_user_id;
+
+    -- Aggregate Paid
+    SELECT COALESCE(SUM(amount), 0) INTO v_total_paid
+    FROM driver_payments 
+    WHERE driver_id = v_user_id;
+
+    RETURN jsonb_build_object(
+        'deliveries_fee_owed', v_deliveries_owed,
+        'customer_cash_owed', v_customer_cash_owed,
+        'total_owed', v_deliveries_owed + v_customer_cash_owed,
+        'total_paid', v_total_paid,
+        'net_outstanding', (v_deliveries_owed + v_customer_cash_owed) - v_total_paid
+    );
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION public.get_my_driver_financials TO authenticated;

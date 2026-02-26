@@ -79,6 +79,14 @@ export interface FinancialPlatformRollup {
   platform_total: { total_receivable_outstanding: number; total_collected: number; net_profit: number };
 }
 
+export interface DriverPersonalFinancials {
+  deliveries_fee_owed: number;
+  customer_cash_owed: number;
+  total_owed: number;
+  total_paid: number;
+  net_outstanding: number;
+}
+
 export const analyticsService = {
   async getGlobalMetrics(startDate?: string, endDate?: string): Promise<GlobalMetrics> {
     const params: Record<string, any> = {};
@@ -155,6 +163,12 @@ export const analyticsService = {
 
     if (error) throw error;
     return data as unknown as FinancialPlatformRollup;
+  },
+
+  async getMyDriverFinancials(): Promise<DriverPersonalFinancials> {
+    const { data, error } = await (supabase.rpc as any)('get_my_driver_financials');
+    if (error) throw error;
+    return data as unknown as DriverPersonalFinancials;
   },
 
   // --- LEDGER & SETTINGS ENTRY METHODS ---
