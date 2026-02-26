@@ -250,7 +250,7 @@ BEGIN
     WHERE (p_start_date IS NULL OR created_at >= p_start_date)
       AND (p_end_date IS NULL OR created_at <= p_end_date);
 
-    -- Aggregate Driver Fees
+    -- Aggregate Driver Fees (Platform Commission from Deliveries)
     SELECT COALESCE(SUM(driver_platform_fee_amount), 0) INTO v_driver_fee_owed
     FROM parent_orders WHERE status = 'DELIVERED'
       AND (p_start_date IS NULL OR created_at >= p_start_date)
@@ -261,6 +261,12 @@ BEGIN
     FROM parent_orders WHERE status = 'DELIVERED'
       AND (p_start_date IS NULL OR created_at >= p_start_date)
       AND (p_end_date IS NULL OR created_at <= p_end_date);
+
+    -- Aggregate Driver Payments
+    SELECT COALESCE(SUM(amount), 0) INTO v_driver_fee_paid
+    FROM driver_payments 
+    WHERE (p_start_date IS NULL OR paid_at >= p_start_date)
+      AND (p_end_date IS NULL OR paid_at <= p_end_date);
 
     RETURN jsonb_build_object(
         'shop_commissions', jsonb_build_object('owed', v_shop_comm_owed, 'paid', v_shop_comm_paid, 'outstanding', v_shop_comm_owed - v_shop_comm_paid),
@@ -331,3 +337,130 @@ END;
 $$ LANGUAGE plpgsql;
 
 GRANT EXECUTE ON FUNCTION public.get_my_driver_financials TO authenticated;
+
+-- 5. SHOP DETAILED FINANCIAL REPORT
+CREATE OR REPLACE FUNCTION get_shop_detailed_financial_report(
+    p_shop_id UUID,
+    p_start_date TIMESTAMPTZ DEFAULT NULL,
+    p_end_date TIMESTAMPTZ DEFAULT NULL
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_start TIMESTAMPTZ := COALESCE(p_start_date, (NOW() - INTERVAL '30 days'));
+    v_end TIMESTAMPTZ := COALESCE(p_end_date, NOW());
+    
+    v_orders JSONB;
+    v_payments JSONB;
+    v_subs JSONB;
+    v_summary JSONB;
+    
+    v_shop_name TEXT;
+    
+    v_total_revenue DECIMAL := 0;
+    v_total_commission DECIMAL := 0;
+    v_total_paid DECIMAL := 0;
+    v_total_sub_fees DECIMAL := 0;
+BEGIN
+    SELECT name INTO v_shop_name FROM shops WHERE id = p_shop_id;
+
+    -- 1. Get Orders
+    SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+            'order_number', order_number,
+            'created_at', created_at,
+            'status', status,
+            'total', total,
+            'commission_rate', COALESCE(shop_platform_commission_rate, 0),
+            'commission_fee', COALESCE(shop_platform_fee, 0),
+            'net_revenue', COALESCE(shop_net_revenue, total)
+        ) ORDER BY created_at ASC
+    ), '[]'::jsonb)
+    INTO v_orders
+    FROM orders
+    WHERE shop_id = p_shop_id 
+      AND status = 'DELIVERED'
+      AND created_at >= v_start 
+      AND created_at <= v_end;
+
+    SELECT COALESCE(SUM(total), 0), COALESCE(SUM(shop_platform_fee), 0)
+    INTO v_total_revenue, v_total_commission
+    FROM orders
+    WHERE shop_id = p_shop_id 
+      AND status = 'DELIVERED'
+      AND created_at >= v_start 
+      AND created_at <= v_end;
+
+    -- 2. Get Payments (Commission)
+    SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+            'id', id,
+            'amount', amount,
+            'paid_at', paid_at,
+            'notes', notes
+        ) ORDER BY paid_at ASC
+    ), '[]'::jsonb)
+    INTO v_payments
+    FROM commission_payments
+    WHERE shop_id = p_shop_id
+      AND paid_at >= v_start
+      AND paid_at <= v_end;
+
+    SELECT COALESCE(SUM(amount), 0)
+    INTO v_total_paid
+    FROM commission_payments
+    WHERE shop_id = p_shop_id
+      AND paid_at >= v_start
+      AND paid_at <= v_end;
+
+    -- 3. Get Subscriptions
+    SELECT COALESCE(jsonb_agg(
+        jsonb_build_object(
+            'type', 'REGULAR',
+            'amount', amount,
+            'billing_month', billing_month,
+            'status', status,
+            'paid_at', paid_at
+        ) ORDER BY created_at ASC
+    ), '[]'::jsonb)
+    INTO v_subs
+    FROM subscription_payments
+    WHERE shop_id = p_shop_id
+      AND created_at >= v_start
+      AND created_at <= v_end;
+
+    SELECT COALESCE(SUM(amount), 0)
+    INTO v_total_sub_fees
+    FROM subscription_payments
+    WHERE shop_id = p_shop_id
+      AND created_at >= v_start
+      AND created_at <= v_end;
+
+    -- Build Summary
+    v_summary := jsonb_build_object(
+        'shop_name', v_shop_name,
+        'total_revenue', v_total_revenue,
+        'total_commission_owed', v_total_commission,
+        'total_subscription_owed', v_total_sub_fees,
+        'total_paid', v_total_paid,
+        'net_debt', (v_total_commission + v_total_sub_fees) - v_total_paid,
+        'period_start', v_start,
+        'period_end', v_end
+    );
+
+    RETURN jsonb_build_object(
+        'summary', v_summary,
+        'orders', v_orders,
+        'payments', v_payments,
+        'subscriptions', v_subs
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_shop_detailed_financial_report TO authenticated;
+
+-- RELOAD SCHEMA CACHE
+NOTIFY pgrst, 'reload schema';

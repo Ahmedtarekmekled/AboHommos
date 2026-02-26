@@ -187,16 +187,26 @@ export function AdminFinancials() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    <div className="flex justify-between items-center pb-2 border-b mt-2">
+                      <span className="text-sm font-medium text-muted-foreground">عمولات التوصيل (Delivery Fees)</span>
+                      <span className="font-bold">{formatPrice(platformMetrics.driver_fees.owed)}</span>
+                    </div>
                     <div className="flex justify-between items-center pb-2 border-b">
-                      <span className="text-sm font-medium">رسوم المنصة من المناديب (Driver Fees)</span>
-                      <span className="font-bold text-blue-600">
-                        {formatPrice(platformMetrics.driver_fees.paid)} / المستحق: {formatPrice(platformMetrics.driver_fees.outstanding)}
+                      <span className="text-sm font-medium text-amber-700">رسوم نقدية للكيان (Customer Cash)</span>
+                      <span className="font-bold text-amber-600">
+                        {formatPrice(platformMetrics.customer_fees?.owed || 0)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center text-amber-700">
-                      <span className="text-sm font-medium">رسوم الخدمة النقدية مستحقة لدى المناديب (Customer Fees)</span>
-                      <span className="font-bold text-amber-600">
-                        المستحق: {formatPrice(platformMetrics.customer_fees?.owed || 0)}
+                    <div className="flex justify-between items-center pb-2 border-b">
+                      <span className="text-sm font-medium text-green-700">ما تم تحصيله من المناديب (Paid)</span>
+                      <span className="font-bold text-green-600">
+                        {formatPrice(platformMetrics.driver_fees.paid)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-sm font-bold">إجمالي المديونية (Net Debt)</span>
+                      <span className="font-bold text-red-600 text-lg">
+                        {formatPrice((platformMetrics.driver_fees.owed + (platformMetrics.customer_fees?.owed || 0)) - platformMetrics.driver_fees.paid)}
                       </span>
                     </div>
                   </CardContent>

@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { notify } from "@/lib/notify";
-import { analyticsService } from "@/services/analytics.service";
-import { DollarSign, Settings, Star, History } from "lucide-react";
+import { analyticsService, DetailedFinancialReport } from "@/services/analytics.service";
+import { DollarSign, Settings, Star, History, Printer } from "lucide-react";
+import { PrintableShopInvoice } from "./PrintableShopInvoice";
 
 interface AdminShopFinancialsProps {
   shopId: string;
@@ -37,6 +38,11 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
   const [commissionRate, setCommissionRate] = useState("");
   const [subFee, setSubFee] = useState("");
   const [startDate, setStartDate] = useState("");
+
+  // Report Form
+  const [reportMonth, setReportMonth] = useState(() => new Date().toISOString().substring(0, 7)); // YYYY-MM
+  const [reportData, setReportData] = useState<DetailedFinancialReport | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     if (isOpen && shopId) {
@@ -133,7 +139,30 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
     }
   };
 
+  const handleGenerateReport = async () => {
+    setIsGenerating(true);
+    try {
+      const [year, month] = reportMonth.split('-');
+      const start = new Date(parseInt(year), parseInt(month) - 1, 1).toISOString();
+      const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999).toISOString();
+
+      const data = await analyticsService.getShopDetailedFinancialReport(shopId, start, end);
+      setReportData(data);
+      
+      // Wait for React to render the hidden print component
+      setTimeout(() => {
+        window.print();
+        setIsGenerating(false);
+      }, 500);
+
+    } catch (e) {
+      notify.error("حدث خطأ أثناء استخراج كشف الحساب");
+      setIsGenerating(false);
+    }
+  };
+
   return (
+    <>
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-xl">
         <DialogHeader>
@@ -144,11 +173,29 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
         </DialogHeader>
         
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4" dir="rtl">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="payment" className="gap-2"><DollarSign className="w-4 h-4"/> تحصيل دفعة</TabsTrigger>
+            <TabsTrigger value="report" className="gap-2"><Printer className="w-4 h-4"/> كشف حساب</TabsTrigger>
             <TabsTrigger value="premium" className="gap-2"><Star className="w-4 h-4"/> ترقية المتجر</TabsTrigger>
             <TabsTrigger value="settings" className="gap-2"><Settings className="w-4 h-4"/> الإعدادات</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="report" className="space-y-4 py-4">
+             <div className="bg-muted p-4 rounded-lg mb-4 text-sm text-muted-foreground leading-relaxed">
+               <strong>كشف الحساب التفصيلي:</strong> حدد الشهر وسيتم استخراج جميع العمليات المالية والمبيعات لطباعتها أو حفظها كملف PDF مرتب.
+             </div>
+             <div className="space-y-2">
+               <Label>التاريخ (الشهر/السنة)</Label>
+               <Input 
+                 type="month" 
+                 value={reportMonth} 
+                 onChange={(e) => setReportMonth(e.target.value)} 
+               />
+             </div>
+             <Button className="w-full mt-4" variant="default" onClick={handleGenerateReport} disabled={isGenerating}>
+                {isGenerating ? "جاري تجهيز التقرير..." : "استخراج وطباعة كشف الحساب (PDF)"}
+             </Button>
+          </TabsContent>
 
           <TabsContent value="payment" className="space-y-4 py-4">
              <div className="bg-blue-50/50 p-4 rounded-lg border border-blue-100 mb-4">
@@ -264,5 +311,7 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
         </Tabs>
       </DialogContent>
     </Dialog>
+    <PrintableShopInvoice report={reportData} />
+    </>
   );
 }
