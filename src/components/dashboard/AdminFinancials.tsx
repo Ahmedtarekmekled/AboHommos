@@ -3,15 +3,52 @@ import { useQuery } from "@tanstack/react-query";
 import { analyticsService } from "@/services/analytics.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatPrice } from "@/lib/utils";
 import { format } from "date-fns";
-import { Download, DollarSign, Store, Truck, TrendingUp, AlertCircle, CheckCircle } from "lucide-react";
+import {
+  Download,
+  Store,
+  Truck,
+  ChevronRight,
+  ChevronLeft,
+  DollarSign,
+  TrendingUp,
+  AlertCircle,
+  User,
+} from "lucide-react";
 import { notify } from "@/lib/notify";
+
+const PAGE_SIZE = 10;
+
+function Pagination({ page, total, onPrev, onNext }: { page: number; total: number; onPrev: () => void; onNext: () => void; }) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  if (pages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-t text-sm text-muted-foreground">
+      <span>{(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} من {total}</span>
+      <div className="flex gap-1">
+        <Button variant="ghost" size="icon" onClick={onPrev} disabled={page === 1} className="h-7 w-7">
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+        <Button variant="ghost" size="icon" onClick={onNext} disabled={page === pages} className="h-7 w-7">
+          <ChevronLeft className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const statusConfig: Record<string, { label: string; className: string }> = {
+  GOOD: { label: "سليم", className: "bg-green-100 text-green-700" },
+  LATE: { label: "متأخر", className: "bg-amber-100 text-amber-700" },
+  CRITICAL: { label: "حرج", className: "bg-red-100 text-red-700" },
+};
 
 export function AdminFinancials() {
   const [period, setPeriod] = useState<"7D" | "30D" | "ALL">("30D");
+  const [shopPage, setShopPage] = useState(1);
+  const [driverPage, setDriverPage] = useState(1);
 
   const startDate = useMemo(() => {
     if (period === "7D") return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -40,36 +77,15 @@ export function AdminFinancials() {
     retry: false,
   });
 
-  const exportShopsCSV = () => {
-    if (!shopMetrics) return;
-    const headers = ['المتجر', 'مميز', 'الإيرادات', 'العمولة المستحقة', 'رسوم تم دفعها', 'إجمالي المتبقي (مستحق)', 'الحالة'];
-    const rows = shopMetrics.map(shop => [
-      shop.shop_name,
-      shop.is_premium ? 'نعم' : 'لا',
-      shop.gross_revenue.toString(),
-      shop.commission_owed.toString(),
-      shop.commission_paid.toString(),
-      shop.total_outstanding.toString(),
-      shop.financial_status
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    downloadCSV(csvContent, 'تقرير_حسابات_المتاجر');
-  };
+  const shopPage_data = useMemo(() => {
+    if (!shopMetrics) return [];
+    return shopMetrics.slice((shopPage - 1) * PAGE_SIZE, shopPage * PAGE_SIZE);
+  }, [shopMetrics, shopPage]);
 
-  const exportDriversCSV = () => {
-    if (!driverMetrics) return;
-    const headers = ['المندوب', 'الإيرادات (رسوم التوصيل)', 'رسوم المنصة المستحقة', 'رسوم العملاء النقدية', 'رسوم تم تحصيلها', 'المتبقي الكلي (مستحق)'];
-    const rows = driverMetrics.map(driver => [
-      driver.driver_name,
-      driver.gross_earnings.toString(),
-      driver.platform_fee_owed.toString(),
-      driver.customer_fee_owed.toString(),
-      driver.platform_fee_paid.toString(),
-      driver.total_outstanding.toString()
-    ]);
-    const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n');
-    downloadCSV(csvContent, 'تقرير_حسابات_المناديب');
-  };
+  const driverPage_data = useMemo(() => {
+    if (!driverMetrics) return [];
+    return driverMetrics.slice((driverPage - 1) * PAGE_SIZE, driverPage * PAGE_SIZE);
+  }, [driverMetrics, driverPage]);
 
   const downloadCSV = (content: string, filename: string) => {
     const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8;' });
@@ -80,123 +96,166 @@ export function AdminFinancials() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    notify.success("تم تصدير التقرير بنجاح");
+    notify.success("تم تصدير التقرير");
+  };
+
+  const exportShopsCSV = () => {
+    if (!shopMetrics) return;
+    const headers = ['المتجر', 'مميز', 'الإيرادات', 'عمولة مستحقة', 'اشتراك مستحق', 'تمييز مستحق', 'إجمالي المستحق', 'الحالة'];
+    const rows = shopMetrics.map(s => [
+      s.shop_name, s.is_premium ? 'نعم' : 'لا',
+      s.gross_revenue, s.commission_owed, s.subscription_owed,
+      s.premium_owed, s.total_outstanding, s.financial_status,
+    ]);
+    downloadCSV([headers.join(','), ...rows.map(r => r.join(','))].join('\n'), 'تقرير_المتاجر');
+  };
+
+  const exportDriversCSV = () => {
+    if (!driverMetrics) return;
+    const headers = ['المندوب', 'الهاتف', 'رسوم التوصيل', 'نقدي العملاء', 'تم التحصيل', 'صافي الدين'];
+    const rows = driverMetrics.map(d => [
+      d.driver_name, d.driver_phone || '',
+      d.platform_fee_owed, d.customer_fee_owed, d.platform_fee_paid, d.total_outstanding,
+    ]);
+    downloadCSV([headers.join(','), ...rows.map(r => r.join(','))].join('\n'), 'تقرير_المناديب');
   };
 
   if (isPlatformLoading || isShopsLoading || isDriversLoading) {
-    return <div className="text-muted-foreground p-8 text-center">جاري تحميل البيانات المالية...</div>;
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map(i => <div key={i} className="h-24 rounded-xl bg-muted/40 animate-pulse" />)}
+      </div>
+    );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      {/* ── Header ── */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
         <div>
-          <h2 className="text-xl font-bold">النظام المالي المتقدم</h2>
-          <p className="text-sm text-muted-foreground">حسابات، تسويات، وإيرادات المنصة الدقيقة</p>
+          <h1 className="text-2xl font-bold">النظام المالي المتقدم</h1>
+          <p className="text-muted-foreground text-sm mt-0.5">حسابات، تسويات، وإيرادات المنصة الدقيقة</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-           <Button variant={period === "7D" ? "default" : "outline"} onClick={() => setPeriod("7D")}>7 أيام</Button>
-           <Button variant={period === "30D" ? "default" : "outline"} onClick={() => setPeriod("30D")}>30 يوم</Button>
-           <Button variant={period === "ALL" ? "default" : "outline"} onClick={() => setPeriod("ALL")}>الكل</Button>
+        {/* Segmented period */}
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          {(["7D", "30D", "ALL"] as const).map(p => (
+            <button key={p} onClick={() => { setPeriod(p); setShopPage(1); setDriverPage(1); }}
+              className={`px-3 py-1.5 rounded-md text-sm transition-all ${period === p ? 'bg-background shadow-sm font-semibold' : 'text-muted-foreground hover:text-foreground'}`}>
+              {p === "7D" ? "7 أيام" : p === "30D" ? "30 يوم" : "الكل"}
+            </button>
+          ))}
         </div>
       </div>
 
       <Tabs defaultValue="platform" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+        <TabsList className="grid w-full grid-cols-3 lg:w-[460px]">
           <TabsTrigger value="platform">نظرة عامة للمنصة</TabsTrigger>
           <TabsTrigger value="shops">حسابات المتاجر</TabsTrigger>
           <TabsTrigger value="drivers">حسابات المناديب</TabsTrigger>
         </TabsList>
 
-        {/* PLATFORM OVERVIEW */}
-        <TabsContent value="platform" className="mt-6 space-y-6">
+        {/* ──────────────── PLATFORM ──────────────── */}
+        <TabsContent value="platform" className="mt-6 space-y-5">
           {platformMetrics && (
             <>
-              <div className="grid sm:grid-cols-3 gap-6">
-                <Card className="bg-primary/5 border-primary/20">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center justify-between">
-                      المبالغ المحصلة (Total Collected)
-                      <DollarSign className="w-4 h-4 text-primary" />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-primary">{formatPrice(platformMetrics.platform_total.total_collected)}</div>
-                    <p className="text-xs text-muted-foreground mt-1">كاش فعلي تم إدخاله للنظام</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-amber-500/5 border-amber-500/20">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center justify-between">
-                      إجمالي المستحقات (Outstanding)
-                      <AlertCircle className="w-4 h-4 text-amber-600" />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-amber-600">{formatPrice(platformMetrics.platform_total.total_receivable_outstanding)}</div>
-                    <p className="text-xs text-muted-foreground mt-1">مبالغ مستحقة من المتاجر والمناديب</p>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-green-500/5 border-green-500/20">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium flex items-center justify-between">
-                      صافي أرباح المنصة (Net Profit)
-                      <TrendingUp className="w-4 h-4 text-green-600" />
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-green-600">{formatPrice(platformMetrics.platform_total.net_profit)}</div>
-                    <p className="text-xs text-muted-foreground mt-1">المحقق خلال هذه الفترة (محصل)</p>
-                  </CardContent>
-                </Card>
+              {/* KPI cards */}
+              <div className="grid sm:grid-cols-3 gap-4">
+                {[
+                  {
+                    icon: <DollarSign className="w-5 h-5 text-primary" />,
+                    iconBg: "bg-primary/10",
+                    label: "المبالغ المحصّلة",
+                    sub: "ما دخل النظام فعلاً",
+                    value: platformMetrics.platform_total.total_collected,
+                  },
+                  {
+                    icon: <AlertCircle className="w-5 h-5 text-amber-600" />,
+                    iconBg: "bg-amber-100",
+                    label: "إجمالي المستحقات",
+                    sub: "من متاجر ومناديب",
+                    value: platformMetrics.platform_total.total_receivable_outstanding,
+                  },
+                  {
+                    icon: <TrendingUp className="w-5 h-5 text-green-600" />,
+                    iconBg: "bg-green-100",
+                    label: "صافي أرباح المنصة",
+                    sub: "الفترة المختارة",
+                    value: platformMetrics.platform_total.net_profit,
+                  },
+                ].map(card => (
+                  <Card key={card.label} className="border-muted">
+                    <CardContent className="pt-5 pb-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-9 h-9 rounded-full ${card.iconBg} flex items-center justify-center`}>
+                          {card.icon}
+                        </div>
+                        <p className="text-sm text-muted-foreground font-medium">{card.label}</p>
+                      </div>
+                      <div className="text-2xl font-bold">{formatPrice(card.value)}</div>
+                      <p className="text-xs text-muted-foreground mt-1">{card.sub}</p>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-6">
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Store className="w-5 h-5 text-indigo-500" />
+              {/* Breakdown cards */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Shop revenue */}
+                <Card className="border-muted">
+                  <CardHeader className="pb-2 pt-4 px-5 bg-muted/20 border-b rounded-t-lg">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Store className="w-3.5 h-3.5 text-primary" />
+                      </div>
                       تفصيل إيرادات المتاجر
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center pb-2 border-b">
-                      <span className="text-sm font-medium">عمولات الطلبات (Commission)</span>
-                      <span className="font-bold">{formatPrice(platformMetrics.shop_commissions.paid)} / المستحق: {formatPrice(platformMetrics.shop_commissions.outstanding)}</span>
-                    </div>
-                    <div className="flex justify-between items-center pb-2 border-b">
-                      <span className="text-sm font-medium">الاشتراكات الشهرية (Recurring)</span>
-                      <span className="font-bold">{formatPrice(platformMetrics.regular_subscriptions.paid)} / المستحق: {formatPrice(platformMetrics.regular_subscriptions.outstanding)}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">ترقيات التميز (Premium)</span>
-                      <span className="font-bold whitespace-nowrap overflow-hidden text-amber-600">
-                        {formatPrice(platformMetrics.premium_subscriptions.paid)} / المستحق: {formatPrice(platformMetrics.premium_subscriptions.outstanding)}
-                      </span>
-                    </div>
+                  <CardContent className="space-y-1.5 p-4">
+                    {[
+                      { label: "عمولات الطلبات (Commission)", paid: platformMetrics.shop_commissions.paid, outstanding: platformMetrics.shop_commissions.outstanding },
+                      { label: "الاشتراكات الشهرية (Recurring)", paid: platformMetrics.regular_subscriptions.paid, outstanding: platformMetrics.regular_subscriptions.outstanding },
+                      { label: "ترقيات التميز (Premium)", paid: platformMetrics.premium_subscriptions.paid, outstanding: platformMetrics.premium_subscriptions.outstanding },
+                    ].map(row => (
+                      <div key={row.label} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <span className="text-xs text-muted-foreground">{row.label}</span>
+                        <div className="text-right">
+                          <span className="text-sm font-semibold">{formatPrice(row.paid)}</span>
+                          {row.outstanding > 0 && (
+                            <span className="block text-[10px] text-amber-600 font-medium">
+                              المستحق: {formatPrice(row.outstanding)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </CardContent>
                 </Card>
-                
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Truck className="w-5 h-5 text-blue-500" />
+
+                {/* Driver revenue */}
+                <Card className="border-muted">
+                  <CardHeader className="pb-2 pt-4 px-5 bg-muted/20 border-b rounded-t-lg">
+                    <CardTitle className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                      <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Truck className="w-3.5 h-3.5 text-primary" />
+                      </div>
                       تفصيل إيرادات التوصيل والمنصة
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex justify-between items-center pb-2 border-b">
-                      <span className="text-sm font-medium">رسوم المنصة من المناديب (Driver Fees)</span>
-                      <span className="font-bold text-blue-600">
-                        {formatPrice(platformMetrics.driver_fees.paid)} / المستحق: {formatPrice(platformMetrics.driver_fees.outstanding)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center text-amber-700">
-                      <span className="text-sm font-medium">رسوم الخدمة النقدية مستحقة لدى المناديب (Customer Fees)</span>
-                      <span className="font-bold text-amber-600">
-                        المستحق: {formatPrice(platformMetrics.customer_fees?.owed || 0)}
+                  <CardContent className="space-y-1.5 p-4">
+                    {[
+                      { label: "رسوم المنصة من المناديب (Driver Fees)", value: platformMetrics.driver_fees.owed },
+                      { label: "نقدي العملاء المستحق (Customer Fees)", value: platformMetrics.customer_fees?.owed || 0 },
+                      { label: "تم تحصيله", value: platformMetrics.driver_fees.paid },
+                    ].map(row => (
+                      <div key={row.label} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">
+                        <span className="text-xs text-muted-foreground">{row.label}</span>
+                        <span className="text-sm font-semibold">{formatPrice(row.value)}</span>
+                      </div>
+                    ))}
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg border border-border">
+                      <span className="text-xs font-semibold">صافي الدين على المناديب</span>
+                      <span className="text-sm font-bold text-amber-600">
+                        {formatPrice((platformMetrics.driver_fees.owed + (platformMetrics.customer_fees?.owed || 0)) - platformMetrics.driver_fees.paid)}
                       </span>
                     </div>
                   </CardContent>
@@ -206,110 +265,118 @@ export function AdminFinancials() {
           )}
         </TabsContent>
 
-        {/* SHOPS FINANCES */}
+        {/* ──────────────── SHOPS ──────────────── */}
         <TabsContent value="shops" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle>كشف حساب المتاجر</CardTitle>
-              <Button variant="outline" size="sm" onClick={exportShopsCSV} disabled={!shopMetrics?.length}>
-                <Download className="w-4 h-4 ml-2" /> تصدير (CSV)
+          <Card className="border-muted">
+            <CardHeader className="flex flex-row justify-between items-center pb-3 pt-4 px-5 bg-muted/20 border-b rounded-t-lg">
+              <div>
+                <CardTitle className="text-sm font-semibold">حسابات المتاجر</CardTitle>
+                {shopMetrics && <p className="text-xs text-muted-foreground mt-0.5">{shopMetrics.length} متجر مسجّل</p>}
+              </div>
+              <Button variant="outline" size="sm" onClick={exportShopsCSV} disabled={!shopMetrics?.length} className="h-8 text-xs gap-1.5">
+                <Download className="w-3.5 h-3.5" /> تصدير CSV
               </Button>
             </CardHeader>
-            <CardContent>
-              <div className="border rounded-md overflow-hidden">
-                <div className="grid grid-cols-7 p-4 bg-muted font-medium text-sm">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto" dir="rtl">
+                {/* Header */}
+                <div className="grid grid-cols-5 px-5 py-2.5 bg-muted/30 border-b text-xs font-semibold text-muted-foreground">
                   <div className="col-span-2">المتجر</div>
-                  <div>إيرادات المتجر</div>
-                  <div>عمولة المنصة</div>
-                  <div>ترقيات واشتراكات</div>
-                  <div>المستحق (بذمة المتجر)</div>
-                  <div>موقف مالي</div>
+                  <div className="text-center">الإيرادات</div>
+                  <div className="text-center">إجمالي المستحق</div>
+                  <div className="text-center">الحالة</div>
                 </div>
-                <div className="divide-y max-h-[500px] overflow-y-auto">
-                  {!shopMetrics?.length ? (
-                    <div className="p-4 text-center text-muted-foreground">لا توجد حركات مالية مسجلة.</div>
-                  ) : (
-                    shopMetrics.map((shop) => (
-                      <div key={shop.shop_id} className="grid grid-cols-7 p-4 text-sm items-center hover:bg-muted/50">
-                        <div className="col-span-2">
-                          <p className="font-medium">{shop.shop_name}</p>
-                          {shop.is_premium && <Badge variant="outline" className="text-[10px] mt-1 bg-amber-50 text-amber-600 border-amber-200">فرع مميز</Badge>}
+                {/* Rows */}
+                <div className="divide-y">
+                  {!shopPage_data.length ? (
+                    <div className="p-10 text-center text-muted-foreground text-sm">لا توجد بيانات في هذه الفترة.</div>
+                  ) : shopPage_data.map(shop => {
+                    const status = statusConfig[shop.financial_status] ?? { label: shop.financial_status, className: "bg-muted text-muted-foreground" };
+                    return (
+                      <div key={shop.shop_id} className="grid grid-cols-5 px-5 py-3.5 text-sm items-center hover:bg-muted/20 transition-colors">
+                        <div className="col-span-2 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <Store className="w-4 h-4 text-primary" />
+                          </div>
+                          <div>
+                            <p className="font-semibold leading-tight">
+                              {shop.shop_name}
+                              {shop.is_premium && <span className="text-amber-500 mr-1 text-xs">★</span>}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">{shop.total_orders} طلب مكتمل</p>
+                          </div>
                         </div>
-                        <div className="font-medium">{formatPrice(shop.gross_revenue)}</div>
-                         {/* Owed Comm vs Paid Comm */}
-                        <div className="text-blue-600 font-medium whitespace-nowrap">
-                          {formatPrice(shop.commission_owed)} <br/>
-                          <span className="text-[10px] text-muted-foreground p-0.5">سُدد: {formatPrice(shop.commission_paid)}</span>
-                        </div>
-                        {/* Subs + Premium Owed */}
-                        <div className="text-amber-600 whitespace-nowrap">
-                          {formatPrice(shop.subscription_owed + shop.premium_owed)} <br/>
-                          <span className="text-[10px] text-muted-foreground p-0.5">سُدد: {formatPrice(shop.subscription_paid + shop.premium_paid)}</span>
-                        </div>
-                        {/* Total Outstanding */}
-                        <div className="font-bold text-red-600">{formatPrice(shop.total_outstanding)}</div>
-                        <div>
-                          {shop.financial_status === 'GOOD' ? (
-                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200"><CheckCircle className="w-3 h-3 ml-1"/> سليم</Badge>
-                          ) : shop.financial_status === 'LATE' ? (
-                            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200">متأخر</Badge>
-                          ) : (
-                            <Badge variant="destructive">حرج</Badge>
-                          )}
+                        <div className="text-center text-muted-foreground text-xs">{formatPrice(shop.gross_revenue)}</div>
+                        <div className="text-center font-bold">{formatPrice(shop.total_outstanding)}</div>
+                        <div className="text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.className}`}>
+                            {status.label}
+                          </span>
                         </div>
                       </div>
-                    ))
-                  )}
+                    );
+                  })}
                 </div>
               </div>
+              <Pagination
+                page={shopPage} total={shopMetrics?.length ?? 0}
+                onPrev={() => setShopPage(p => Math.max(1, p - 1))}
+                onNext={() => setShopPage(p => p + 1)}
+              />
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* DRIVERS FINANCES */}
+        {/* ──────────────── DRIVERS ──────────────── */}
         <TabsContent value="drivers" className="mt-6">
-          <Card>
-            <CardHeader className="flex flex-row justify-between items-center">
-              <CardTitle>كشف حساب المناديب</CardTitle>
-              <Button variant="outline" size="sm" onClick={exportDriversCSV} disabled={!driverMetrics?.length}>
-                <Download className="w-4 h-4 ml-2" /> تصدير (CSV)
+          <Card className="border-muted">
+            <CardHeader className="flex flex-row justify-between items-center pb-3 pt-4 px-5 bg-muted/20 border-b rounded-t-lg">
+              <div>
+                <CardTitle className="text-sm font-semibold">حسابات المناديب</CardTitle>
+                {driverMetrics && <p className="text-xs text-muted-foreground mt-0.5">{driverMetrics.length} مندوب مسجّل</p>}
+              </div>
+              <Button variant="outline" size="sm" onClick={exportDriversCSV} disabled={!driverMetrics?.length} className="h-8 text-xs gap-1.5">
+                <Download className="w-3.5 h-3.5" /> تصدير CSV
               </Button>
             </CardHeader>
-            <CardContent>
-              <div className="border rounded-md overflow-hidden">
-                <div className="grid grid-cols-6 p-4 bg-muted font-medium text-sm">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto" dir="rtl">
+                <div className="grid grid-cols-4 px-5 py-2.5 bg-muted/30 border-b text-xs font-semibold text-muted-foreground">
                   <div className="col-span-2">المندوب</div>
-                  <div>إيرادات التوصيل الكلية</div>
-                  <div>رسوم المنصة المجمعة</div>
-                  <div>المسدد للمنصة</div>
-                  <div>المتبقي الكلي للمنصة</div>
+                  <div className="text-center">رسوم مجمعة</div>
+                  <div className="text-center">صافي الدين</div>
                 </div>
-                <div className="divide-y max-h-[500px] overflow-y-auto">
-                  {!driverMetrics?.length ? (
-                    <div className="p-4 text-center text-muted-foreground">لا توجد حركات مالية مسجلة.</div>
-                  ) : (
-                    driverMetrics.map((driver) => (
-                      <div key={driver.driver_id} className="grid grid-cols-6 p-4 text-sm items-center hover:bg-muted/50">
-                        <div className="col-span-2">
-                          <p className="font-medium">{driver.driver_name}</p>
-                          <p className="text-xs text-muted-foreground">{driver.driver_phone}</p>
+                <div className="divide-y">
+                  {!driverPage_data.length ? (
+                    <div className="p-10 text-center text-muted-foreground text-sm">لا توجد بيانات في هذه الفترة.</div>
+                  ) : driverPage_data.map(driver => (
+                    <div key={driver.driver_id} className="grid grid-cols-4 px-5 py-3.5 text-sm items-center hover:bg-muted/20 transition-colors">
+                      <div className="col-span-2 flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <User className="w-4 h-4 text-primary" />
                         </div>
-                        <div className="font-medium">{formatPrice(driver.gross_earnings)}</div>
-                        <div className="text-amber-600 font-medium">
-                          {formatPrice(driver.platform_fee_owed + driver.customer_fee_owed)}
-                          <span className="text-[10px] text-muted-foreground block">
-                            توصيل: {formatPrice(driver.platform_fee_owed)} | عملاء نقدي: {formatPrice(driver.customer_fee_owed)}
-                          </span>
+                        <div>
+                          <p className="font-semibold leading-tight">{driver.driver_name}</p>
+                          {driver.driver_phone && (
+                            <p className="text-[10px] text-muted-foreground" dir="ltr">{driver.driver_phone}</p>
+                          )}
                         </div>
-                        <div className="text-blue-600 font-medium">
-                          {formatPrice(driver.platform_fee_paid)}
-                        </div>
-                        <div className="font-bold text-red-600">{formatPrice(driver.total_outstanding)}</div>
                       </div>
-                    ))
-                  )}
+                      <div className="text-center text-muted-foreground text-xs">
+                        {formatPrice(driver.platform_fee_owed + driver.customer_fee_owed)}
+                      </div>
+                      <div className="text-center font-bold">
+                        {formatPrice(driver.total_outstanding)}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
+              <Pagination
+                page={driverPage} total={driverMetrics?.length ?? 0}
+                onPrev={() => setDriverPage(p => Math.max(1, p - 1))}
+                onNext={() => setDriverPage(p => p + 1)}
+              />
             </CardContent>
           </Card>
         </TabsContent>

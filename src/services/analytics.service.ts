@@ -87,6 +87,41 @@ export interface DriverPersonalFinancials {
   net_outstanding: number;
 }
 
+export interface DetailedFinancialReport {
+  summary: {
+    shop_name: string;
+    total_revenue: number;
+    total_commission_owed: number;
+    total_subscription_owed: number;
+    total_paid: number;
+    net_debt: number;
+    period_start: string;
+    period_end: string;
+  };
+  orders: Array<{
+    order_number: string;
+    created_at: string;
+    status: string;
+    total: number;
+    commission_rate: number;
+    commission_fee: number;
+    net_revenue: number;
+  }>;
+  payments: Array<{
+    id: string;
+    amount: number;
+    paid_at: string;
+    notes: string;
+  }>;
+  subscriptions: Array<{
+    type: string;
+    amount: number;
+    billing_month: string;
+    status: string;
+    paid_at: string;
+  }>;
+}
+
 export const analyticsService = {
   async getGlobalMetrics(startDate?: string, endDate?: string): Promise<GlobalMetrics> {
     const params: Record<string, any> = {};
@@ -171,6 +206,16 @@ export const analyticsService = {
     return data as unknown as DriverPersonalFinancials;
   },
 
+  async getShopDetailedFinancialReport(shopId: string, startDate?: string, endDate?: string): Promise<DetailedFinancialReport> {
+    const params: Record<string, any> = { p_shop_id: shopId };
+    if (startDate) params.p_start_date = startDate;
+    if (endDate) params.p_end_date = endDate;
+
+    const { data, error } = await (supabase.rpc as any)('get_shop_detailed_financial_report', params);
+    if (error) throw error;
+    return data as unknown as DetailedFinancialReport;
+  },
+
   // --- LEDGER & SETTINGS ENTRY METHODS ---
 
   async updateShopFinancialSettings(shopId: string, settings: { commission_percentage?: number, subscription_fee?: number, financial_start_date?: string, billing_cycle_start_date?: string }): Promise<void> {
@@ -226,6 +271,20 @@ export const analyticsService = {
     if (!user) throw new Error("Unauthorized");
     const { error } = await supabase.from('commission_payments' as any).insert([{
       shop_id: shopId, amount, notes, created_by_admin: user.id
+    }]);
+    if (error) throw error;
+  },
+
+  async insertSubscriptionCharge(shopId: string, amount: number, billingMonth: string, notes?: string): Promise<void> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Unauthorized");
+    const { error } = await supabase.from('subscription_payments' as any).insert([{
+      shop_id: shopId,
+      amount,
+      billing_month: billingMonth, // e.g. "2026-02"
+      status: 'UNPAID',
+      notes: notes || `رسوم اشتراك شهري - ${billingMonth}`,
+      created_by_admin: user.id,
     }]);
     if (error) throw error;
   },
