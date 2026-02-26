@@ -64,6 +64,7 @@ export interface FinancialDriverPerformance {
   total_deliveries: number;
   gross_earnings: number;
   platform_fee_owed: number;
+  customer_fee_owed: number;
   platform_fee_paid: number;
   total_outstanding: number;
   last_settlement_date: string | null;
@@ -74,7 +75,7 @@ export interface FinancialPlatformRollup {
   premium_subscriptions: { owed: number; paid: number; outstanding: number };
   regular_subscriptions: { owed: number; paid: number; outstanding: number };
   driver_fees: { owed: number; paid: number; outstanding: number };
-  customer_fees: { paid: number };
+  customer_fees: { owed: number };
   platform_total: { total_receivable_outstanding: number; total_collected: number; net_profit: number };
 }
 

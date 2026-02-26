@@ -58,11 +58,12 @@ export function AdminFinancials() {
 
   const exportDriversCSV = () => {
     if (!driverMetrics) return;
-    const headers = ['المندوب', 'الإيرادات (رسوم التوصيل)', 'رسوم المنصة المستحقة', 'رسوم تم تحصيلها', 'المتبقي (مستحق)'];
+    const headers = ['المندوب', 'الإيرادات (رسوم التوصيل)', 'رسوم المنصة المستحقة', 'رسوم العملاء النقدية', 'رسوم تم تحصيلها', 'المتبقي الكلي (مستحق)'];
     const rows = driverMetrics.map(driver => [
       driver.driver_name,
       driver.gross_earnings.toString(),
       driver.platform_fee_owed.toString(),
+      driver.customer_fee_owed.toString(),
       driver.platform_fee_paid.toString(),
       driver.total_outstanding.toString()
     ]);
@@ -192,10 +193,10 @@ export function AdminFinancials() {
                         {formatPrice(platformMetrics.driver_fees.paid)} / المستحق: {formatPrice(platformMetrics.driver_fees.outstanding)}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium text-emerald-700">رسوم الخدمة من العملاء (Customer Fees)</span>
-                      <span className="font-bold text-emerald-600">
-                        {formatPrice(platformMetrics.customer_fees?.paid || 0)}
+                    <div className="flex justify-between items-center text-amber-700">
+                      <span className="text-sm font-medium">رسوم الخدمة النقدية مستحقة لدى المناديب (Customer Fees)</span>
+                      <span className="font-bold text-amber-600">
+                        المستحق: {formatPrice(platformMetrics.customer_fees?.owed || 0)}
                       </span>
                     </div>
                   </CardContent>
@@ -276,26 +277,32 @@ export function AdminFinancials() {
             </CardHeader>
             <CardContent>
               <div className="border rounded-md overflow-hidden">
-                <div className="grid grid-cols-5 p-4 bg-muted font-medium text-sm">
+                <div className="grid grid-cols-6 p-4 bg-muted font-medium text-sm">
                   <div className="col-span-2">المندوب</div>
                   <div>إيرادات التوصيل الكلية</div>
+                  <div>رسوم المنصة المجمعة</div>
                   <div>المسدد للمنصة</div>
-                  <div>المتبقي للمنصة</div>
+                  <div>المتبقي الكلي للمنصة</div>
                 </div>
                 <div className="divide-y max-h-[500px] overflow-y-auto">
                   {!driverMetrics?.length ? (
                     <div className="p-4 text-center text-muted-foreground">لا توجد حركات مالية مسجلة.</div>
                   ) : (
                     driverMetrics.map((driver) => (
-                      <div key={driver.driver_id} className="grid grid-cols-5 p-4 text-sm items-center hover:bg-muted/50">
+                      <div key={driver.driver_id} className="grid grid-cols-6 p-4 text-sm items-center hover:bg-muted/50">
                         <div className="col-span-2">
                           <p className="font-medium">{driver.driver_name}</p>
                           <p className="text-xs text-muted-foreground">{driver.driver_phone}</p>
                         </div>
                         <div className="font-medium">{formatPrice(driver.gross_earnings)}</div>
+                        <div className="text-amber-600 font-medium">
+                          {formatPrice(driver.platform_fee_owed + driver.customer_fee_owed)}
+                          <span className="text-[10px] text-muted-foreground block">
+                            توصيل: {formatPrice(driver.platform_fee_owed)} | عملاء نقدي: {formatPrice(driver.customer_fee_owed)}
+                          </span>
+                        </div>
                         <div className="text-blue-600 font-medium">
                           {formatPrice(driver.platform_fee_paid)}
-                          <span className="text-[10px] text-muted-foreground block">من أصل {formatPrice(driver.platform_fee_owed)}</span>
                         </div>
                         <div className="font-bold text-red-600">{formatPrice(driver.total_outstanding)}</div>
                       </div>

@@ -137,6 +137,7 @@ RETURNS TABLE (
     total_deliveries BIGINT,
     gross_earnings DECIMAL,
     platform_fee_owed DECIMAL,
+    customer_fee_owed DECIMAL,
     platform_fee_paid DECIMAL,
     total_outstanding DECIMAL,
     last_settlement_date TIMESTAMPTZ
@@ -156,7 +157,8 @@ BEGIN
             po.delivery_user_id,
             COUNT(po.id) as total_deliveries,
             SUM(COALESCE(po.total_delivery_fee, 0)) as gross_earnings,
-            SUM(COALESCE(po.driver_platform_fee_amount, 0)) as fee_owed
+            SUM(COALESCE(po.driver_platform_fee_amount, 0)) as fee_owed,
+            SUM(COALESCE(po.platform_fee, 0)) as customer_fee_owed
         FROM parent_orders po
         WHERE po.status = 'DELIVERED' AND po.delivery_user_id IS NOT NULL
           AND (p_start_date IS NULL OR po.created_at >= p_start_date)
@@ -177,8 +179,9 @@ BEGIN
         COALESCE(da.total_deliveries, 0) as total_deliveries,
         COALESCE(da.gross_earnings, 0) as gross_earnings,
         COALESCE(da.fee_owed, 0) as platform_fee_owed,
+        COALESCE(da.customer_fee_owed, 0) as customer_fee_owed,
         COALESCE(dp.paid, 0) as platform_fee_paid,
-        (COALESCE(da.fee_owed, 0) - COALESCE(dp.paid, 0)) as total_outstanding,
+        ((COALESCE(da.fee_owed, 0) + COALESCE(da.customer_fee_owed, 0)) - COALESCE(dp.paid, 0)) as total_outstanding,
         dp.last_paid as last_settlement_date
     FROM profiles p
     LEFT JOIN DriverAgg da ON p.id = da.delivery_user_id
@@ -252,7 +255,7 @@ BEGIN
       AND (p_start_date IS NULL OR created_at >= p_start_date)
       AND (p_end_date IS NULL OR created_at <= p_end_date);
       
-    -- Aggregate Customer Platform Fees
+    -- Aggregate Customer Platform Fees (Owed by drivers, not yet held by platform)
     SELECT COALESCE(SUM(platform_fee), 0) INTO v_customer_fee_paid
     FROM parent_orders WHERE status = 'DELIVERED'
       AND (p_start_date IS NULL OR created_at >= p_start_date)
@@ -263,11 +266,11 @@ BEGIN
         'premium_subscriptions', jsonb_build_object('owed', v_prem_owed, 'paid', v_prem_paid, 'outstanding', v_prem_owed - v_prem_paid),
         'regular_subscriptions', jsonb_build_object('owed', v_sub_owed, 'paid', v_sub_paid, 'outstanding', v_sub_owed - v_sub_paid),
         'driver_fees', jsonb_build_object('owed', v_driver_fee_owed, 'paid', v_driver_fee_paid, 'outstanding', v_driver_fee_owed - v_driver_fee_paid),
-        'customer_fees', jsonb_build_object('paid', v_customer_fee_paid),
+        'customer_fees', jsonb_build_object('owed', v_customer_fee_paid),
         'platform_total', jsonb_build_object(
-            'total_receivable_outstanding', (v_shop_comm_owed - v_shop_comm_paid) + (v_prem_owed - v_prem_paid) + (v_sub_owed - v_sub_paid) + (v_driver_fee_owed - v_driver_fee_paid),
-            'total_collected', v_shop_comm_paid + v_prem_paid + v_sub_paid + v_driver_fee_paid + v_customer_fee_paid,
-            'net_profit', v_shop_comm_paid + v_prem_paid + v_sub_paid + v_driver_fee_paid + v_customer_fee_paid
+            'total_receivable_outstanding', (v_shop_comm_owed - v_shop_comm_paid) + (v_prem_owed - v_prem_paid) + (v_sub_owed - v_sub_paid) + (v_driver_fee_owed - v_driver_fee_paid) + v_customer_fee_paid,
+            'total_collected', v_shop_comm_paid + v_prem_paid + v_sub_paid + v_driver_fee_paid,
+            'net_profit', v_shop_comm_paid + v_prem_paid + v_sub_paid + v_driver_fee_paid
         )
     );
 END;
