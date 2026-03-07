@@ -22,7 +22,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Lighthouse and Puppeteer
+        run: npm install -g @lhci/cli@0.13.0 && npm install puppeteer --no-save
+
       - name: Run Lighthouse CI
-        run: npx @lhci/cli@0.13.0 autorun
+        run: lhci autorun
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
