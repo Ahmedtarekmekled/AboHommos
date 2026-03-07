@@ -15,7 +15,8 @@
       ],
       "numberOfRuns": 2,
       "settings": {
-        "preset": "mobile"
+        "preset": "mobile",
+        "chromeFlags": "--no-sandbox --disable-gpu --disable-setuid-sandbox"
       }
     },
     "assert": {
