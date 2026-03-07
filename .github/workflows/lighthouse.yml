@@ -28,6 +28,6 @@ jobs:
       - name: Run Lighthouse CI
         run: |
           export CHROME_PATH=$(node -e "console.log(require('puppeteer').executablePath())")
-          lhci autorun
+          lhci autorun --chrome-flags="--no-sandbox --headless"
         env:
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
