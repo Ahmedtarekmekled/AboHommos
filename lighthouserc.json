@@ -1,7 +1,6 @@
 {
   "ci": {
     "collect": {
-      "startServerCommand": "npm run build && npm run preview",
       "puppeteerScript": "./lighthouse-login.cjs",
       "url": [
         "http://localhost:4173/",
@@ -15,7 +14,7 @@
       ],
       "numberOfRuns": 2,
       "settings": {
-        "preset": "mobile",
+        "preset": "desktop",
         "chromeFlags": "--no-sandbox --disable-gpu --disable-setuid-sandbox"
       }
     },
