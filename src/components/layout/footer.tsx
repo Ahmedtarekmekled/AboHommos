@@ -56,14 +56,9 @@ export function Footer() {
                   {AR.footer.email}:
                 </span>
                 <br />
-                support@shopydash.com
-              </p>
-              <p>
-                <span className="font-medium text-foreground">
-                  {AR.footer.phone}:
-                </span>
+                support@shopydash.store
                 <br />
-                +20 123 456 7890
+                info@shopydash.store
               </p>
               <p>
                 <span className="font-medium text-foreground">
