@@ -2,17 +2,30 @@ import React, {
   createContext,
   useContext,
   useReducer,
+  useState,
   useEffect,
   ReactNode,
 } from "react";
 import { supabase, getCurrentUser } from "@/lib/supabase";
 import { authService } from "@/services/auth.service";
 import { cartService } from "@/services/order.service";
+import { deliverySettingsService } from "@/services/delivery-settings.service";
 import type {
   Profile,
   CartWithItems,
   CartItemWithProduct,
 } from "@/types/database";
+import { notify } from "@/lib/notify";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { AlertTriangle } from "lucide-react";
 
 // State types
 interface AppState {
@@ -122,6 +135,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 // Provider
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(appReducer, initialState);
+  const [limitErrorModal, setLimitErrorModal] = useState<{isOpen: boolean, message: string}>({isOpen: false, message: ''});
 
   // Initialize auth state
   useEffect(() => {
@@ -216,7 +230,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addToCart = (
+  const addToCart = async (
     shopId: string,
     productId: string,
     quantity: number,
@@ -224,6 +238,47 @@ export function AppProvider({ children }: { children: ReactNode }) {
   ) => {
     const user = state.user;
     if (!user) throw new Error("يجب تسجيل الدخول أولاً");
+
+    // --- Dynamic Shop Limit Check ---
+    if (state.cart && state.cart.items && state.cart.items.length > 0) {
+      const uniqueShopIds = new Set(
+        state.cart.items.map((item: any) => 
+          item.product?.shop_id || item.product?.shop?.id || item.shop_id || item.product?.shop_id
+        ).filter(Boolean)
+      );
+      
+      const isNewShop = !uniqueShopIds.has(shopId);
+
+      if (isNewShop) {
+        try {
+          // Bypass cache to get the strict live limit directly from Supabase
+          const { data: settings } = await supabase
+            .from('delivery_settings')
+            .select('max_shops_per_order')
+            .single();
+            
+          const maxShops = settings?.max_shops_per_order || 0;
+          
+          if (maxShops > 0 && uniqueShopIds.size >= maxShops) {
+            let limitText = "أكثر من متجر واحد";
+            if (maxShops === 1) limitText = "أكثر من متجر واحد";
+            else if (maxShops === 2) limitText = "أكثر من متجرين";
+            else if (maxShops >= 3 && maxShops <= 10) limitText = `أكثر من ${maxShops} متاجر`;
+            else limitText = `أكثر من ${maxShops} متجراً`;
+
+            const errorMsg = `عذراً، تم تحديد الطلب من ${limitText} في السلة لأسباب تنظيمية. يرجى إتمام الطلب الحالي أو إفراغ السلة قبل الطلب من هذا المتجر.`;
+            setLimitErrorModal({ isOpen: true, message: errorMsg });
+            // By throwing this silently we avoid the double toast in downstream handlers.
+            throw new Error('SILENT_MODAL_LIMIT_EXCEEDED');
+          }
+        } catch (err: any) {
+          // If our specific limit error is thrown, re-throw it to abort the rest
+          if (err.message === 'SILENT_MODAL_LIMIT_EXCEEDED') throw err;
+          console.warn('Could not fetch strict shop limit settings:', err);
+        }
+      }
+    }
+    // --- End Shop Limit Check ---
 
     const previousCart = state.cart;
     let isNewItem = true;
@@ -287,22 +342,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
        }
     }
 
-    const syncWithServer = async () => {
-      try {
-        await cartService.addItem(user.id, shopId, productId, quantity);
-        
-        if (isNewItem && !productPayload) {
-          await refreshCart();
-        } else {
-          refreshCart(); 
-        }
-      } catch (error) {
-        dispatch({ type: "SET_CART", payload: previousCart });
-        throw error;
+    try {
+      await cartService.addItem(user.id, shopId, productId, quantity);
+      
+      if (isNewItem && !productPayload) {
+        await refreshCart();
+      } else {
+        refreshCart(); 
       }
-    };
-
-    return syncWithServer();
+    } catch (error) {
+      dispatch({ type: "SET_CART", payload: previousCart });
+      throw error;
+    }
   };
 
   const updateCartItem = async (itemId: string, quantity: number) => {
@@ -393,7 +444,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setRegion,
   };
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+      <AlertDialog open={limitErrorModal.isOpen} onOpenChange={(open) => !open && setLimitErrorModal({ isOpen: false, message: '' })}>
+        <AlertDialogContent className="w-[90vw] max-w-md md:w-full">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-amber-600 justify-center text-xl pb-2">
+               <AlertTriangle className="w-6 h-6" />
+               تنبيه: الحد الأقصى للمتاجر
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center pt-2 text-base text-foreground leading-relaxed">
+              {limitErrorModal.message}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-start gap-2 pt-4">
+            <AlertDialogAction className="w-full bg-primary" onClick={() => setLimitErrorModal({ isOpen: false, message: '' })}>
+              حسناً، فهمت
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </AppContext.Provider>
+  );
 }
 
 // Hook

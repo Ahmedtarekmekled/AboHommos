@@ -546,6 +546,22 @@ function SettingsTab() {
                       onChange={e => setSettings({...settings, max_active_orders: +e.target.value})} 
                    />
                 </div>
+                <div className="grid gap-2 pt-4 border-t">
+                   <Label>الحد الأقصى للمتاجر في الطلب الواحد (للعميل)</Label>
+                   <p className="text-xs text-muted-foreground">عدد المتاجر المختلفة التي يمكن للعميل الطلب منها في سلة واحدة. اضبطه على 0 للسماح بعدد غير محدود.</p>
+                   <Input 
+                      type="number" 
+                      min="0" 
+                      max="10" 
+                      value={settings.max_shops_per_order ?? 0} 
+                      onChange={e => setSettings({...settings, max_shops_per_order: +e.target.value})} 
+                   />
+                   {settings.max_shops_per_order > 0 && (
+                     <p className="text-xs font-medium text-amber-600 bg-amber-50 p-2 rounded">
+                       العميل سيتمكن من الطلب من {settings.max_shops_per_order} {settings.max_shops_per_order === 1 ? 'متجر فقط' : 'متاجر كحد أقصى'} في كل طلب.
+                     </p>
+                   )}
+                </div>
              </CardContent>
           </Card>
 
