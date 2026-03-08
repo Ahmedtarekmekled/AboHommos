@@ -61,6 +61,7 @@ export function Header() {
               size="icon"
               className="lg:hidden"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label={mobileMenuOpen ? "إغلاق القائمة" : "فتح القائمة"}
             >
               {mobileMenuOpen ? (
                 <X className="h-5 w-5" />
@@ -101,6 +102,7 @@ export function Header() {
                size="icon" 
                className="relative"
                onClick={() => setCartOpen(true)}
+               aria-label="سلة المشتريات"
             >
               <ShoppingCart className="h-5 w-5" />
               {cartItemCount > 0 && (
@@ -117,7 +119,7 @@ export function Header() {
             {isAuthenticated ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="gap-2 px-2">
+                  <Button variant="ghost" className="gap-2 px-2" aria-label="قائمة المستخدم">
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={user?.avatar_url || undefined} />
                       <AvatarFallback>

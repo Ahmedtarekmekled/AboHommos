@@ -33,7 +33,7 @@ export function Footer() {
 
           {/* Quick Links */}
           <div className="space-y-4">
-            <h4 className="font-semibold">{AR.footer.quickLinks}</h4>
+            <h3 className="font-semibold">{AR.footer.quickLinks}</h3>
             <nav className="flex flex-col gap-2">
               {quickLinks.map((link) => (
                 <Link
@@ -49,7 +49,7 @@ export function Footer() {
 
           {/* Contact */}
           <div className="space-y-4">
-            <h4 className="font-semibold">{AR.footer.contact}</h4>
+            <h3 className="font-semibold">{AR.footer.contact}</h3>
             <div className="space-y-2 text-sm text-muted-foreground">
               <p>
                 <span className="font-medium text-foreground">
@@ -77,7 +77,7 @@ export function Footer() {
 
           {/* Social */}
           <div className="space-y-4">
-            <h4 className="font-semibold">{AR.footer.followUs}</h4>
+            <h3 className="font-semibold">{AR.footer.followUs}</h3>
             <div className="flex gap-2">
               {socialLinks.map((social) => (
                 <a

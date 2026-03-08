@@ -134,7 +134,7 @@ export default function HomePage() {
                 <div className="w-14 h-14 mx-auto mb-4 rounded-2xl bg-gradient-primary flex items-center justify-center">
                   <feature.icon className="w-7 h-7 text-primary-foreground" />
                 </div>
-                <h3 className="font-semibold text-lg mb-2">{feature.title}</h3>
+                <h2 className="font-semibold text-lg mb-2">{feature.title}</h2>
                 <p className="text-muted-foreground text-sm">{feature.desc}</p>
               </Card>
             ))}

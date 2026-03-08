@@ -5,8 +5,17 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { AppProvider } from "@/store";
 import { HelmetProvider } from "react-helmet-async";
+import ReactGA from "react-ga4";
 import App from "./App";
 import "./index.css";
+
+// Initialize Google Analytics (Requires VITE_GA_MEASUREMENT_ID in .env)
+const gaMeasurementId = import.meta.env.VITE_GA_MEASUREMENT_ID;
+if (gaMeasurementId) {
+  ReactGA.initialize(gaMeasurementId);
+} else {
+  console.warn("Google Analytics Tracking ID missing");
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
