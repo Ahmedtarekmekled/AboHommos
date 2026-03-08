@@ -161,69 +161,76 @@ export default function RegisterPage() {
   // ─── Verification Success Screen ─────────────────────────────────────────
   if (showVerification) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center py-12 px-4">
-        <div className="w-full max-w-md">
-          <Card>
-            <CardContent className="pt-8 pb-8 text-center space-y-6">
-              <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-                <MailCheck className="w-8 h-8 text-primary" />
-              </div>
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans">
+        <div className="bg-gradient-to-br from-primary to-primary/80 pt-16 pb-28 px-4 flex flex-col items-center justify-center relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+          
+          <div className="relative z-10 inline-flex flex-col items-center gap-4 mb-2">
+            <div className="p-4 bg-white rounded-3xl shadow-lg">
+              <MailCheck className="w-10 h-10 text-primary" />
+            </div>
+            <h1 className="font-bold text-2xl md:text-3xl text-white tracking-tight text-center max-w-[280px]">
+              تحقق من بريدك
+            </h1>
+          </div>
+        </div>
 
-              <div className="space-y-2">
-                <h2 className="text-xl font-bold">تحقق من بريدك الإلكتروني</h2>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  تم إرسال رابط التأكيد إلى
-                  <br />
-                  <span className="font-medium text-foreground" dir="ltr">
-                    {registeredEmail}
-                  </span>
+        <div className="flex-1 px-4 -mt-16 sm:-mt-20 w-full max-w-[420px] mx-auto relative z-20 pb-12">
+          <div className="bg-card rounded-[2.5rem] p-6 sm:p-8 shadow-2xl mb-8 border border-border/50 text-center space-y-6">
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                تم إرسال رابط التأكيد إلى
+                <br />
+                <span className="font-medium text-foreground block mt-2 text-base" dir="ltr">
+                  {registeredEmail}
+                </span>
+              </p>
+            </div>
+
+            <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 text-sm text-amber-800 dark:text-amber-200">
+              <p className="font-semibold mb-1">💡 لم تجد الرسالة؟</p>
+              <p className="text-xs">
+                تحقق من مجلد <strong>البريد غير المرغوب فيه (Spam)</strong> أو{" "}
+                <strong>Junk</strong>
+              </p>
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <Button
+                variant="outline"
+                className="w-full gap-2 rounded-xl h-[52px]"
+                onClick={handleResend}
+                disabled={
+                  resendCooldown > 0 ||
+                  resendCount >= MAX_RESEND_ATTEMPTS ||
+                  isResending
+                }
+              >
+                <RefreshCw
+                  className={`w-4 h-4 ${isResending ? "animate-spin" : ""}`}
+                />
+                {resendCooldown > 0
+                  ? `إعادة الإرسال بعد ${resendCooldown} ثانية`
+                  : resendCount >= MAX_RESEND_ATTEMPTS
+                    ? "تم استنفاد المحاولات"
+                    : "إعادة إرسال رسالة التأكيد"}
+              </Button>
+
+              {resendCount > 0 && resendCount < MAX_RESEND_ATTEMPTS && (
+                <p className="text-xs text-muted-foreground font-medium">
+                  المحاولات المتبقية: {MAX_RESEND_ATTEMPTS - resendCount} من{" "}
+                  {MAX_RESEND_ATTEMPTS}
                 </p>
-              </div>
+              )}
 
-              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-sm text-amber-800 dark:text-amber-200">
-                <p className="font-medium mb-1">💡 لم تجد الرسالة؟</p>
-                <p className="text-xs">
-                  تحقق من مجلد <strong>البريد غير المرغوب فيه (Spam)</strong> أو{" "}
-                  <strong>Junk</strong>
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full gap-2"
-                  onClick={handleResend}
-                  disabled={
-                    resendCooldown > 0 ||
-                    resendCount >= MAX_RESEND_ATTEMPTS ||
-                    isResending
-                  }
-                >
-                  <RefreshCw
-                    className={`w-4 h-4 ${isResending ? "animate-spin" : ""}`}
-                  />
-                  {resendCooldown > 0
-                    ? `إعادة الإرسال بعد ${resendCooldown} ثانية`
-                    : resendCount >= MAX_RESEND_ATTEMPTS
-                      ? "تم استنفاد المحاولات"
-                      : "إعادة إرسال رسالة التأكيد"}
+              <Link to="/login" className="block w-full">
+                <Button variant="ghost" className="w-full mt-2 rounded-xl h-12 text-muted-foreground hover:text-foreground">
+                  العودة لتسجيل الدخول
                 </Button>
-
-                {resendCount > 0 && resendCount < MAX_RESEND_ATTEMPTS && (
-                  <p className="text-xs text-muted-foreground">
-                    المحاولات المتبقية: {MAX_RESEND_ATTEMPTS - resendCount} من{" "}
-                    {MAX_RESEND_ATTEMPTS}
-                  </p>
-                )}
-
-                <Link to="/login">
-                  <Button variant="ghost" className="w-full mt-2">
-                    العودة لتسجيل الدخول
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+              </Link>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -231,156 +238,176 @@ export default function RegisterPage() {
 
   // ─── Registration Form ────────────────────────────────────────────────────
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex flex-col items-center gap-3 mb-6">
-            <img src="/logo.png" alt="Shopydash Logo" className="w-16 h-16 object-contain" />
-            <span className="font-bold text-3xl text-foreground mt-2" style={{ fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif", letterSpacing: "-1px" }}>Shopydash</span>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans">
+      {/* Top Hero Section */}
+      <div className="bg-gradient-to-br from-primary to-primary/80 pt-16 pb-28 px-4 flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute top-1/2 left-4 w-12 h-12 border-2 border-white/20 rounded-full"></div>
+        <div className="absolute top-1/4 right-8 w-6 h-6 bg-white/20 rounded-full"></div>
+        
+        <Link to="/" className="relative z-10 inline-flex flex-col items-center gap-4 mb-2">
+          <div className="p-3 bg-white rounded-2xl shadow-lg">
+            <img src="/logo.png" alt="Shopydash Logo" className="w-14 h-14 object-contain" />
+          </div>
+          <h1 className="font-bold text-3xl md:text-4xl text-white tracking-tight text-center max-w-[320px]" style={{ fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif" }}>
+            إنشاء حساب في <br /> Shopydash
+          </h1>
+        </Link>
+      </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{AR.auth.register}</CardTitle>
-            <CardDescription>أنشئ حسابك الجديد للبدء</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs
-              value={accountType}
-              onValueChange={(v) =>
-                setAccountType(v as "customer" | "shop_owner")
-              }
-              className="mb-6"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="customer">عميل</TabsTrigger>
-                <TabsTrigger value="shop_owner">صاحب متجر</TabsTrigger>
-              </TabsList>
-            </Tabs>
+      {/* Bottom Form Section */}
+      <div className="flex-1 px-4 -mt-16 sm:-mt-20 w-full max-w-[420px] mx-auto relative z-20 pb-12">
+        <div className="bg-card rounded-[2.5rem] p-6 sm:p-8 shadow-2xl mb-8 border border-border/50">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-bold text-foreground">{AR.auth.register}</h2>
+            <p className="text-muted-foreground text-sm mt-2">أنشئ حسابك الجديد للبدء</p>
+          </div>
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="fullName" required>
-                  {AR.auth.fullName}
-                </Label>
-                <Input
-                  id="fullName"
-                  placeholder="أدخل اسمك الكامل"
-                  error={!!errors.fullName}
-                  {...register("fullName")}
-                />
-                {errors.fullName && (
-                  <p className="text-sm text-destructive">
-                    {errors.fullName.message}
-                  </p>
-                )}
-              </div>
+          <Tabs
+            value={accountType}
+            onValueChange={(v) =>
+              setAccountType(v as "customer" | "shop_owner")
+            }
+            className="mb-8"
+          >
+            <TabsList className="grid w-full grid-cols-2 p-1.5 bg-slate-100 dark:bg-slate-800/50 rounded-2xl h-14">
+              <TabsTrigger value="customer" className="rounded-xl font-semibold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all text-sm h-full">عميل</TabsTrigger>
+              <TabsTrigger value="shop_owner" className="rounded-xl font-semibold data-[state=active]:bg-white dark:data-[state=active]:bg-slate-900 data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all text-sm h-full">صاحب متجر</TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-              <div className="space-y-2">
-                <Label htmlFor="email" required>
-                  {AR.auth.email}
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="example@email.com"
-                  error={!!errors.email}
-                  {...register("email")}
-                />
-                {errors.email && (
-                  <p className="text-sm text-destructive">
-                    {errors.email.message}
-                  </p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phone">{AR.auth.phone}</Label>
-                <Input
-                  id="phone"
-                  type="tel"
-                  placeholder="01xxxxxxxxx"
-                  dir="ltr"
-                  {...register("phone")}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="password" required>
-                  {AR.auth.password}
-                </Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
-                    error={!!errors.password}
-                    {...register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
-                    {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
-                    ) : (
-                      <Eye className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-destructive">
-                    {errors.password.message}
-                  </p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  8 أحرف على الأقل • حرف كبير • حرف صغير • رقم
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-2">
+              <Label htmlFor="fullName" className="text-sm font-medium text-foreground ml-1" required>
+                {AR.auth.fullName}
+              </Label>
+              <Input
+                id="fullName"
+                placeholder="أدخل اسمك الكامل"
+                error={!!errors.fullName}
+                className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
+                dir="rtl"
+                {...register("fullName")}
+              />
+              {errors.fullName && (
+                <p className="text-xs text-destructive ml-1">
+                  {errors.fullName.message}
                 </p>
-              </div>
+              )}
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword" required>
-                  {AR.auth.confirmPassword}
-                </Label>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium text-foreground ml-1" required>
+                {AR.auth.email}
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="example@email.com"
+                error={!!errors.email}
+                className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
+                dir="rtl"
+                {...register("email")}
+              />
+              {errors.email && (
+                <p className="text-xs text-destructive ml-1">
+                  {errors.email.message}
+                </p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-sm font-medium text-foreground ml-1">{AR.auth.phone}</Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="01xxxxxxxxx"
+                className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
+                dir="rtl"
+                {...register("phone")}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password" className="text-sm font-medium text-foreground ml-1" required>
+                {AR.auth.password}
+              </Label>
+              <div className="relative">
                 <Input
-                  id="confirmPassword"
-                  type="password"
+                  id="password"
+                  type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  error={!!errors.confirmPassword}
-                  {...register("confirmPassword")}
+                  error={!!errors.password}
+                  className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 pl-12 transition-colors text-right"
+                  dir="rtl"
+                  {...register("password")}
                 />
-                {errors.confirmPassword && (
-                  <p className="text-sm text-destructive">
-                    {errors.confirmPassword.message}
-                  </p>
-                )}
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full"
-                size="lg"
-                loading={isLoading}
-              >
-                {AR.auth.register}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-muted-foreground">
-                {AR.auth.hasAccount}{" "}
-                <Link
-                  to="/login"
-                  className="text-primary hover:underline font-medium"
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
                 >
-                  {AR.auth.loginNow}
-                </Link>
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="text-xs text-destructive ml-1">
+                  {errors.password.message}
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground ml-1 font-medium">
+                8 أحرف على الأقل • حرف كبير • حرف صغير • رقم
               </p>
             </div>
-          </CardContent>
-        </Card>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword" className="text-sm font-medium text-foreground ml-1" required>
+                {AR.auth.confirmPassword}
+              </Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                placeholder="••••••••"
+                error={!!errors.confirmPassword}
+                className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
+                dir="rtl"
+                {...register("confirmPassword")}
+              />
+              {errors.confirmPassword && (
+                <p className="text-xs text-destructive ml-1">
+                  {errors.confirmPassword.message}
+                </p>
+              )}
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full rounded-full h-[56px] text-base font-bold shadow-lg shadow-primary/25 mt-4"
+              size="lg"
+              loading={isLoading}
+            >
+              {AR.auth.register}
+            </Button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              {AR.auth.hasAccount}{" "}
+              <Link
+                to="/login"
+                className="text-primary hover:text-primary/80 font-bold transition-colors"
+              >
+                {AR.auth.loginNow}
+              </Link>
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

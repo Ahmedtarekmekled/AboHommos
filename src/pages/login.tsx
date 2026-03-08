@@ -175,25 +175,40 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center py-12 px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <Link to="/" className="inline-flex flex-col items-center gap-3 mb-6">
-            <img src="/logo.png" alt="Shopydash Logo" className="w-16 h-16 object-contain" />
-            <span className="font-bold text-3xl text-foreground mt-2" style={{ fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif", letterSpacing: "-1px" }}>Shopydash</span>
-          </Link>
-        </div>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans">
+      {/* Top Hero Section */}
+      <div className="bg-gradient-to-br from-primary to-primary/80 pt-16 pb-28 px-4 flex flex-col items-center justify-center relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl translate-y-1/2 -translate-x-1/2"></div>
+        <div className="absolute top-1/2 left-4 w-12 h-12 border-2 border-white/20 rounded-full"></div>
+        <div className="absolute top-1/4 right-8 w-6 h-6 bg-white/20 rounded-full"></div>
+        
+        <Link to="/" className="relative z-10 inline-flex flex-col items-center gap-4 mb-2">
+          <div className="p-3 bg-white rounded-2xl shadow-lg">
+            <img src="/logo.png" alt="Shopydash Logo" className="w-14 h-14 object-contain" />
+          </div>
+          <h1 className="font-bold text-3xl md:text-4xl text-white tracking-tight text-center max-w-[280px]" style={{ fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif" }}>
+            مرحباً بك في <br /> Shopydash
+          </h1>
+        </Link>
+      </div>
 
-        <Card>
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">{AR.auth.login}</CardTitle>
-            <CardDescription>أدخل بياناتك للدخول إلى حسابك</CardDescription>
-          </CardHeader>
-          <CardContent>
+      {/* Bottom Form Section */}
+      <div className="flex-1 px-4 -mt-16 sm:-mt-20 w-full max-w-[420px] mx-auto relative z-20 pb-12">
+        <div className="bg-card rounded-[2.5rem] p-6 sm:p-8 shadow-2xl mb-8 border border-border/50">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-foreground">{AR.auth.login}</h2>
+            <p className="text-muted-foreground text-sm mt-2">
+              أدخل بياناتك للدخول إلى حسابك
+            </p>
+          </div>
+
+          <div className="space-y-6">
             {/* Success message */}
             {successMessage && (
-              <div className="mb-4 p-3 rounded-lg bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 flex items-start gap-2">
-                <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+              <div className="p-4 rounded-2xl bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 flex items-start gap-3">
+                <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                 <p className="text-sm text-green-800 dark:text-green-200">
                   {successMessage}
                 </p>
@@ -202,14 +217,14 @@ export default function LoginPage() {
 
             {/* Email not verified alert */}
             {showVerificationAlert && (
-              <div className="mb-4 p-3 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 space-y-3">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+              <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 space-y-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">
                       البريد الإلكتروني غير مُفعّل
                     </p>
-                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                    <p className="text-xs text-amber-700 dark:text-amber-300 mt-1 leading-relaxed">
                       يرجى التحقق من بريدك الإلكتروني والضغط على رابط التأكيد.
                       تحقق من مجلد البريد غير المرغوب فيه (Spam).
                     </p>
@@ -218,12 +233,12 @@ export default function LoginPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="w-full gap-2 text-xs"
+                  className="w-full gap-2 text-xs rounded-xl h-10 border-amber-300 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-100"
                   onClick={handleResendVerification}
                   disabled={resendCooldown > 0 || isResending}
                 >
                   <RefreshCw
-                    className={`w-3 h-3 ${isResending ? "animate-spin" : ""}`}
+                    className={`w-3.5 h-3.5 ${isResending ? "animate-spin" : ""}`}
                   />
                   {resendCooldown > 0
                     ? `إعادة الإرسال بعد ${resendCooldown} ثانية`
@@ -232,9 +247,9 @@ export default function LoginPage() {
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email" required>
+                <Label htmlFor="email" className="text-sm font-medium text-foreground ml-1" required>
                   {AR.auth.email}
                 </Label>
                 <Input
@@ -242,17 +257,19 @@ export default function LoginPage() {
                   type="email"
                   placeholder="example@email.com"
                   error={!!errors.email}
+                  className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
+                  dir="rtl"
                   {...register("email")}
                 />
                 {errors.email && (
-                  <p className="text-sm text-destructive">
+                  <p className="text-xs text-destructive ml-1">
                     {errors.email.message}
                   </p>
                 )}
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" required>
+                <Label htmlFor="password" className="text-sm font-medium text-foreground ml-1" required>
                   {AR.auth.password}
                 </Label>
                 <div className="relative">
@@ -261,31 +278,33 @@ export default function LoginPage() {
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
                     error={!!errors.password}
+                    className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 pl-12 transition-colors text-right"
+                    dir="rtl"
                     {...register("password")}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 transition-colors"
                   >
                     {showPassword ? (
-                      <EyeOff className="w-4 h-4" />
+                      <EyeOff className="w-5 h-5" />
                     ) : (
-                      <Eye className="w-4 h-4" />
+                      <Eye className="w-5 h-5" />
                     )}
                   </button>
                 </div>
                 {errors.password && (
-                  <p className="text-sm text-destructive">
+                  <p className="text-xs text-destructive ml-1">
                     {errors.password.message}
                   </p>
                 )}
               </div>
 
-              <div className="flex justify-end">
+              <div className="flex justify-end pt-1">
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-primary hover:underline"
+                  className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
                 >
                   {AR.auth.forgotPassword}
                 </Link>
@@ -293,7 +312,7 @@ export default function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full"
+                className="w-full rounded-full h-[56px] text-base font-bold shadow-lg shadow-primary/25 mt-2"
                 size="lg"
                 loading={isLoading}
               >
@@ -301,59 +320,49 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="relative my-6">
-              <Separator />
-              <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-sm text-muted-foreground">
-                أو
-              </span>
+            <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-border/60"></div>
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-4 text-muted-foreground">أو</span>
+              </div>
             </div>
 
             <Button
               type="button"
               variant="outline"
-              className="w-full"
+              className="w-full rounded-full h-[56px] text-base font-medium border-border/60 hover:bg-muted/50 transition-colors"
               size="lg"
               onClick={handleGoogleLogin}
               disabled={isGoogleLoading}
             >
               {isGoogleLoading ? (
-                <span className="animate-spin mr-2">⏳</span>
+                <span className="animate-spin mr-3">⏳</span>
               ) : (
-                <svg className="w-5 h-5 ml-2" viewBox="0 0 24 24">
-                  <path
-                    fill="currentColor"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
+                <svg className="w-5 h-5 ml-3" viewBox="0 0 24 24">
+                  <path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
+                  <path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                 </svg>
               )}
               تسجيل الدخول بجوجل
             </Button>
 
-            <div className="mt-6 text-center">
-              <p className="text-muted-foreground">
+            <div className="mt-8 text-center">
+              <p className="text-sm text-muted-foreground">
                 {AR.auth.noAccount}{" "}
                 <Link
                   to="/register"
-                  className="text-primary hover:underline font-medium"
+                  className="text-primary hover:text-primary/80 font-bold transition-colors"
                 >
                   {AR.auth.registerNow}
                 </Link>
               </p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

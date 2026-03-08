@@ -8,6 +8,7 @@ import ReactGA from "react-ga4";
 export function MainLayout() {
   const location = useLocation();
   const isCheckoutPage = location.pathname.startsWith('/checkout');
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register' || location.pathname === '/forgot-password' || location.pathname === '/reset-password';
 
   useEffect(() => {
     // Send a pageview tracking event to Google Analytics every time the route changes
@@ -20,8 +21,8 @@ export function MainLayout() {
       <main className="flex-1">
         <Outlet />
       </main>
-      {!isCheckoutPage && <Footer />}
-      {!isCheckoutPage && <MobileCartBar />}
+      {!isCheckoutPage && !isAuthPage && <Footer />}
+      {!isCheckoutPage && !isAuthPage && <MobileCartBar />}
     </div>
   );
 }

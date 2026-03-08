@@ -55,6 +55,7 @@ import { ShopOrders } from "@/components/dashboard/ShopOrders";
 import { ShopOrderHistory } from "@/components/dashboard/ShopOrderHistory";
 import { DashboardProductCard } from "@/components/dashboard/DashboardProductCard";
 import { ShopShareCard } from "@/components/dashboard/ShopShareCard";
+import { ShopOwnerFinancials } from "@/components/dashboard/ShopOwnerFinancials";
 import { ProductFilterBar } from "@/components/dashboard/ProductFilterBar";
 import { useProductFilters } from "@/hooks/useProductFilters";
 import { MapLocationPicker, LocationPreviewMap } from "@/components/MapLocationPicker";
@@ -163,6 +164,7 @@ const shopOwnerNav = [
   { href: "/dashboard/products", label: AR.dashboard.products, icon: Package },
   { href: "/dashboard/orders", label: AR.dashboard.orders, icon: ShoppingCart },
   { href: "/dashboard/orders/history", label: "سجل الطلبات", icon: Clock },
+  { href: "/dashboard/financials", label: "الماليات والمستحقات", icon: DollarSign },
   { href: "/dashboard/settings", label: AR.dashboard.settings, icon: Settings },
 ];
 
@@ -2612,8 +2614,34 @@ function DashboardSettings() {
        );
      }
 
+     if ((shop as any).is_premium_active && (shop as any).premium_expires_at && new Date((shop as any).premium_expires_at) > new Date()) {
+        return (
+         <div className="bg-gradient-to-l from-amber-50 to-transparent border border-amber-200/60 rounded-lg p-4 mb-6 flex items-start gap-3 shadow-sm relative overflow-hidden">
+           {/* Decorative background element */}
+           <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+              <Star className="w-24 h-24 text-amber-600" />
+           </div>
+           
+           <div className="bg-amber-100 rounded-full p-2 shrink-0 relative z-10">
+             <Star className="w-5 h-5 text-amber-600 fill-amber-600" />
+           </div>
+           <div className="relative z-10">
+             <h3 className="font-bold text-amber-900 flex items-center gap-2">
+               متجرك مميز
+               <span className="text-[10px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-semibold">باقة نشطة</span>
+             </h3>
+             <p className="text-sm text-amber-800/90 mt-1 font-medium">
+               ينتهي الاشتراك المميز في: <span className="font-bold" dir="ltr">{new Date((shop as any).premium_expires_at).toLocaleDateString('ar-SA')}</span>
+             </p>
+           </div>
+         </div>
+       );
+     }
+
      return null;
   };
+
+
 
   return (
     <div className="space-y-6 pb-24 md:pb-8">
@@ -3409,8 +3437,13 @@ function AdminShops() {
 
   const handleTogglePremium = async (shop: Shop) => {
     try {
-      await shopsService.update(shop.id, { is_premium: !shop.is_premium });
-      notify.success(shop.is_premium ? "تم إلغاء التميز" : "تم تمييز المتجر");
+      const isNowPremium = !shop.is_premium;
+      await shopsService.update(shop.id, { 
+        is_premium: isNowPremium,
+        is_premium_active: isNowPremium,
+        premium_expires_at: isNowPremium ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null
+      } as any);
+      notify.success(isNowPremium ? "تم تمييز المتجر (لمدة 30 يوم)" : "تم إلغاء التميز");
       loadShops();
     } catch (error) {
        notify.error("فشل تحديث التميز");
@@ -4155,6 +4188,7 @@ export default function DashboardPage() {
               <Route path="products" element={<DashboardProducts />} />
               <Route path="orders" element={isDelivery ? <Navigate to="/dashboard" replace /> : <ShopOrders />} />
               <Route path="orders/history" element={isDelivery ? <Navigate to="/dashboard" replace /> : <ShopOrderHistory />} />
+              <Route path="financials" element={isDelivery || isAdmin ? <Navigate to="/dashboard" replace /> : <ShopOwnerFinancials />} />
               <Route path="settings" element={<DashboardSettings />} />
               <Route
                 path="account"

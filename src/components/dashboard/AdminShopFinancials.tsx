@@ -346,7 +346,7 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
           </TabsContent>
 
           <TabsContent value="premium" className="space-y-4 py-4">
-             {isPremiumActive && premiumExpiresAt ? (
+             {isPremiumActive && premiumExpiresAt && new Date(premiumExpiresAt) > new Date() ? (
                 <div className="bg-green-50/50 p-4 rounded-lg border border-green-100 mb-4 flex items-center justify-between">
                    <div>
                      <p className="font-bold text-green-800">حالة المتجر: مميز (نشط)</p>
@@ -356,6 +356,11 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
                 </div>
              ) : (
                 <div className="bg-amber-50/50 p-4 rounded-lg border border-amber-100 mb-4">
+                   {isPremiumActive && premiumExpiresAt && new Date(premiumExpiresAt) <= new Date() && (
+                      <p className="text-sm font-bold text-red-600 mb-2">
+                        الاشتراك المميز السابق منتهي منذ: {new Date(premiumExpiresAt).toLocaleDateString('ar-SA')}
+                      </p>
+                   )}
                    <p className="text-sm text-amber-800">
                      قم بترقية المتجر ليظهر في أعلى القائمة. إذا وضعت مبلغ رسوم هنا، سيتم إضافته إلى إيرادات المنصة كدفعة مدفوعة.
                    </p>
