@@ -53,7 +53,6 @@ import { AdminCategories } from "@/components/dashboard/AdminCategories";
 import { cn } from "@/lib/utils";
 import { ShopOrders } from "@/components/dashboard/ShopOrders";
 import { ShopOrderHistory } from "@/components/dashboard/ShopOrderHistory";
-import { DashboardProductCard } from "@/components/dashboard/DashboardProductCard";
 import { ShopShareCard } from "@/components/dashboard/ShopShareCard";
 import { ShopOwnerFinancials } from "@/components/dashboard/ShopOwnerFinancials";
 import { ProductFilterBar } from "@/components/dashboard/ProductFilterBar";
@@ -1565,19 +1564,115 @@ function DashboardProducts() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredProducts.map((product) => (
-             <DashboardProductCard
-                key={product.id}
-                product={{
-                  ...product,
-                  category_name: categories.find(c => c.id === product.category_id)?.name // Enrich with category name
-                }}
-                onEdit={openEditDialog}
-                onDelete={handleDelete}
-             />
-          ))}
-        </div>
+        <Card className="overflow-hidden">
+          {/* Table Header */}
+          <div className="hidden md:grid grid-cols-[1fr_120px_100px_80px_90px_110px_80px] gap-3 px-4 py-3 bg-muted/40 border-b text-xs font-medium text-muted-foreground items-center">
+            <span>المنتج</span>
+            <span>التصنيف</span>
+            <span>السعر</span>
+            <span>الكمية</span>
+            <span>الحالة</span>
+            <span>آخر تعديل</span>
+            <span className="text-center">إجراءات</span>
+          </div>
+
+          {/* Table Rows */}
+          <div className="divide-y divide-border">
+            {filteredProducts.map((product) => {
+              const catName = categories.find(c => c.id === product.category_id)?.name || "—";
+              const isOutOfStock = product.stock_quantity <= 0;
+              const isLowStock = !isOutOfStock && product.stock_quantity <= (product.low_stock_threshold || 10);
+              const statusLabel = isOutOfStock ? "نفذت" : isLowStock ? "منخفض" : "متوفر";
+              const statusClass = isOutOfStock
+                ? "text-red-700 bg-red-50 border-red-200"
+                : isLowStock
+                ? "text-amber-700 bg-amber-50 border-amber-200"
+                : "text-green-700 bg-green-50 border-green-200";
+              const dateStr = new Date(product.updated_at || product.created_at).toLocaleDateString("ar-EG");
+
+              return (
+                <div
+                  key={product.id}
+                  className="grid grid-cols-1 md:grid-cols-[1fr_120px_100px_80px_90px_110px_80px] gap-3 px-4 py-3 items-center hover:bg-muted/30 transition-colors"
+                >
+                  {/* Product (image + name) */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                      {product.image_url ? (
+                        <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="w-5 h-5 text-muted-foreground/40" />
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-medium text-sm truncate">{product.name}</span>
+                  </div>
+
+                  {/* Category */}
+                  <span className="text-xs text-muted-foreground truncate hidden md:block">{catName}</span>
+
+                  {/* Price */}
+                  <div className="hidden md:flex flex-col gap-0.5">
+                    <span className="font-semibold text-sm text-primary">{formatPrice(product.price)}</span>
+                    {product.compare_at_price && (
+                      <span className="text-[10px] text-muted-foreground line-through">{formatPrice(product.compare_at_price)}</span>
+                    )}
+                  </div>
+
+                  {/* Quantity */}
+                  <span className={`text-sm font-mono hidden md:block ${isOutOfStock || isLowStock ? "text-destructive font-semibold" : ""}`}>
+                    {product.stock_quantity}
+                  </span>
+
+                  {/* Status */}
+                  <div className="hidden md:block">
+                    <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${statusClass}`}>
+                      {statusLabel}
+                    </Badge>
+                  </div>
+
+                  {/* Date */}
+                  <span className="text-xs text-muted-foreground hidden md:block">{dateStr}</span>
+
+                  {/* Mobile meta row (only on small screens) */}
+                  <div className="flex items-center justify-between gap-2 md:hidden">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm text-primary">{formatPrice(product.price)}</span>
+                      <Badge variant="outline" className={`text-[10px] px-2 py-0.5 border ${statusClass}`}>
+                        {statusLabel}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">الكمية: {product.stock_quantity}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-primary/10 hover:text-primary"
+                      onClick={() => openEditDialog({
+                        ...product,
+                        category_name: catName,
+                      })}
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => handleDelete(product.id)}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
       )}
 
       {/* Add/Edit Product Dialog */}

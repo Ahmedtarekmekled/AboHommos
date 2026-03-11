@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Store, Facebook, Twitter, Instagram } from "lucide-react";
+import { Store, Facebook } from "lucide-react";
 import { AR } from "@/lib/i18n";
 import { Separator } from "@/components/ui/separator";
 
@@ -10,9 +10,7 @@ const quickLinks = [
 ];
 
 const socialLinks = [
-  { icon: Facebook, href: "#", label: "Facebook" },
-  { icon: Twitter, href: "#", label: "Twitter" },
-  { icon: Instagram, href: "#", label: "Instagram" },
+  { icon: Facebook, href: "https://www.facebook.com/profile.php?id=61582326296423", label: "Facebook" },
 ];
 
 export function Footer() {
@@ -78,6 +76,8 @@ export function Footer() {
                 <a
                   key={social.label}
                   href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="w-10 h-10 rounded-full bg-muted flex items-center justify-center hover:bg-primary hover:text-primary-foreground transition-colors"
                   aria-label={social.label}
                 >
