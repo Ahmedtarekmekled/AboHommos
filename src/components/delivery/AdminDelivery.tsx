@@ -212,9 +212,13 @@ function OrdersTab({ drivers }: { drivers: DriverPerformance[] }) {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selectedOrder, setSelectedOrder] = useState<ParentOrder | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     loadOrders();
+    setCurrentPage(1);
   }, [statusFilter]);
 
   const loadOrders = async () => {
@@ -222,7 +226,7 @@ function OrdersTab({ drivers }: { drivers: DriverPerformance[] }) {
     try {
       const { data } = await deliveryAdminService.getParentOrders({ 
           status: statusFilter,
-          limit: 50 // limit for MVP
+          limit: 1000 // Load more to allow local filtering and pagination
       });
       setOrders(data);
     } catch (e) {
@@ -242,10 +246,28 @@ function OrdersTab({ drivers }: { drivers: DriverPerformance[] }) {
      }
   };
 
+  const filteredOrders = orders.filter(o => 
+    !searchQuery || (o.order_number && o.order_number.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+  
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
+  const paginatedOrders = filteredOrders.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
+
   return (
     <div className="space-y-6">
        <div className="flex gap-4 items-center">
-          <Input placeholder="بحث برقم الطلب..." className="max-w-xs" />
+          <Input 
+             placeholder="بحث برقم الطلب..." 
+             className="max-w-xs" 
+             value={searchQuery}
+             onChange={(e) => {
+               setSearchQuery(e.target.value);
+               setCurrentPage(1);
+             }}
+          />
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-[180px]">
                <SelectValue placeholder="الحالة" />
@@ -262,7 +284,7 @@ function OrdersTab({ drivers }: { drivers: DriverPerformance[] }) {
        </div>
 
        <div className="space-y-4">
-          {orders.map(order => (
+          {paginatedOrders.map(order => (
              <Card key={order.id}>
                 <CardContent className="p-4">
                    <div className="flex flex-col md:flex-row gap-4 justify-between">
@@ -318,7 +340,31 @@ function OrdersTab({ drivers }: { drivers: DriverPerformance[] }) {
                 </CardContent>
              </Card>
           ))}
-          {orders.length === 0 && <div className="text-center py-8 text-muted-foreground">لا توجد طلبات</div>}
+          {paginatedOrders.length === 0 && <div className="text-center py-8 text-muted-foreground">لا توجد طلبات متعلقة ببحثك</div>}
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                السابق
+              </Button>
+              <div className="text-sm font-medium">
+                الصفحة {currentPage} من {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
        </div>
 
        {/* Order Route Details Modal */}

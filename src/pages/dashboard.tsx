@@ -3817,6 +3817,8 @@ function AdminUsers() {
   const [showRoleDialog, setShowRoleDialog] = useState(false);
   const [newRole, setNewRole] = useState<string>("");
   const [isUpdating, setIsUpdating] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
     if (isAdmin) {
@@ -3891,6 +3893,12 @@ function AdminUsers() {
       u.phone?.includes(searchQuery);
     return matchesRole && matchesSearch;
   });
+
+  const totalPages = Math.ceil(filteredUsers.length / ITEMS_PER_PAGE);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
+  );
 
   const stats = {
     total: users.length,
@@ -3996,11 +4004,17 @@ function AdminUsers() {
           <Input
             placeholder="بحث بالاسم أو البريد أو الهاتف..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setCurrentPage(1);
+            }}
             className="pr-10"
           />
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
+        <Select value={roleFilter} onValueChange={(val) => {
+          setRoleFilter(val);
+          setCurrentPage(1);
+        }}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="تصفية حسب الصلاحية" />
           </SelectTrigger>
@@ -4031,7 +4045,7 @@ function AdminUsers() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filteredUsers.map((profile) => {
+          {paginatedUsers.map((profile) => {
             const roleInfo = getRoleBadge(profile.role);
             return (
               <Card key={profile.id}>
@@ -4088,6 +4102,31 @@ function AdminUsers() {
               </Card>
             );
           })}
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-4 mt-6">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                السابق
+              </Button>
+              <div className="text-sm font-medium">
+                الصفحة {currentPage} من {totalPages}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
