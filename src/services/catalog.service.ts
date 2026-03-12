@@ -312,14 +312,18 @@ export const shopsService = {
     regionId?: string;
     limit?: number;
     categoryId?: string;
+    premiumOnly?: boolean;
   }): Promise<Shop[]> {
     // 1. Fetch all approved & active shops
     let query = supabase
       .from("shops")
       .select("*, category:categories(id, name, slug, icon), working_hours:shop_working_hours(*)")
       .eq("approval_status", "APPROVED")
-      .eq("is_active", true)
       .eq("is_active", true);
+
+    if (options?.premiumOnly) {
+      query = query.eq("is_premium_active", true);
+    }
 
     if (options?.regionId) {
       query = query.eq("region_id", options.regionId);
