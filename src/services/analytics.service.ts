@@ -218,7 +218,7 @@ export const analyticsService = {
 
   // --- LEDGER & SETTINGS ENTRY METHODS ---
 
-  async updateShopFinancialSettings(shopId: string, settings: { commission_percentage?: number, subscription_fee?: number, financial_start_date?: string, billing_cycle_start_date?: string }): Promise<void> {
+  async updateShopFinancialSettings(shopId: string, settings: { commission_percentage?: number, subscription_fee?: number, financial_start_date?: string, billing_cycle_start_date?: string, auto_bill_subscription?: boolean }): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
     
     // Check if exists

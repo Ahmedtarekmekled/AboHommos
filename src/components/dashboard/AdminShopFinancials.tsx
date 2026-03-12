@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { notify } from "@/lib/notify";
 import { analyticsService, DetailedFinancialReport, FinancialShopPerformance } from "@/services/analytics.service";
@@ -41,6 +42,7 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
   const [commissionRate, setCommissionRate] = useState("");
   const [subFee, setSubFee] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [autoBill, setAutoBill] = useState(false);
 
   // Subscription Billing
   const [subBillingAmount, setSubBillingAmount] = useState("");
@@ -67,6 +69,7 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
         setCommissionRate(data.commission_percentage?.toString() || "0");
         setSubFee(data.subscription_fee?.toString() || "0");
         setSubBillingAmount(data.subscription_fee?.toString() || ""); // pre-fill billing amount
+        setAutoBill(data.auto_bill_subscription ?? false);
         if (data.financial_start_date) {
             setStartDate(new Date(data.financial_start_date).toISOString().split('T')[0]);
         }
@@ -74,6 +77,7 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
          setCommissionRate("10");
          setSubFee("0");
          setStartDate(new Date().toISOString().split('T')[0]);
+         setAutoBill(false);
       }
     } catch (e) {
       console.error(e);
@@ -96,6 +100,7 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
       await analyticsService.updateShopFinancialSettings(shopId, {
         commission_percentage: parseFloat(commissionRate) || 0,
         subscription_fee: parseFloat(subFee) || 0,
+        auto_bill_subscription: autoBill,
         financial_start_date: startDate ? new Date(startDate).toISOString() : new Date().toISOString()
       });
       // Pre-fill billing amount from new sub fee
@@ -426,9 +431,6 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
                    />
                  </div>
                </div>
-               <Button className="w-full" variant="secondary" onClick={handleSaveSettings} disabled={isLoading}>
-                 {isLoading ? "جاري الحفظ..." : "حفظ إعدادات العمولة"}
-               </Button>
              </div>
 
              <div className="border-t pt-4 space-y-3">
@@ -436,6 +438,37 @@ export function AdminShopFinancials({ shopId, shopName, isOpen, onClose, isPremi
                <div className="bg-muted/40 rounded-lg p-3 text-xs text-muted-foreground leading-relaxed">
                  أضف رسوماً شهرية ثابتة على المتجر لخدمة المنصة. ستظهر المستحقات فوراً في حساب المتجر وتضاف لكشف الحساب الشهري.
                </div>
+
+               {/* Sub fee + auto-bill toggle */}
+               <div className="space-y-2">
+                 <Label className="text-xs">رسوم الاشتراك الشهري (ج.م)</Label>
+                 <Input
+                   type="number"
+                   placeholder="800"
+                   value={subFee}
+                   onChange={(e) => setSubFee(e.target.value)}
+                 />
+               </div>
+
+               <div className="flex items-center justify-between rounded-lg border p-3">
+                 <div className="space-y-0.5">
+                   <Label className="text-sm font-medium">فوترة تلقائية شهرية</Label>
+                   <p className="text-xs text-muted-foreground">عند التفعيل، ستتم إضافة رسوم الاشتراك تلقائياً في بداية كل شهر</p>
+                 </div>
+                 <Switch
+                   checked={autoBill}
+                   onCheckedChange={setAutoBill}
+                   disabled={!subFee || parseFloat(subFee) <= 0}
+                 />
+               </div>
+
+               <Button className="w-full" variant="secondary" onClick={handleSaveSettings} disabled={isLoading}>
+                 {isLoading ? "جاري الحفظ..." : "حفظ الإعدادات"}
+               </Button>
+             </div>
+
+             <div className="border-t pt-4 space-y-3">
+               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">فوترة يدوية</p>
 
                {/* Default fee badge from settings */}
                {settings?.subscription_fee > 0 && (

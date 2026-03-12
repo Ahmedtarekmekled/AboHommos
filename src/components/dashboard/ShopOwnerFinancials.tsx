@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DollarSign, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { DollarSign, AlertTriangle, CheckCircle, Clock, Receipt, CreditCard, Star } from "lucide-react";
 import { analyticsService, DetailedFinancialReport } from "@/services/analytics.service";
 import { formatPrice } from "@/lib/utils";
 import { useAuth } from "@/store";
@@ -43,7 +44,7 @@ export function ShopOwnerFinancials() {
   }
 
   const { summary, orders, payments, subscriptions } = report || {
-    summary: { net_debt: 0, total_revenue: 0, total_paid: 0 },
+    summary: { net_debt: 0, total_revenue: 0, total_paid: 0, total_commission_owed: 0, total_subscription_owed: 0 },
     orders: [],
     payments: [],
     subscriptions: [],
@@ -109,6 +110,54 @@ export function ShopOwnerFinancials() {
         </Card>
       </div>
 
+      {/* Charges Breakdown — NEW */}
+      {(summary.total_commission_owed > 0 || summary.total_subscription_owed > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">تفاصيل المستحقات</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {summary.total_commission_owed > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border">
+                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <Receipt className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">عمولة الطلبات</p>
+                    <p className="font-bold text-sm">{formatPrice(summary.total_commission_owed)}</p>
+                  </div>
+                </div>
+              )}
+
+              {summary.total_subscription_owed > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border">
+                  <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <CreditCard className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">رسوم الاشتراك</p>
+                    <p className="font-bold text-sm">{formatPrice(summary.total_subscription_owed)}</p>
+                  </div>
+                </div>
+              )}
+
+              {summary.total_paid > 0 && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/40 border">
+                  <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">المبالغ المسددة</p>
+                    <p className="font-bold text-sm text-green-600">{formatPrice(summary.total_paid)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Recent History */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card>
@@ -165,6 +214,45 @@ export function ShopOwnerFinancials() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Subscription Charges — NEW */}
+      {subscriptions && subscriptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>رسوم الاشتراكات</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {subscriptions.map((sub: any, i: number) => (
+                <div key={i} className="flex justify-between items-center pb-2 border-b last:border-0 border-border/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-sm">
+                        اشتراك شهر {sub.billing_month ? new Date(sub.billing_month).toLocaleDateString('ar-SA', { year: 'numeric', month: 'long' }) : '—'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {sub.paid_at ? new Date(sub.paid_at).toLocaleDateString('ar-SA') : 'لم يُسدد بعد'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-sm">{formatPrice(sub.amount)}</span>
+                    <Badge
+                      variant={sub.status === 'PAID' ? 'default' : 'secondary'}
+                      className={sub.status === 'PAID' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-amber-100 text-amber-700 border-amber-200'}
+                    >
+                      {sub.status === 'PAID' ? 'مسدد' : 'معلق'}
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
     </div>
   );
