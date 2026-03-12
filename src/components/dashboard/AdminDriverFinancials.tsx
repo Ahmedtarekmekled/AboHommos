@@ -132,26 +132,30 @@ export function AdminDriverFinancials({ driverId, driverName, isOpen, onClose }:
 
           <TabsContent value="payment" className="space-y-4 py-4">
              {/* Outstanding chips */}
-             {balance ? (
+             {balance ? (() => {
+               const remainingCustomerFee = Math.max(0, balance.customer_fee_owed - balance.platform_fee_paid);
+               const remainingPlatformFee = Math.max(0, balance.platform_fee_owed - Math.max(0, balance.platform_fee_paid - balance.customer_fee_owed));
+               
+               return (
                <div className="bg-muted/40 rounded-lg border p-3 space-y-3">
                  <p className="text-xs font-semibold text-muted-foreground">مستحقات المندوب</p>
                  <div className="flex flex-wrap gap-2">
-                   {balance.platform_fee_owed > 0 && (
+                   {remainingPlatformFee > 0 && (
                      <button
                        type="button"
-                       onClick={() => setPaymentAmount(String(balance.platform_fee_owed.toFixed(2)))}
+                       onClick={() => setPaymentAmount(String(remainingPlatformFee.toFixed(2)))}
                        className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-xs hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
                      >
-                       عمولة توصيل <span className="font-bold">{formatPrice(balance.platform_fee_owed)}</span>
+                       عمولة توصيل <span className="font-bold">{formatPrice(remainingPlatformFee)}</span>
                      </button>
                    )}
-                   {balance.customer_fee_owed > 0 && (
+                   {remainingCustomerFee > 0 && (
                      <button
                        type="button"
-                       onClick={() => setPaymentAmount(String(balance.customer_fee_owed.toFixed(2)))}
+                       onClick={() => setPaymentAmount(String(remainingCustomerFee.toFixed(2)))}
                        className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-xs hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all"
                      >
-                       نقدي عملاء <span className="font-bold">{formatPrice(balance.customer_fee_owed)}</span>
+                       مستحقات المنصة <span className="font-bold">{formatPrice(remainingCustomerFee)}</span>
                      </button>
                    )}
                    {balance.total_outstanding > 0 && (
@@ -163,12 +167,12 @@ export function AdminDriverFinancials({ driverId, driverName, isOpen, onClose }:
                        تحصيل الكل <span>{formatPrice(balance.total_outstanding)}</span>
                      </button>
                    )}
-                   {balance.total_outstanding === 0 && (
+                   {balance.total_outstanding <= 0 && (
                      <span className="text-xs text-green-700 font-medium">✓ لا توجد مستحقات معلقة</span>
                    )}
                  </div>
                </div>
-             ) : (
+             )})() : (
                <div className="bg-muted/40 rounded-lg border p-3 text-xs text-muted-foreground">جاري تحميل المستحقات...</div>
              )}
              <div className="space-y-2">

@@ -9,6 +9,7 @@ import { AR } from "@/lib/i18n";
 import { formatPrice } from "@/lib/utils";
 import { useCart, useAuth } from "@/store";
 import { useMemo } from "react";
+import { AlertCircle } from "lucide-react";
 
 export default function CartPage() {
   const { isAuthenticated } = useAuth();
@@ -34,6 +35,13 @@ export default function CartPage() {
   }, [cart?.items]);
 
   const shopsCount = Object.keys(itemsByShop).length;
+
+  const inactiveShops = useMemo(() => {
+    return Object.values(itemsByShop).filter(
+      (data: any) => data.shop?.is_active === false || data.shop?.status !== 'APPROVED'
+    );
+  }, [itemsByShop]);
+  const hasInactiveShops = inactiveShops.length > 0;
 
   const handleUpdateQuantity = async (itemId: string, newQuantity: number) => {
     try {
@@ -112,6 +120,16 @@ export default function CartPage() {
           )}
         </div>
 
+        {hasInactiveShops && (
+          <div className="mb-6 p-4 rounded-xl bg-destructive/10 border border-destructive/20 text-destructive flex gap-3 text-sm">
+            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+            <div>
+              <p className="font-semibold">تنبيه المتاجر المتوقفة</p>
+              <p className="mt-1 opacity-90">بعض المنتجات في سلتك تنتمي لمتاجر מתوقفة حالياً. يرجى إزالتها لتتمكن من إتمام الطلب.</p>
+            </div>
+          </div>
+        )}
+
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items - Grouped by Shop */}
           <div className="lg:col-span-2 space-y-6">
@@ -136,7 +154,12 @@ export default function CartPage() {
                           )}
                         </div>
                         <div>
-                          <CardTitle className="text-lg">{shopData.shop?.name || 'متجر'}</CardTitle>
+                          <CardTitle className="text-lg flex items-center gap-2">
+                            {shopData.shop?.name || 'متجر'}
+                            {(shopData.shop?.is_active === false || shopData.shop?.status !== 'APPROVED') && (
+                              <Badge variant="destructive" className="text-[10px] pr-1 py-0 h-5">متوقف</Badge>
+                            )}
+                          </CardTitle>
                           <p className="text-sm text-muted-foreground">
                             {shopData.items.length} منتج • {formatPrice(shopData.subtotal)}
                           </p>
@@ -263,9 +286,9 @@ export default function CartPage() {
                   </span>
                 </div>
 
-                <Link to="/checkout" className="block">
-                  <Button className="w-full" size="lg">
-                    {AR.cart.checkout}
+                <Link to={hasInactiveShops ? "#" : "/checkout"} className="block" onClick={(e) => hasInactiveShops && e.preventDefault()}>
+                  <Button className="w-full" size="lg" disabled={hasInactiveShops}>
+                    {hasInactiveShops ? "يرجى إزالة منتجات المتاجر المتوقفة" : AR.cart.checkout}
                   </Button>
                 </Link>
               </CardContent>

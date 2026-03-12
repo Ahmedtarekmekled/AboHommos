@@ -1,5 +1,6 @@
 import { useNavigate, Link } from "react-router-dom";
 import { useState, useEffect } from "react";
+import { useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -74,6 +75,14 @@ export default function CheckoutPage() {
   const [isFallbackFee, setIsFallbackFee] = useState(false);
   const [isCalculatingFee, setIsCalculatingFee] = useState(false);
   const [showOrderSummary, setShowOrderSummary] = useState(false);
+
+  const inactiveShops = useMemo(() => {
+    if (!cart?.items) return [];
+    return cart.items.filter(
+      (item) => (item.product?.shop as any)?.is_active === false || (item.product?.shop as any)?.status !== 'APPROVED'
+    );
+  }, [cart?.items]);
+  const hasInactiveShops = inactiveShops.length > 0;
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -311,6 +320,23 @@ export default function CheckoutPage() {
           <p className="text-muted-foreground mb-6 text-sm">أضف منتجات إلى سلة التسوق أولاً</p>
           <Link to="/products">
             <Button size="lg" className="w-full">{AR.cart.startShopping}</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasInactiveShops) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center py-16 px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+            <Store className="w-10 h-10 text-destructive" />
+          </div>
+          <h2 className="text-xl font-bold mb-2 text-destructive">تنبيه المتاجر المتوقفة</h2>
+          <p className="text-muted-foreground mb-6 text-sm">بعض المنتجات في سلتك تنتمي لمتاجر متوقفة حالياً. يرجى إزالتها لتتمكن من إتمام الطلب.</p>
+          <Link to="/cart">
+            <Button size="lg" className="w-full" variant="destructive">العودة للسلة</Button>
           </Link>
         </div>
       </div>

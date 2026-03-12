@@ -112,7 +112,7 @@ export function AdminFinancials() {
 
   const exportDriversCSV = () => {
     if (!driverMetrics) return;
-    const headers = ['المندوب', 'الهاتف', 'رسوم التوصيل', 'نقدي العملاء', 'تم التحصيل', 'صافي الدين'];
+    const headers = ['المندوب', 'الهاتف', 'رسوم التوصيل', 'مستحقات المنصة', 'تم التحصيل', 'صافي الدين'];
     const rows = driverMetrics.map(d => [
       d.driver_name, d.driver_phone || '',
       d.platform_fee_owed, d.customer_fee_owed, d.platform_fee_paid, d.total_outstanding,
@@ -244,7 +244,7 @@ export function AdminFinancials() {
                   <CardContent className="space-y-1.5 p-4">
                     {[
                       { label: "رسوم المنصة من المناديب (Driver Fees)", value: platformMetrics.driver_fees.owed },
-                      { label: "نقدي العملاء المستحق (Customer Fees)", value: platformMetrics.customer_fees?.owed || 0 },
+                      { label: "مستحقات المنصة على المناديب (Customer Fees)", value: platformMetrics.customer_fees?.owed || 0 },
                       { label: "تم تحصيله", value: platformMetrics.driver_fees.paid },
                     ].map(row => (
                       <div key={row.label} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors">

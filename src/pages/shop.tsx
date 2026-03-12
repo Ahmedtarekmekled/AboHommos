@@ -159,6 +159,25 @@ export default function ShopPage() {
     );
   }
 
+  if (shop.is_active === false || shop.status !== "APPROVED") {
+    return (
+      <div className="py-24 min-h-[60vh] flex flex-col items-center justify-center" dir="rtl">
+        <div className="container-app text-center max-w-sm mx-auto">
+          <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+            <Store className="w-10 h-10 text-muted-foreground" />
+          </div>
+          <h2 className="text-2xl font-bold mb-2">المتجر غير متاح</h2>
+          <p className="text-muted-foreground mb-6">
+            عذراً، هذا المتجر متوقف حالياً عن استقبال الطلبات.
+          </p>
+          <Link to="/shops">
+            <Button size="lg" className="w-full">عودة لقائمة المتاجر</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   // Calculate Status
   // If workingHours is undefined, pass empty array to rely on legacy/override
   const shopStatus = getShopOpenState(shop, workingHours || []);

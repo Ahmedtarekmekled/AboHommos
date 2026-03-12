@@ -8,10 +8,11 @@ export interface ShopOpenState {
 
 /**
  * Centrally calculates whether a shop is currently Open or Closed based on:
- * 1. Manual Override (FORCE_OPEN / FORCE_CLOSED)
- * 2. Weekly Schedule (including split shifts & overnight hours)
+ * 1. Active status / Approval status
+ * 2. Manual Override (FORCE_OPEN / FORCE_CLOSED)
+ * 3. Weekly Schedule (including split shifts & overnight hours)
  * 
- * @param shop The shop object (must contain override_mode)
+ * @param shop The shop object (must contain override_mode, is_active, status, disabled_reason)
  * @param hours The working hours array (flat list of all shifts)
  * @param now The reference time (default: new Date())
  */
@@ -20,6 +21,12 @@ export function getShopOpenState(
   hours: WorkingHours[],
   now: Date = new Date()
 ): ShopOpenState {
+  // 0. Check Active & Appproved Status FIRST
+  if (shop.is_active === false || shop.status !== "APPROVED") {
+    // Treat as MANUAL_CLOSED with a special reason flag if you want to distinguish later
+    return { isOpen: false, nextChange: null, reason: "MANUAL_CLOSED" };
+  }
+
   // 1. Check Overrides
   if (shop.override_mode === "FORCE_OPEN") {
     return { isOpen: true, nextChange: null, reason: "MANUAL_OPEN" };
@@ -135,4 +142,4 @@ function findNextOpenTime(hours: WorkingHours[], now: Date): Date | null {
 }
 
 // Minimal type structure needed for the function
-type StartShop = Pick<Shop, "override_mode">;
+type StartShop = Pick<Shop, "override_mode" | "is_active" | "status" | "disabled_reason">;
