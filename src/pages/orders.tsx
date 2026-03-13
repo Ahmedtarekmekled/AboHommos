@@ -12,6 +12,8 @@ import {
   Filter,
   RefreshCw,
   Store,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,21 +68,27 @@ const statusIcons: Record<OrderStatus, typeof Package> = {
 export default function OrdersPage() {
   const { isAuthenticated } = useAuth();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const {
-    data: orders,
+    data,
     isLoading,
     refetch,
     isRefetching,
   } = useQuery({
-    queryKey: ["orders"],
+    queryKey: ["orders", currentPage],
     queryFn: async () => {
       const { user } = await getCurrentUser();
-      if (!user) return [];
-      return orderService.getByUser(user.id);
+      if (!user) return { data: [], count: 0 };
+      return orderService.getByUser(user.id, currentPage, pageSize);
     },
     enabled: isAuthenticated,
   });
+
+  const orders = data?.data || [];
+  const totalCount = data?.count || 0;
+  const totalPages = Math.ceil(totalCount / pageSize);
 
   const filteredOrders =
     statusFilter === "all"
@@ -160,7 +168,13 @@ export default function OrdersPage() {
                 className={cn("w-4 h-4", isRefetching && "animate-spin")}
               />
             </Button>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select 
+              value={statusFilter} 
+              onValueChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
+            >
               <SelectTrigger className="w-44">
                 <Filter className="w-4 h-4 ml-2" />
                 <SelectValue placeholder="جميع الطلبات" />
@@ -335,6 +349,47 @@ export default function OrdersPage() {
                 عرض جميع الطلبات
               </Button>
             )}
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 mt-12 pb-8">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="gap-2"
+            >
+              <ChevronRight className="w-4 h-4" />
+              السابق
+            </Button>
+            
+            <div className="flex items-center gap-2">
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <Button
+                  key={i}
+                  variant={currentPage === i + 1 ? "default" : "outline"}
+                  size="sm"
+                  className="w-9 h-9 p-0 rounded-lg"
+                  onClick={() => setCurrentPage(i + 1)}
+                >
+                  {i + 1}
+                </Button>
+              ))}
+            </div>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="gap-2"
+            >
+              التالي
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
           </div>
         )}
       </div>

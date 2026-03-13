@@ -473,8 +473,15 @@ export const orderService = {
     };
   },
 
-  async getByUser(userId: string): Promise<OrderWithItems[]> {
-    const { data, error } = await supabase
+  async getByUser(
+    userId: string,
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<{ data: OrderWithItems[]; count: number }> {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    const { data, error, count } = await supabase
       .from("orders")
       .select(
         `
@@ -482,13 +489,18 @@ export const orderService = {
         shop:shops(id, name, slug, logo_url, phone),
         items:order_items(*),
         status_history:order_status_history(*)
-      `
+      `,
+        { count: "exact" }
       )
       .eq("user_id", userId)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(from, to);
 
     if (error) throw error;
-    return (data as unknown as OrderWithItems[]) || [];
+    return {
+      data: (data as unknown as OrderWithItems[]) || [],
+      count: count || 0,
+    };
   },
 
   async getByShop(
