@@ -22,7 +22,7 @@ export function getShopOpenState(
   now: Date = new Date()
 ): ShopOpenState {
   // 0. Check Active & Appproved Status FIRST
-  if (shop.is_active === false || shop.status !== "APPROVED") {
+  if (shop.is_active === false || (shop.status && shop.status !== "APPROVED")) {
     // Treat as MANUAL_CLOSED with a special reason flag if you want to distinguish later
     return { isOpen: false, nextChange: null, reason: "MANUAL_CLOSED" };
   }

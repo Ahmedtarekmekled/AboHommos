@@ -20,12 +20,12 @@ export const cartService = {
         .select(
           `
           *,
-          shop:shops(id, name, slug, logo_url),
+          shop:shops(id, name, slug, logo_url, is_active, status, approval_status, override_mode),
           items:cart_items(
             *,
             product:products(
               *,
-              shop:shops(id, name, slug, logo_url)
+              shop:shops(id, name, slug, logo_url, is_active, status, approval_status, override_mode)
             )
           )
         `
@@ -53,7 +53,7 @@ export const cartService = {
     // 1. Check Shop Open State first (Safeguard)
     const { data: shop } = await supabase
       .from("shops")
-      .select("override_mode")
+      .select("override_mode, is_active, status")
       .eq("id", shopId)
       .single();
 

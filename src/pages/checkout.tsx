@@ -79,7 +79,7 @@ export default function CheckoutPage() {
   const inactiveShops = useMemo(() => {
     if (!cart?.items) return [];
     return cart.items.filter(
-      (item) => (item.product?.shop as any)?.is_active === false || (item.product?.shop as any)?.status !== 'APPROVED'
+      (item) => (item.product?.shop as any)?.is_active === false || ((item.product?.shop as any)?.status && (item.product?.shop as any)?.status !== 'APPROVED')
     );
   }, [cart?.items]);
   const hasInactiveShops = inactiveShops.length > 0;

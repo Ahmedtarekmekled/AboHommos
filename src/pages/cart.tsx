@@ -38,7 +38,7 @@ export default function CartPage() {
 
   const inactiveShops = useMemo(() => {
     return Object.values(itemsByShop).filter(
-      (data: any) => data.shop?.is_active === false || data.shop?.status !== 'APPROVED'
+      (data: any) => data.shop?.is_active === false || (data.shop?.status && data.shop?.status !== 'APPROVED')
     );
   }, [itemsByShop]);
   const hasInactiveShops = inactiveShops.length > 0;
@@ -156,7 +156,7 @@ export default function CartPage() {
                         <div>
                           <CardTitle className="text-lg flex items-center gap-2">
                             {shopData.shop?.name || 'متجر'}
-                            {(shopData.shop?.is_active === false || shopData.shop?.status !== 'APPROVED') && (
+                            {(shopData.shop?.is_active === false || (shopData.shop?.status && shopData.shop?.status !== 'APPROVED')) && (
                               <Badge variant="destructive" className="text-[10px] pr-1 py-0 h-5">متوقف</Badge>
                             )}
                           </CardTitle>

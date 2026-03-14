@@ -164,7 +164,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // Listen to auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === "SIGNED_IN" && session?.user) {
         // Don't await - let it run in background
         authService
@@ -180,9 +180,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
                 .catch(() => {});
             }
           })
-          .catch(() => {});
+          .catch((error) => {
+            console.error("Profile fetch error:", error);
+          });
       } else if (event === "SIGNED_OUT") {
         dispatch({ type: "LOGOUT" });
+      } else if (event === "USER_UPDATED" && !session) {
+          // Handle cases where session is lost but event fires
+          dispatch({ type: "LOGOUT" });
       }
     });
 

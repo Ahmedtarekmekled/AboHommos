@@ -106,7 +106,7 @@ export const productsService = {
       .select(
         `
         *,
-        shop:shops(id, name, slug, logo_url, region_id),
+        shop:shops(id, name, slug, logo_url, region_id, is_active, status, override_mode),
         category:categories(id, name, slug)
       `
       )
@@ -157,7 +157,7 @@ export const productsService = {
       .select(
         `
         *,
-        shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open),
+        shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open, is_active, status),
         category:categories(id, name, slug)
       `
       )
@@ -177,7 +177,7 @@ export const productsService = {
       .select(
         `
         *,
-        shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open),
+        shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open, is_active, status),
         category:categories(id, name, slug)
       `
       )

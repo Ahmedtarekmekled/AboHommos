@@ -57,7 +57,7 @@ export async function calculateMultiStoreCheckout(
   // Fetch shop data with coordinates
   const { data: shopsData, error: shopsError } = await supabase
     .from('shops')
-    .select('id, name, latitude, longitude, region_id')
+    .select('id, name, latitude, longitude, region_id, is_active, status, approval_status')
     .in('id', shopIds);
 
   if (shopsError) {
