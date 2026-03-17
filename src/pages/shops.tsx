@@ -1,26 +1,22 @@
-import { Link, useSearchParams } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query"; // Added useQueryClient
-import { Store, Star, Search, X } from "lucide-react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Store, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AR } from "@/lib/i18n";
-import { shopsService, categoriesService } from "@/services";
+import { shopsService } from "@/services";
 import { ShopCard } from "@/components/ShopCard";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
-
-const demoShops: any[] = [
-  // ... demoShops can be kept or removed if not needed, but keeping for safety
-];
+import { cn } from "@/lib/utils";
 
 export default function ShopsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
-  const categorySlug = searchParams.get("category");
-  const queryClient = useQueryClient(); // Init client
+  const activeCategorySlug = searchParams.get("category");
+  const queryClient = useQueryClient();
 
   // Real-time updates
   useEffect(() => {
@@ -44,32 +40,46 @@ export default function ShopsPage() {
     };
   }, [queryClient]);
 
-
-  // Fetch shop categories
-  const { data: categories } = useQuery({
-    queryKey: ["categories", "shop"],
-    queryFn: () => categoriesService.getAll(),
-  });
-
-  const shopCategories = categories?.filter(c => c.type === 'SHOP') || [];
-  const selectedCategory = shopCategories.find(c => c.slug === categorySlug);
-
+  // Fetch all approved & active shops once
   const { data: shops, isLoading } = useQuery({
-    queryKey: ["shops", search, selectedCategory?.id],
-    queryFn: () =>
-      shopsService.getRankedShops({
-        categoryId: selectedCategory?.id,
-        // Using client-side search filtering for now as per existing logic
-      }),
+    queryKey: ["shops"],
+    queryFn: () => shopsService.getRankedShops(),
   });
 
-  const displayShops = shops?.length ? shops : (demoShops as any[]);
-  const filteredShops = search
-    ? displayShops.filter((s) => s.name.includes(search))
-    : displayShops;
+  // Extract unique categories that actually have shops
+  const availableCategories = useMemo(() => {
+    if (!shops) return [];
+    const categoryMap = new Map();
+    
+    shops.forEach((shop: any) => {
+      if (shop.category) {
+        categoryMap.set(shop.category.id, shop.category);
+      }
+    });
+    
+    return Array.from(categoryMap.values()).sort((a, b) => 
+      (a.sort_order || 0) - (b.sort_order || 0)
+    );
+  }, [shops]);
 
-  const clearCategory = () => {
-    setSearchParams({});
+  // Client-side filtering
+  const filteredShops = useMemo(() => {
+    if (!shops) return [];
+    
+    return shops.filter((shop: any) => {
+      const matchesSearch = !search || shop.name.toLowerCase().includes(search.toLowerCase());
+      const matchesCategory = !activeCategorySlug || shop.category?.slug === activeCategorySlug;
+      return matchesSearch && matchesCategory;
+    });
+  }, [shops, search, activeCategorySlug]);
+
+  const handleCategoryClick = (slug: string) => {
+    if (activeCategorySlug === slug) {
+      // Reset filter if clicked again
+      setSearchParams({});
+    } else {
+      setSearchParams({ category: slug });
+    }
   };
 
   return (
@@ -98,45 +108,32 @@ export default function ShopsPage() {
 
         {/* Category Filter Pills */}
         <div className="mb-8">
-          <div className="flex items-center gap-3 overflow-x-auto hide-scrollbar pb-2">
-            {selectedCategory && (
-              <div className="flex items-center gap-2 animate-fade-in">
-                <Badge variant="default" className="gap-2 px-3 py-1.5 text-sm">
-                  {selectedCategory.icon && <span>{selectedCategory.icon}</span>}
-                  {selectedCategory.name}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={clearCategory}
-                    className="h-auto p-0 hover:bg-transparent"
-                  >
-                    <X className="w-3 h-3" />
-                  </Button>
+          <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-2" dir="rtl">
+            {availableCategories.length > 0 && availableCategories.map((category) => {
+              const isActive = category.slug === activeCategorySlug;
+              return (
+                <Badge
+                  key={category.id}
+                  variant={isActive ? "default" : "outline"}
+                  className={cn(
+                    "cursor-pointer transition-all px-4 py-2 text-sm gap-2 whitespace-nowrap",
+                    isActive 
+                      ? "bg-primary text-primary-foreground shadow-md ring-2 ring-primary/20" 
+                      : "hover:bg-primary/10 hover:border-primary/30"
+                  )}
+                  onClick={() => handleCategoryClick(category.slug)}
+                >
+                  {category.icon && <span>{category.icon}</span>}
+                  {category.name}
                 </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {filteredShops.length} متجر
-                </span>
-              </div>
-            )}
-            {!selectedCategory && shopCategories.length > 0 && (
-              <div className="flex gap-2" dir="rtl">
-                {shopCategories.map((category) => (
-                  <Link
-                    key={category.id}
-                    to={`?category=${category.slug}`}
-                  >
-                    <Badge
-                      variant="outline"
-                      className="cursor-pointer hover:bg-primary/10 transition-colors px-3 py-1.5 gap-1.5"
-                    >
-                      {category.icon && <span>{category.icon}</span>}
-                      {category.name}
-                    </Badge>
-                  </Link>
-                ))}
-              </div>
-            )}
+              );
+            })}
           </div>
+          {activeCategorySlug && (
+            <div className="mt-2 text-sm text-muted-foreground animate-in fade-in slide-in-from-top-1">
+              يتم عرض {filteredShops.length} متجر في قسم {availableCategories.find(c => c.slug === activeCategorySlug)?.name}
+            </div>
+          )}
         </div>
 
         {/* Shops Grid */}

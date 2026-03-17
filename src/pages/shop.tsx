@@ -125,9 +125,8 @@ export default function ShopPage() {
   };
 
   const handleWhatsApp = () => {
-    if (shop?.whatsapp || shop?.phone) {
-      const number = shop?.whatsapp || shop?.phone;
-      window.open(`https://wa.me/${number.replace(/\D/g, "")}`, "_blank");
+    if (shop?.whatsapp) {
+      window.open(`https://wa.me/${shop.whatsapp.replace(/\D/g, "")}`, "_blank");
     }
   };
 
@@ -493,14 +492,20 @@ export default function ShopPage() {
                       <MapPin className="w-4 h-4 ml-2" />
                       Google Maps
                     </Button>
-                    <Button variant="outline" onClick={handleCall} disabled={!shop.phone} className="flex-1 sm:flex-none">
-                      <Phone className="w-4 h-4 ml-2" />
-                      اتصال
-                    </Button>
-                    <Button variant="outline" onClick={handleWhatsApp} disabled={!shop.whatsapp && !shop.phone} className="flex-1 sm:flex-none">
-                      <MessageCircle className="w-4 h-4 ml-2" />
-                      واتساب
-                    </Button>
+                    
+                    {shop.phone && (
+                      <Button variant="outline" onClick={handleCall} className="flex-1 sm:flex-none">
+                        <Phone className="w-4 h-4 ml-2" />
+                        اتصال
+                      </Button>
+                    )}
+
+                    {shop.whatsapp && (
+                      <Button variant="outline" onClick={handleWhatsApp} className="flex-1 sm:flex-none">
+                        <MessageCircle className="w-4 h-4 ml-2" />
+                        واتساب
+                      </Button>
+                    )}
                   </div>
                 </div>
                 </CardContent>
