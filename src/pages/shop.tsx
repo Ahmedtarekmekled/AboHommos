@@ -268,6 +268,13 @@ export default function ShopPage() {
             </span>
           </div>
 
+          {/* Minimum Order Banner */}
+          {shop.min_order_amount > 0 && (
+            <div className="mt-3 p-2 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-2 text-primary text-sm font-medium">
+              <ShoppingBag className="w-4 h-4" />
+              <span>الحد الأدنى للطلب من هذا المتجر: {formatPrice(shop.min_order_amount)}</span>
+            </div>
+          )}
 
           {/* Warning if not approved */}
           {!isApproved && (
@@ -402,6 +409,7 @@ export default function ShopPage() {
                           key={product.id} 
                           product={product} 
                           shopId={shop!.id}
+                          shop={shop}
                           canOrder={canOrder} 
                         />
                       ));

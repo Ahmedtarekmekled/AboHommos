@@ -84,6 +84,9 @@ export default function CheckoutPage() {
   }, [cart?.items]);
   const hasInactiveShops = inactiveShops.length > 0;
 
+  const shopMinOrder = (cart?.items?.[0]?.product?.shop as any)?.min_order_amount || 0;
+  const isBelowMinOrder = shopMinOrder > 0 && cartTotal < shopMinOrder;
+
   useEffect(() => {
     const loadSettings = async () => {
       try {
@@ -337,6 +340,26 @@ export default function CheckoutPage() {
           <p className="text-muted-foreground mb-6 text-sm">بعض المنتجات في سلتك تنتمي لمتاجر متوقفة حالياً. يرجى إزالتها لتتمكن من إتمام الطلب.</p>
           <Link to="/cart">
             <Button size="lg" className="w-full" variant="destructive">العودة للسلة</Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isBelowMinOrder) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center py-16 px-4">
+        <div className="text-center max-w-sm">
+          <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <ShoppingBag className="w-10 h-10 text-amber-600" />
+          </div>
+          <h2 className="text-xl font-bold mb-2 text-amber-600">الحد الأدنى للطلب</h2>
+          <p className="text-muted-foreground mb-6 text-sm">
+            الحد الأدنى للطلب من هذا المتجر هو {formatPrice(shopMinOrder)}. 
+            يرجى إضافة منتجات بقيمة {formatPrice(shopMinOrder - cartTotal)} لإتمام الطلب.
+          </p>
+          <Link to="/cart">
+            <Button size="lg" className="w-full">العودة للسلة</Button>
           </Link>
         </div>
       </div>

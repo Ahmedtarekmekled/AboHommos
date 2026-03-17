@@ -298,6 +298,11 @@ export interface Database {
           is_premium: boolean;
           premium_sort_order: number;
           override_mode: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
+          global_offer_enabled: boolean;
+          global_offer_type: 'percentage' | 'fixed' | null;
+          global_offer_value: number | null;
+          global_offer_start_time: string | null;
+          global_offer_end_time: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -336,6 +341,11 @@ export interface Database {
           is_premium?: boolean;
           premium_sort_order?: number;
           override_mode?: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
+          global_offer_enabled?: boolean;
+          global_offer_type?: 'percentage' | 'fixed' | null;
+          global_offer_value?: number | null;
+          global_offer_start_time?: string | null;
+          global_offer_end_time?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -374,6 +384,11 @@ export interface Database {
           is_premium?: boolean;
           premium_sort_order?: number;
           override_mode?: 'AUTO' | 'FORCE_OPEN' | 'FORCE_CLOSED';
+          global_offer_enabled?: boolean;
+          global_offer_type?: 'percentage' | 'fixed' | null;
+          global_offer_value?: number | null;
+          global_offer_start_time?: string | null;
+          global_offer_end_time?: string | null;
           created_at?: string;
           updated_at?: string;
         };

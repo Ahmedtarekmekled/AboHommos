@@ -256,6 +256,7 @@ export default function ProductsPage() {
                      key={product.id} 
                      product={product} 
                      shopId={selectedShop.id} 
+                     shop={selectedShop}
                      canOrder={isOpen}
                      onAddToCart={() => handleAddToCartRequest({ id: product.id, name: product.name })}
                    />

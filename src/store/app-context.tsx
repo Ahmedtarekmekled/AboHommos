@@ -38,6 +38,7 @@ interface AppState {
   cart: CartWithItems | null;
   cartItemCount: number;
   cartTotal: number;
+  cartSavings: number;
 
   // Region (MVP - single region)
   currentRegionId: string | null;
@@ -59,6 +60,7 @@ const initialState: AppState = {
   cart: null,
   cartItemCount: 0,
   cartTotal: 0,
+  cartSavings: 0,
   currentRegionId: null,
 };
 
@@ -77,9 +79,9 @@ function appReducer(state: AppState, action: AppAction): AppState {
     case "SET_CART": {
       const cart = action.payload;
       if (!cart || !cart.items) {
-        return { ...state, cart: null, cartItemCount: 0, cartTotal: 0 };
+        return { ...state, cart: null, cartItemCount: 0, cartTotal: 0, cartSavings: 0 };
       }
-      const { subtotal, itemCount } = cartService.calculateTotal(
+      const { subtotal, itemCount, savings } = cartService.calculateTotal(
         cart.items as CartItemWithProduct[]
       );
       return {
@@ -87,6 +89,7 @@ function appReducer(state: AppState, action: AppAction): AppState {
         cart,
         cartItemCount: itemCount,
         cartTotal: subtotal,
+        cartSavings: savings,
       };
     }
     case "SET_REGION":
@@ -534,6 +537,7 @@ export function useCart() {
     cart,
     cartItemCount,
     cartTotal,
+    cartSavings,
     addToCart,
     updateCartItem,
     removeFromCart,
@@ -544,6 +548,7 @@ export function useCart() {
     cart,
     cartItemCount,
     cartTotal,
+    cartSavings,
     addToCart,
     updateCartItem,
     removeFromCart,

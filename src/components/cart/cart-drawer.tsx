@@ -14,7 +14,7 @@ interface CartDropdownProps {
 }
 
 export function CartDropdown({ isOpen, onClose }: CartDropdownProps) {
-  const { cart, updateCartItem, removeFromCart, cartTotal, cartItemCount } = useCart();
+  const { cart, updateCartItem, removeFromCart, cartTotal, cartSavings, cartItemCount } = useCart();
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -174,18 +174,41 @@ export function CartDropdown({ isOpen, onClose }: CartDropdownProps) {
         {/* Footer Actions */}
         {cartItemCount > 0 && (
           <div className="p-4 border-t bg-muted/10">
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground text-sm">{AR.cart.total}</span>
-                <span className="font-bold text-lg text-primary">
-                  {formatPrice(cartTotal)}
-                  <span className="text-xs font-normal text-muted-foreground mr-1">+ التوصيل</span>
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground text-center">
-                 رسوم التوصيل تُحسب عند الدفع
-              </p>
-            </div>
+            {/* Minimum Order Check */}
+            {(() => {
+              const shopMinOrder = (cart?.items?.[0]?.product?.shop as any)?.min_order_amount || 0;
+              const isBelowMinOrder = shopMinOrder > 0 && cartTotal < shopMinOrder;
+              const remainingAmount = shopMinOrder - cartTotal;
+
+              return (
+                <div className="space-y-2 mb-4">
+                  {cartSavings > 0 && (
+                    <div className="flex items-center justify-between text-success text-sm">
+                      <span className="font-medium">إجمالي التوفير من العروض</span>
+                      <span className="font-bold">{formatPrice(cartSavings)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground text-sm">{AR.cart.total}</span>
+                    <span className="font-bold text-lg text-primary">
+                      {formatPrice(cartTotal)}
+                      <span className="text-xs font-normal text-muted-foreground mr-1">+ التوصيل</span>
+                    </span>
+                  </div>
+
+                  {isBelowMinOrder ? (
+                    <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-md text-amber-800 text-xs text-center">
+                      تحتاج إضافة منتجات بقيمة <strong>{formatPrice(remainingAmount)}</strong> للوصول للحد الأدنى ({formatPrice(shopMinOrder)})
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground text-center">
+                       رسوم التوصيل تُحسب عند الدفع
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
             
             <div className="grid grid-cols-2 gap-3">
               <Button 
@@ -204,6 +227,10 @@ export function CartDropdown({ isOpen, onClose }: CartDropdownProps) {
                   navigate('/checkout');
                   onClose();
                 }}
+                disabled={(() => {
+                   const shopMinOrder = (cart?.items?.[0]?.product?.shop as any)?.min_order_amount || 0;
+                   return shopMinOrder > 0 && cartTotal < shopMinOrder;
+                })()}
               >
                 إتمام الطلب
                 <ArrowRight className="w-4 h-4 mr-2 rotate-180" />

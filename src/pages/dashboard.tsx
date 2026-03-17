@@ -41,6 +41,9 @@ import {
   MoreVertical,
   Star,
   Menu,
+  Tag,
+  Banknote,
+  Percent,
 } from "lucide-react";
 import { SoundService } from "@/services/sound.service";
 import { useRef } from "react";
@@ -65,6 +68,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -2365,6 +2369,12 @@ function DashboardSettings() {
     category_id: "", // New field
     latitude: 0,
     longitude: 0,
+    global_offer_enabled: false,
+    global_offer_type: "percentage" as "percentage" | "fixed",
+    global_offer_value: 0,
+    global_offer_start_time: "",
+    global_offer_end_time: "",
+    min_order_amount: 0,
   });
 
   // React Query for Shop
@@ -2397,6 +2407,12 @@ function DashboardSettings() {
           category_id: userShop.category_id || "",
           latitude: userShop.latitude || 30.7865, 
           longitude: userShop.longitude || 31.0004, 
+          global_offer_enabled: userShop.global_offer_enabled || false,
+          global_offer_type: userShop.global_offer_type || "percentage",
+          global_offer_value: userShop.global_offer_value || 0,
+          global_offer_start_time: userShop.global_offer_start_time ? new Date(userShop.global_offer_start_time).toISOString().slice(0, 16) : "",
+          global_offer_end_time: userShop.global_offer_end_time ? new Date(userShop.global_offer_end_time).toISOString().slice(0, 16) : "",
+          min_order_amount: userShop.min_order_amount || 0,
       });
       if (userShop.logo_url) setLogoPreview(userShop.logo_url);
       else setLogoPreview(null);
@@ -2574,6 +2590,12 @@ function DashboardSettings() {
         logo_url: logoUrl,
         cover_url: coverUrl,
         slug: shop?.slug || `shop-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+        global_offer_enabled: formData.global_offer_enabled,
+        global_offer_type: formData.global_offer_type,
+        global_offer_value: formData.global_offer_value,
+        global_offer_start_time: formData.global_offer_start_time ? new Date(formData.global_offer_start_time).toISOString() : null,
+        global_offer_end_time: formData.global_offer_end_time ? new Date(formData.global_offer_end_time).toISOString() : null,
+        min_order_amount: formData.min_order_amount,
       };
 
       if (shop) {
@@ -2944,7 +2966,160 @@ function DashboardSettings() {
             </CardContent>
           </Card>
 
-          {/* ──────────── Card 3: Location Map ──────────── */}
+          {/* ──────────── Card 3: Offers & Requirements ──────────── */}
+          <Card className="rounded-xl shadow-sm">
+            <CardHeader className="pb-4 px-4 md:px-6">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Tag className="w-4 h-4 text-primary" />
+                </div>
+                العروض وشروط الطلب
+              </CardTitle>
+              <CardDescription>إعدادات الحد الأدنى للطلب والعروض الشاملة</CardDescription>
+            </CardHeader>
+            <CardContent className="px-4 md:px-6 space-y-5">
+               {/* MIN ORDER */}
+               <div className="space-y-1.5">
+                  <Label htmlFor="min_order" className="text-sm font-medium flex items-center gap-1.5">
+                    <Banknote className="w-4 h-4 text-muted-foreground" />
+                    الحد الأدنى للطلب (ج.م)
+                  </Label>
+                  <Input
+                    id="min_order"
+                    type="number"
+                    min="0"
+                    value={formData.min_order_amount || ""}
+                    onChange={(e) => setFormData({ ...formData, min_order_amount: Number(e.target.value) })}
+                    placeholder="مثال: 50"
+                  />
+                  <p className="text-xs text-muted-foreground">لن يتمكن العميل من الطلب إلا إذا تجاوزت السلة هذا المبلغ</p>
+               </div>
+               
+               <Separator />
+               
+               {/* GLOBAL OFFER */}
+               <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-base flex items-center gap-1.5">
+                      <Percent className="w-4 h-4 text-primary" />
+                      عرض شامل للمتجر
+                    </Label>
+                    <p className="text-sm text-muted-foreground">تطبيق خصم تلقائي على جميع المنتجات</p>
+                  </div>
+                  <Switch
+                    checked={formData.global_offer_enabled}
+                    onCheckedChange={(checked) => setFormData({ ...formData, global_offer_enabled: checked })}
+                  />
+               </div>
+               
+               {formData.global_offer_enabled && (
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-primary/5 p-4 rounded-xl border border-primary/10">
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">نوع الخصم</Label>
+                      <Select
+                        value={formData.global_offer_type || "percentage"}
+                        onValueChange={(value: "percentage" | "fixed") => setFormData({ ...formData, global_offer_type: value })}
+                      >
+                        <SelectTrigger className="bg-background">
+                          <SelectValue placeholder="اختر نوع الخصم" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="percentage">نسبة مئوية (%)</SelectItem>
+                          <SelectItem value="fixed">مبلغ ثابت (ج.م)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium">قيمة الخصم</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="bg-background"
+                        value={formData.global_offer_value || ""}
+                        onChange={(e) => setFormData({ ...formData, global_offer_value: Number(e.target.value) })}
+                        placeholder="مثال: 20"
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium flex items-center justify-between">
+                        تاريخ البداية (اختياري)
+                        {formData.global_offer_start_time && (
+                          <button 
+                            type="button" 
+                            onClick={() => setFormData({ ...formData, global_offer_start_time: "" })} 
+                            className="text-xs text-destructive hover:underline"
+                          >
+                            مسح
+                          </button>
+                        )}
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        className="bg-background"
+                        value={formData.global_offer_start_time || ""}
+                        onChange={(e) => setFormData({ ...formData, global_offer_start_time: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium flex items-center justify-between">
+                        تاريخ النهاية (اختياري)
+                        {formData.global_offer_end_time && (
+                          <button 
+                            type="button" 
+                            onClick={() => setFormData({ ...formData, global_offer_end_time: "" })} 
+                            className="text-xs text-destructive hover:underline"
+                          >
+                            مسح
+                          </button>
+                        )}
+                      </Label>
+                      <Input
+                        type="datetime-local"
+                        className="bg-background"
+                        value={formData.global_offer_end_time || ""}
+                        onChange={(e) => setFormData({ ...formData, global_offer_end_time: e.target.value })}
+                      />
+                    </div>
+                    
+                    <div className="col-span-1 md:col-span-2 pt-2">
+                       <Label className="text-xs text-muted-foreground mb-2 block">أزرار سريعة لمدة العرض (من الآن):</Label>
+                       <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                         <Button type="button" variant="outline" size="sm" className="bg-background whitespace-nowrap" onClick={() => {
+                           const end = new Date(); end.setHours(end.getHours() + 1);
+                           const tzOffset = end.getTimezoneOffset() * 60000;
+                           setFormData({ ...formData, global_offer_end_time: new Date(end.getTime() - tzOffset).toISOString().slice(0, 16) });
+                         }}>ساعة</Button>
+                         <Button type="button" variant="outline" size="sm" className="bg-background whitespace-nowrap" onClick={() => {
+                           const end = new Date(); end.setHours(end.getHours() + 6);
+                           const tzOffset = end.getTimezoneOffset() * 60000;
+                           setFormData({ ...formData, global_offer_end_time: new Date(end.getTime() - tzOffset).toISOString().slice(0, 16) });
+                         }}>6 ساعات</Button>
+                         <Button type="button" variant="outline" size="sm" className="bg-background whitespace-nowrap" onClick={() => {
+                           const end = new Date(); end.setDate(end.getDate() + 1);
+                           const tzOffset = end.getTimezoneOffset() * 60000;
+                           setFormData({ ...formData, global_offer_end_time: new Date(end.getTime() - tzOffset).toISOString().slice(0, 16) });
+                         }}>يوم</Button>
+                         <Button type="button" variant="outline" size="sm" className="bg-background whitespace-nowrap" onClick={() => {
+                           const end = new Date(); end.setDate(end.getDate() + 3);
+                           const tzOffset = end.getTimezoneOffset() * 60000;
+                           setFormData({ ...formData, global_offer_end_time: new Date(end.getTime() - tzOffset).toISOString().slice(0, 16) });
+                         }}>3 أيام</Button>
+                         <Button type="button" variant="outline" size="sm" className="bg-background whitespace-nowrap" onClick={() => {
+                           const end = new Date(); end.setDate(end.getDate() + 7);
+                           const tzOffset = end.getTimezoneOffset() * 60000;
+                           setFormData({ ...formData, global_offer_end_time: new Date(end.getTime() - tzOffset).toISOString().slice(0, 16) });
+                         }}>أسبوع</Button>
+                       </div>
+                    </div>
+                 </div>
+               )}
+            </CardContent>
+          </Card>
+
+          {/* ──────────── Card 4: Location Map ──────────── */}
           <Card className="rounded-xl shadow-sm">
             <CardHeader className="pb-4 px-4 md:px-6">
               <div className="flex items-center justify-between">

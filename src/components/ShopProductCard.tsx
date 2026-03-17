@@ -8,15 +8,17 @@ import { useCart, useAuth } from "@/store/app-context";
 import { Product } from "@/types/database";
 import { formatPrice, cn } from "@/lib/utils";
 import { notify } from "@/lib/notify";
+import { calculateDiscountedPrice } from "@/lib/offer-helpers";
 
 interface ShopProductCardProps {
   product: Product;
   shopId: string;
+  shop?: any;
   canOrder: boolean;
   onAddToCart?: () => void;
 }
 
-export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: ShopProductCardProps) {
+export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }: ShopProductCardProps) {
   const { cart, addToCart, updateCartItem, removeFromCart } = useCart();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
@@ -83,6 +85,15 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
       ? Math.round(((product.compare_at_price - product.price) / product.compare_at_price) * 100)
       : 0;
 
+  // Global Offer overrides normal display if enabled
+  const { discountedPrice, hasOffer, originalPrice } = calculateDiscountedPrice(product.price, shop);
+  const displayPrice = hasOffer ? discountedPrice : product.price;
+  
+  // Calculate percentage dynamically for the badge if there's a global offer
+  const displayDiscountPercentage = hasOffer && originalPrice > 0 
+    ? Math.round(((originalPrice - discountedPrice) / originalPrice) * 100)
+    : discountPercentage;
+
   const inCart = quantity > 0;
 
   return (
@@ -110,9 +121,10 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
 
           {/* Discount badge */}
           <div className="absolute top-2 left-2 flex flex-col gap-1 z-10">
-            {discountPercentage > 0 && (
+            {displayDiscountPercentage > 0 && (
               <Badge variant="destructive" className="font-bold shadow-sm backdrop-blur-sm">
-                -{discountPercentage}%
+                {hasOffer && <span className="mr-1">عرض</span>}
+                -{displayDiscountPercentage}%
               </Badge>
             )}
           </div>
@@ -190,11 +202,11 @@ export function ShopProductCard({ product, shopId, canOrder, onAddToCart }: Shop
             <div className="flex flex-col">
               <div className="flex items-center gap-1.5">
                 <span className="font-bold text-base md:text-lg text-primary">
-                  {formatPrice(product.price)}
+                  {formatPrice(displayPrice)}
                 </span>
-                {product.compare_at_price && product.compare_at_price > product.price && (
+                {(hasOffer || (product.compare_at_price && product.compare_at_price > product.price)) && (
                   <span className="text-muted-foreground line-through text-[10px] md:text-xs decoration-destructive/50">
-                    {formatPrice(product.compare_at_price)}
+                    {formatPrice(hasOffer ? originalPrice : product.compare_at_price!)}
                   </span>
                 )}
               </div>

@@ -10,6 +10,7 @@ import type {
 } from "@/types/database";
 import { deliverySettingsService } from "./delivery-settings.service";
 import type { CheckoutCalculation } from "./multi-store-checkout.service";
+import { calculateDiscountedPrice } from "@/lib/offer-helpers";
 
 // Cart Service
 export const cartService = {
@@ -20,12 +21,12 @@ export const cartService = {
         .select(
           `
           *,
-          shop:shops(id, name, slug, logo_url, is_active, status, approval_status, override_mode),
+          shop:shops(id, name, slug, logo_url, is_active, status, approval_status, override_mode, min_order_amount, global_offer_enabled, global_offer_type, global_offer_value, global_offer_start_time, global_offer_end_time),
           items:cart_items(
             *,
             product:products(
               *,
-              shop:shops(id, name, slug, logo_url, is_active, status, approval_status, override_mode)
+              shop:shops(id, name, slug, logo_url, is_active, status, approval_status, override_mode, min_order_amount, global_offer_enabled, global_offer_type, global_offer_value, global_offer_start_time, global_offer_end_time)
             )
           )
         `
@@ -222,13 +223,21 @@ export const cartService = {
   calculateTotal(items: CartItemWithProduct[]): {
     subtotal: number;
     itemCount: number;
+    savings: number;
   } {
     return items.reduce(
-      (acc, item) => ({
-        subtotal: acc.subtotal + (item.product?.price || 0) * item.quantity,
-        itemCount: acc.itemCount + item.quantity,
-      }),
-      { subtotal: 0, itemCount: 0 }
+      (acc, item) => {
+        const basePrice = item.product?.price || 0;
+        const discountResult = calculateDiscountedPrice(basePrice, item.product?.shop as any);
+        const effectivePrice = discountResult.hasOffer ? discountResult.discountedPrice : basePrice;
+
+        return {
+          subtotal: acc.subtotal + effectivePrice * item.quantity,
+          itemCount: acc.itemCount + item.quantity,
+          savings: acc.savings + (basePrice - effectivePrice) * item.quantity,
+        };
+      },
+      { subtotal: 0, itemCount: 0, savings: 0 }
     );
   },
   async getParentOrder(parentId: string): Promise<any> {
