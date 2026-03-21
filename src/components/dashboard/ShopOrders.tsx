@@ -34,6 +34,7 @@ import {
   AlertCircle,
   History,
   ExternalLink,
+  Maximize,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -565,14 +566,16 @@ export function ShopOrders() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-muted/50 rounded-lg p-1">
-            <Button variant="ghost" size="icon" onClick={toggleMute} className="h-8 w-8">
+            <Button variant="ghost" size="icon" onClick={() => { toggleMute(); enableAudio(); }} className="h-8 w-8" title={isMuted ? "تفعيل الصوت" : "كتم الصوت"}>
               {isMuted ? <VolumeX className="w-4 h-4 text-muted-foreground" /> : <Volume2 className="w-4 h-4 text-primary" />}
             </Button>
-            <Separator orientation="vertical" className="h-6 mx-1" />
-            <Button variant="ghost" size="icon" onClick={enableAudio} className="h-8 w-8" title="تفعيل">
-              <Bell className="w-4 h-4" />
-            </Button>
           </div>
+          <Button variant="outline" size="sm" asChild className="gap-1.5">
+            <Link to="/dashboard/orders/kiosk">
+              <Maximize className="w-4 h-4" />
+              <span className="hidden sm:inline">وضع الكشك</span>
+            </Link>
+          </Button>
           <Button variant="outline" size="sm" asChild className="gap-1.5">
             <Link to="/dashboard/orders/history">
               <History className="w-4 h-4" />

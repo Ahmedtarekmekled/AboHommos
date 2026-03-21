@@ -21,6 +21,7 @@ const ResetPasswordPage = lazy(() => import("@/pages/reset-password"));
 const AccountPage = lazy(() => import("@/pages/account"));
 const DashboardPage = lazy(() => import("@/pages/dashboard"));
 const AuthCallback = lazy(() => import("@/pages/auth/callback"));
+const KioskPage = lazy(() => import("@/pages/dashboard/kiosk"));
 const NotFoundPage = lazy(() => import("@/pages/NotFound"));
 
 const LoadingFallback = () => (
@@ -37,6 +38,9 @@ function App() {
         <Routes>
           {/* Auth Callback - outside layout */}
           <Route path="/auth/callback" element={<AuthCallback />} />
+
+          {/* Kiosk Mode - Full screen, no layout */}
+          <Route path="/dashboard/orders/kiosk" element={<KioskPage />} />
 
           <Route element={<MainLayout />}>
             {/* Public */}

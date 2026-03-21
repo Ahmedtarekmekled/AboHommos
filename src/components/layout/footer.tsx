@@ -54,9 +54,9 @@ export function Footer() {
                   {AR.footer.email}:
                 </span>
                 <br />
-                support@shopydash.store
-                <br />
                 info@shopydash.store
+                <br />
+                support@shopydash.store
               </p>
               <p>
                 <span className="font-medium text-foreground">

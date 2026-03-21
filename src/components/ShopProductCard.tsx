@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ShoppingCart, Plus, Minus } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -23,6 +23,10 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isPending, setIsPending] = useState(false);
+
+  // Debounce ref to prevent rapid-fire clicks
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingQuantityRef = useRef<number | null>(null);
 
   // Derive quantity directly from cart state (always in sync, no local state needed)
   const cartItem = cart?.items?.find((item: any) => item.product_id === product.id);
@@ -57,27 +61,57 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
       .finally(() => setIsPending(false));
   };
 
+  // Debounced update to prevent rapid-fire API calls that crash
+  const debouncedUpdate = useCallback((itemId: string, newQty: number) => {
+    // Cancel any pending update
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    pendingQuantityRef.current = newQty;
+
+    debounceRef.current = setTimeout(() => {
+      const qty = pendingQuantityRef.current;
+      if (qty === null) return;
+      pendingQuantityRef.current = null;
+
+      if (qty <= 0) {
+        removeFromCart(itemId).catch(() => {});
+      } else {
+        updateCartItem(itemId, qty).catch(() => {});
+      }
+    }, 200);
+  }, [updateCartItem, removeFromCart]);
+
   const handleIncrease = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!cartItem) return;
+
     const next = quantity + 1;
     if (next > product.stock_quantity) {
       notify.error(`الكمية المتاحة: ${product.stock_quantity}`);
       return;
     }
-    updateCartItem(cartItem.id, next).catch(() => {});
+
+    // If the item has a temp ID, rely on optimistic UI via addToCart instead
+    if (cartItem.id.startsWith('temp-')) {
+      // Item is still syncing with the server — update optimistically only
+      return;
+    }
+
+    debouncedUpdate(cartItem.id, next);
   };
 
   const handleDecrease = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!cartItem) return;
-    if (quantity <= 1) {
-      removeFromCart(cartItem.id).catch(() => {});
-    } else {
-      updateCartItem(cartItem.id, quantity - 1).catch(() => {});
-    }
+
+    // If the item has a temp ID, skip — still syncing
+    if (cartItem.id.startsWith('temp-')) return;
+
+    const next = quantity - 1;
+    debouncedUpdate(cartItem.id, next);
   };
 
   const discountPercentage =
@@ -101,7 +135,7 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
       to={canOrder ? `/products/${product.id}` : "#"}
       className={cn("group block h-full", !canOrder && "pointer-events-none opacity-60")}
     >
-      <Card className="h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-lg hover:border-primary/20 hover:-translate-y-1 relative">
+      <Card className="h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-lg hover:border-primary/20 relative">
         {/* Image Container */}
         <div className="aspect-square relative overflow-hidden bg-muted/50">
           {product.image_url ? (
@@ -109,7 +143,7 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
               src={product.image_url}
               alt={product.name}
               className={cn(
-                "w-full h-full object-cover transition-transform duration-500 group-hover:scale-110",
+                "w-full h-full object-cover transition-transform duration-500 group-hover:scale-105",
                 product.stock_quantity <= 0 && "grayscale opacity-80"
               )}
             />
@@ -147,10 +181,9 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
                   dir="ltr"
                   className={cn(
                     "flex items-center gap-0 bg-primary rounded-full shadow-lg overflow-hidden",
-                    "transition-all duration-300 ease-out",
+                    "transition-all duration-200 ease-out",
                     "opacity-100 translate-y-0"
                   )}
-                  style={{ animation: "scaleIn 0.18s cubic-bezier(0.34,1.56,0.64,1) both" }}
                 >
                   <button
                     onClick={handleDecrease}
@@ -160,8 +193,7 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
                   </button>
 
                   <span
-                    className="text-white font-bold text-sm min-w-[1.5rem] text-center select-none"
-                    style={{ animation: "bounceNum 0.2s ease both" }}
+                    className="text-white font-bold text-sm min-w-[1.5rem] text-center select-none tabular-nums"
                     key={quantity}
                   >
                     {quantity}
@@ -179,8 +211,8 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
                 <Button
                   size="icon"
                   className={cn(
-                    "rounded-full shadow-lg transition-all duration-300",
-                    "opacity-100 md:opacity-0 md:translate-y-4 group-hover:opacity-100 group-hover:translate-y-0",
+                    "rounded-full shadow-lg transition-all duration-200",
+                    "opacity-100 md:opacity-0 md:translate-y-2 group-hover:opacity-100 group-hover:translate-y-0",
                     "bg-primary hover:bg-primary/90"
                   )}
                   onClick={handleAdd}
@@ -214,20 +246,6 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
           </div>
         </div>
       </Card>
-
-      {/* Keyframe animations — injected once via a <style> tag */}
-      <style>{`
-        @keyframes scaleIn {
-          from { transform: scale(0.6); opacity: 0; }
-          to   { transform: scale(1);   opacity: 1; }
-        }
-        @keyframes bounceNum {
-          0%   { transform: scale(1); }
-          40%  { transform: scale(1.4); }
-          70%  { transform: scale(0.9); }
-          100% { transform: scale(1); }
-        }
-      `}</style>
     </Link>
   );
 }
