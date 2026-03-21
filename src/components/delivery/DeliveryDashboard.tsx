@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { notify } from "@/lib/notify";
-import { MapPin, Phone, CheckCircle, Package, Truck, Clock, Navigation, Volume2, VolumeX, Bell, Loader2, Map as MapIcon, ArrowUpRight, User } from "lucide-react";
+import { MapPin, Phone, CheckCircle, Package, Truck, Clock, Navigation, Volume2, VolumeX, Bell, Loader2, Map as MapIcon, ArrowUpRight, User, FileText } from "lucide-react";
 import { formatPrice } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { SoundService } from "@/services/sound.service";
@@ -462,6 +462,18 @@ export function DeliveryDashboard({ initialTab = "available" }: DeliveryDashboar
                                            بدء التوجيه
                                         </Button>
                                      </div>
+                                 </div>
+                              )}
+
+                              {order.delivery_notes && (
+                                 <div className="mt-4 bg-amber-50 p-3 rounded-lg border border-amber-200/60 flex items-start gap-2.5">
+                                    <FileText className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                       <p className="text-xs font-bold text-amber-800 mb-0.5">ملاحظات توصيل من العميل:</p>
+                                       <p className="text-sm text-amber-900 whitespace-pre-wrap leading-relaxed">
+                                          {order.delivery_notes}
+                                       </p>
+                                    </div>
                                  </div>
                               )}
                            </div>
