@@ -116,7 +116,7 @@ export const AR = {
     deliveryInfo: "معلومات التوصيل",
     address: "العنوان",
     addressPlaceholder: "أدخل عنوان التوصيل بالتفصيل",
-    phone: "رقم الهاتف",
+    phone: "رقم الهاتف (يفضل واتساب)",
     notes: "ملاحظات للسائق",
     notesPlaceholder: "أي ملاحظات إضافية لتسهيل الوصول لموقع التسليم",
     paymentMethod: "طريقة الدفع",
