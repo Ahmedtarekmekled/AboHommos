@@ -91,6 +91,7 @@ export const AR = {
     pending: "قيد المراجعة",
     approved: "معتمد",
     rejected: "مرفوض",
+    premium: "متجر مميز",
   },
 
   // Cart
