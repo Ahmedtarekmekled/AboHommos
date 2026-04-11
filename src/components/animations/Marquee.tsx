@@ -22,6 +22,7 @@ export function Marquee({
   return (
     <div
       {...props}
+      dir="ltr"
       className={cn(
         "group flex overflow-hidden p-2 [--duration:40s] [--gap:1rem]",
         {
@@ -30,7 +31,7 @@ export function Marquee({
         },
         className
       )}
-      style={{ gap: "var(--gap)" } as React.CSSProperties}
+      style={{ gap: "var(--gap)", direction: "ltr" } as React.CSSProperties}
     >
       {Array(repeat)
         .fill(0)

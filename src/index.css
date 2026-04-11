@@ -410,6 +410,16 @@
       transform: translateY(0);
     }
   }
+
+  /* Seamless infinite marquee */
+  @keyframes marquee-scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
 }
 
 
