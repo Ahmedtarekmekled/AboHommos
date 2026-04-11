@@ -7,6 +7,7 @@ const quickLinks = [
   { href: "/", label: AR.nav.home },
   { href: "/shops", label: AR.nav.shops },
   { href: "/products", label: AR.nav.products },
+  { href: "/about", label: "عن المنصة (About)" },
 ];
 
 const socialLinks = [
