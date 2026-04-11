@@ -86,7 +86,7 @@ export default async function middleware(request: Request) {
         const shop = shops[0];
         const title = esc(`${shop.name} | Shopydash`);
         const desc = esc(shop.description || `تسوق من ${shop.name} عبر شوبي داش`);
-        const image = shop.cover_url || shop.logo_url || 'https://www.shopydash.store/logo.png';
+        const image = shop.logo_url || shop.cover_url || 'https://www.shopydash.store/logo.png';
         const pageUrl = `https://www.shopydash.store/shops/${slug}`;
 
         return new Response(ogHTML(title, desc, image, pageUrl), {
