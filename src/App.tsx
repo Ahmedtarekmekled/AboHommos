@@ -6,6 +6,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 
 // Lazy Loaded Pages
 const HomePage = lazy(() => import("@/pages/home"));
+const AboutPage = lazy(() => import("@/pages/about"));
 const ShopsPage = lazy(() => import("@/pages/shops"));
 const ShopPage = lazy(() => import("@/pages/shop"));
 const ProductsPage = lazy(() => import("@/pages/products"));
@@ -45,6 +46,7 @@ function App() {
           <Route element={<MainLayout />}>
             {/* Public */}
             <Route path="/" element={<HomePage />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="/shops" element={<ShopsPage />} />
             <Route path="/shops/:slug" element={<ShopPage />} />
             <Route path="/products" element={<ProductsPage />} />
@@ -71,6 +73,7 @@ function App() {
           </Route>
         </Routes>
       </Suspense>
+
     </>
   );
 }

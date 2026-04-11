@@ -5,6 +5,9 @@ import { MobileCartBar } from "@/components/cart/mobile-cart-bar";
 import { useEffect } from "react";
 import ReactGA from "react-ga4";
 
+import { AnimatePresence } from "framer-motion";
+import { PageTransition } from "../animations/PageTransition";
+
 export function MainLayout() {
   const location = useLocation();
   const isCheckoutPage = location.pathname.startsWith('/checkout');
@@ -21,8 +24,13 @@ export function MainLayout() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1">
-        <Outlet />
+        <AnimatePresence mode="wait">
+          <PageTransition key={location.pathname}>
+            <Outlet />
+          </PageTransition>
+        </AnimatePresence>
       </main>
+
       {!isCheckoutPage && !isAuthPage && !isProductDetailPage && !isDashboardPage && <Footer />}
       {!isCheckoutPage && !isAuthPage && !isProductDetailPage && !isDashboardPage && <MobileCartBar />}
     </div>
