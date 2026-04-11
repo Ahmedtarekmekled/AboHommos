@@ -12,6 +12,7 @@ const faqs = [
   // --- Original Questions ---
   {
     id: "1",
+    category: "what",
     questionEn: "What is the best online marketplace near me for daily shopping?",
     questionAr: "ما هو أفضل متجر إلكتروني بالقرب مني للتسوق اليومي؟",
     answerEn: "Shopy Dash is your comprehensive local platform in Abo Hommos. We provide access to local stores near you for groceries, electronics, and household needs, delivered right to your door.",
@@ -19,6 +20,7 @@ const faqs = [
   },
   {
     id: "2",
+    category: "what",
     questionEn: "Can I order fresh food or electronics from stores open now?",
     questionAr: "هل يمكنني طلب طعام طازج أو إلكترونيات من متاجر مفتوحة الآن؟",
     answerEn: "Yes, you can browse 'Open Now' stores. We feature the best fresh food markets, bakeries, and reliable electronics stores in your area.",
@@ -26,6 +28,7 @@ const faqs = [
   },
   {
     id: "3",
+    category: "how",
     questionEn: "How do I compare product prices before buying?",
     questionAr: "كيف يمكنني مقارنة أسعار المنتجات قبل الشراء؟",
     answerEn: "The Shopy Dash app allows you to browse multiple stores, view reviews, and check live discounts, making it incredibly easy to compare items and find the best deals.",
@@ -33,6 +36,7 @@ const faqs = [
   },
   {
     id: "4",
+    category: "how",
     questionEn: "How do I start selling my products on the platform?",
     questionAr: "كيف أبدأ البيع وعرض منتجات متجري على المنصة؟",
     answerEn: "If you own a business, it's easy to join us and expand your sales. We provide a highly reliable platform with a complete order management system to boost your local profits.",
@@ -41,6 +45,7 @@ const faqs = [
   // --- How Questions ---
   {
     id: "5",
+    category: "how",
     questionEn: "How do I create an online store?",
     questionAr: "كيف أنشئ متجر إلكتروني؟",
     answerEn: "With Shopy Dash, you can launch your online store in minutes. Simply register as a seller, upload your products with photos and prices, and start receiving orders from customers in your area — no technical knowledge needed.",
@@ -48,6 +53,7 @@ const faqs = [
   },
   {
     id: "6",
+    category: "how",
     questionEn: "How do I buy from online stores?",
     questionAr: "كيف أشتري من متاجر عبر الإنترنت؟",
     answerEn: "Simply visit Shopy Dash, browse stores near you, add items to your cart and place your order. Delivery arrives fast, and you can pay on delivery for a convenient and secure shopping experience.",
@@ -56,6 +62,7 @@ const faqs = [
   // --- What Questions ---
   {
     id: "7",
+    category: "what",
     questionEn: "What are the best online shopping stores?",
     questionAr: "ما هي أفضل متاجر التسوق عبر الإنترنت؟",
     answerEn: "The best online stores are the ones closest to you! Shopy Dash aggregates the top-rated local shops in Abo Hommos and surrounding areas, so you always get fresh products, fast delivery, and competitive prices from trusted sellers.",
@@ -63,6 +70,7 @@ const faqs = [
   },
   {
     id: "8",
+    category: "what",
     questionEn: "What are online clothing stores?",
     questionAr: "ما هي متاجر الملابس عبر الإنترنت؟",
     answerEn: "Online clothing stores let you browse fashion collections from the comfort of your home. On Shopy Dash, local clothing shops display their latest arrivals, and you can order with fast local delivery.",
@@ -71,6 +79,7 @@ const faqs = [
   // --- Why Questions ---
   {
     id: "9",
+    category: "why",
     questionEn: "Why should you buy from online stores?",
     questionAr: "لماذا تشتري من المتاجر الإلكترونية؟",
     answerEn: "Online shopping saves you time, lets you compare prices effortlessly, and gives you access to a wider selection of products — all from home. With Shopy Dash, you also support local businesses in your community.",
@@ -78,6 +87,7 @@ const faqs = [
   },
   {
     id: "10",
+    category: "why",
     questionEn: "Why do online shopping stores fail?",
     questionAr: "لماذا تفشل متاجر التسوق عبر الإنترنت؟",
     answerEn: "Most online stores fail due to poor customer trust, slow delivery, and lack of local relevance. Shopy Dash solves this by connecting you only with verified local sellers who deliver quickly and reliably.",
@@ -86,6 +96,7 @@ const faqs = [
   // --- Where Questions ---
   {
     id: "11",
+    category: "where",
     questionEn: "Where can I find reliable online stores?",
     questionAr: "أين أجد متاجر إلكترونية موثوقة؟",
     answerEn: "Shopy Dash is your trusted destination. Every store on our platform is verified and locally based, so you can shop with confidence knowing your products come from real, nearby businesses.",
@@ -93,6 +104,7 @@ const faqs = [
   },
   {
     id: "12",
+    category: "where",
     questionEn: "Where can I create an online store?",
     questionAr: "أين يمكنني إنشاء متجر عبر الإنترنت؟",
     answerEn: "You can create your online store directly on Shopy Dash. We provide all the tools you need — product management, order tracking, and instant visibility to local customers in the Abo Hommos area.",
@@ -101,6 +113,7 @@ const faqs = [
   // --- When Questions ---
   {
     id: "13",
+    category: "when",
     questionEn: "When does online shopping peak?",
     questionAr: "متى يبدأ التسوق عبر الإنترنت في الذروة؟",
     answerEn: "Online shopping peaks during evenings, weekends, and holiday seasons. On Shopy Dash, our local stores are available around the clock so you can shop whenever it suits you.",
@@ -108,6 +121,7 @@ const faqs = [
   },
   {
     id: "14",
+    category: "when",
     questionEn: "When do I receive my shipment from online stores?",
     questionAr: "متى أحصل على شحنة من المتاجر الإلكترونية؟",
     answerEn: "With Shopy Dash, delivery is local and fast — most orders arrive the same day or within hours, unlike traditional online stores that take days to ship.",
@@ -116,6 +130,7 @@ const faqs = [
   // --- Who Questions ---
   {
     id: "15",
+    category: "who",
     questionEn: "Who runs the most popular online shopping stores?",
     questionAr: "من يدير أشهر متاجر التسوق عبر الإنترنت؟",
     answerEn: "The most successful online stores are run by passionate local entrepreneurs. Shopy Dash empowers these business owners with the digital tools to reach more customers and grow their sales.",
@@ -123,6 +138,7 @@ const faqs = [
   },
   {
     id: "16",
+    category: "who",
     questionEn: "Who provides the best online store services?",
     questionAr: "من يقدم أفضل خدمات المتاجر الإلكترونية؟",
     answerEn: "Shopy Dash provides a complete marketplace solution — from store setup and product listing to order management and fast local delivery. We're the all-in-one platform for sellers and buyers in Abo Hommos.",
@@ -178,7 +194,12 @@ function FAQItem({ faq, isOpen, onClick }: { faq: typeof faqs[0], isOpen: boolea
 }
 
 export default function AboutPage() {
-  const [openId, setOpenId] = useState<string | null>("1");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [category, setCategory] = useState("all");
+
+  const filteredFaqs = category === "all"
+    ? faqs
+    : faqs.filter(faq => faq.category === category);
 
   const faqSchema = {
     "@context": "https://schema.org",
@@ -255,15 +276,42 @@ export default function AboutPage() {
             ))}
           </div>
 
-          {/* FAQ Section - Accordion Style */}
-          <div className="space-y-10 mt-12 bg-card/50 backdrop-blur-sm p-8 md:p-12 rounded-[2rem] border border-muted">
+          {/* FAQ Section - Categorized Accordion */}
+          <div className="space-y-8 mt-12 bg-card/50 backdrop-blur-sm p-8 md:p-12 rounded-[2rem] border border-muted">
             <div className="text-center space-y-2">
               <h2 className="text-3xl md:text-4xl font-black text-foreground" dir="rtl">الأسئلة الشائعة</h2>
               <p className="text-muted-foreground uppercase tracking-[0.2em] text-xs font-bold">Frequently Asked Questions</p>
             </div>
 
+            {/* Category Tabs */}
+            <div className="flex flex-wrap justify-center gap-2">
+              {[
+                { key: "all", labelAr: "الكل", labelEn: "All" },
+                { key: "how", labelAr: "كيف", labelEn: "How" },
+                { key: "what", labelAr: "ماذا", labelEn: "What" },
+                { key: "why", labelAr: "لماذا", labelEn: "Why" },
+                { key: "where", labelAr: "أين", labelEn: "Where" },
+                { key: "when", labelAr: "متى", labelEn: "When" },
+                { key: "who", labelAr: "من", labelEn: "Who" },
+              ].map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => { setCategory(cat.key); setOpenId(null); }}
+                  className={cn(
+                    "px-4 py-2 rounded-full text-sm font-bold transition-all border",
+                    category === cat.key
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-card text-muted-foreground border-muted hover:border-primary/30 hover:text-foreground"
+                  )}
+                >
+                  <span dir="rtl">{cat.labelAr}</span>
+                  <span className="text-[10px] ml-1 opacity-70">({cat.labelEn})</span>
+                </button>
+              ))}
+            </div>
+
             <div className="divide-y divide-muted">
-              {faqs.map((faq) => (
+              {filteredFaqs.map((faq) => (
                 <FAQItem
                   key={faq.id}
                   faq={faq}

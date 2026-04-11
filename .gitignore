@@ -30,3 +30,16 @@ node_modules
 # Ignore ~ folder
 ~
 ~/*
+
+# Lighthouse reports
+lighthouse.txt
+lighthouse_latest.txt
+lighthouse-login.cjs
+lighthouserc.json
+
+# Generated images / AI tool folders
+vibe_images/
+.qoder/
+
+# Deployment notes
+DEPLOY.md
