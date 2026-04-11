@@ -3,7 +3,7 @@ import { BlurFade } from "@/components/animations/BlurFade";
 import { GridPattern } from "@/components/animations/GridPattern";
 import { Marquee } from "@/components/animations/Marquee";
 import { NumberTicker } from "@/components/animations/NumberTicker";
-import { Helmet } from "react-helmet-async";
+import { SEO } from "@/components/SEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -216,10 +216,11 @@ export default function AboutPage() {
 
   return (
     <>
-      <Helmet>
-        <title>عن شوبي داش | أفضل متجر إلكتروني بالقرب منك (Marketplace Near Me)</title>
-        <meta name="description" content="اكتشف شوبي داش (Shopy Dash)، منصتك المحلية في أبو حمص للتسوق عبر الإنترنت. تسوق طعام طازج، إلكترونيات، وابدأ البيع معنا اليوم." />
-      </Helmet>
+      <SEO
+        title="عن شوبي داش | أفضل متجر إلكتروني بالقرب منك"
+        description="اكتشف شوبي داش (Shopy Dash)، منصتك المحلية في أبو حمص للتسوق عبر الإنترنت. تسوق طعام طازج، إلكترونيات، وابدأ البيع معنا اليوم."
+        url="https://shopydash.store/about"
+      />
 
       <div className="relative min-h-[90vh] flex flex-col items-center p-6 md:p-12 overflow-hidden bg-background">
         <GridPattern
