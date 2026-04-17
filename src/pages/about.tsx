@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { BlurFade } from "@/components/animations/BlurFade";
 import { GridPattern } from "@/components/animations/GridPattern";
 import { Marquee } from "@/components/animations/Marquee";
 import { NumberTicker } from "@/components/animations/NumberTicker";
@@ -236,8 +235,7 @@ export default function AboutPage() {
           
           {/* Header Section */}
           <div className="text-center space-y-4">
-            <BlurFade delay={0.1} inView>
-              <h1 className="text-5xl md:text-7xl font-black tracking-tight flex flex-wrap justify-center gap-x-4 mb-4">
+            <h1 className="text-5xl md:text-7xl font-black tracking-tight flex flex-wrap justify-center gap-x-4 mb-4">
                 <span className="text-foreground">عن</span>
                 <span className="text-secondary">شوبي</span>
                 <span className="text-primary">داش</span>
@@ -246,12 +244,9 @@ export default function AboutPage() {
                 <span className="text-lg font-bold text-secondary uppercase tracking-widest">SHÖPY</span>
                 <span className="text-lg font-bold text-primary uppercase tracking-widest">DASH</span>
               </div>
-            </BlurFade>
-            <BlurFade delay={0.2} inView>
-              <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mt-8" dir="rtl">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed mt-8" dir="rtl">
                 شوبي داش هي المنصة الأولى التي تربط بين أفضل المتاجر المحلية والمجتمع، لتقديم تجربة تسوق إلكترونية سريعة وموثوقة تواكب احتياجاتك اليومية.
               </p>
-            </BlurFade>
           </div>
 
           {/* Stats Section with Number Tickers */}
@@ -262,7 +257,6 @@ export default function AboutPage() {
               { labelEn: "Daily Orders", labelAr: "طلب يومي", target: 800, plus: true },
               { labelEn: "Cities", labelAr: "مدن مغطاة", target: 3, plus: false },
             ].map((stat, i) => (
-              <BlurFade key={i} delay={0.3 + (i * 0.05)} inView>
                 <div className="flex flex-col items-center justify-center p-6 bg-card rounded-2xl border shadow-sm hover:border-primary/20 transition-colors">
                   <div className="text-3xl md:text-4xl font-black text-primary mb-1 flex items-center">
                     {stat.plus && "+"}
@@ -273,7 +267,6 @@ export default function AboutPage() {
                     <span className="text-[10px] text-muted-foreground uppercase tracking-widest">{stat.labelEn}</span>
                   </div>
                 </div>
-              </BlurFade>
             ))}
           </div>
 

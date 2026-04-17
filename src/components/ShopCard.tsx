@@ -10,8 +10,6 @@ import { motion } from "framer-motion";
 import ShinyText from "./animations/ShinyText";
 import SpotlightCard from "./animations/SpotlightCard";
 
-import { BlurFade } from "./animations/BlurFade";
-
 interface ShopCardProps {
   shop: Shop & { 
     category?: { name: string; icon: string | null } | null;
@@ -123,27 +121,21 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
   );
 
   return (
-    <BlurFade
-      delay={0.15 + index * 0.05}
-      inView
-      className="h-full"
+    <Link
+      to={`/shops/${shop.slug}`}
+      className="block h-full group"
     >
-      <Link
-        to={`/shops/${shop.slug}`}
-        className="block h-full group"
-      >
-        {shop.is_premium ? (
-          <SpotlightCard 
-            className="h-full border-none p-0 bg-transparent rounded-xl overflow-visible"
-            spotlightColor="rgba(251, 191, 36, 0.15)"
-          >
-            {CardContent}
-          </SpotlightCard>
-        ) : (
-          CardContent
-        )}
-      </Link>
-    </BlurFade>
+      {shop.is_premium ? (
+        <SpotlightCard 
+          className="h-full border-none p-0 bg-transparent rounded-xl overflow-visible"
+          spotlightColor="rgba(251, 191, 36, 0.15)"
+        >
+          {CardContent}
+        </SpotlightCard>
+      ) : (
+        CardContent
+      )}
+    </Link>
   );
 }
 

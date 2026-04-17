@@ -256,6 +256,7 @@ export default function LoginPage() {
                   id="email"
                   type="email"
                   placeholder="example@email.com"
+                  autoComplete="username"
                   error={!!errors.email}
                   className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
                   dir="rtl"
@@ -277,6 +278,7 @@ export default function LoginPage() {
                     id="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
+                    autoComplete="current-password"
                     error={!!errors.password}
                     className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 pl-12 transition-colors text-right"
                     dir="rtl"
