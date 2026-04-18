@@ -131,33 +131,30 @@ export function AdminDriverFinancials({ driverId, driverName, isOpen, onClose }:
           </TabsList>
 
           <TabsContent value="payment" className="space-y-4 py-4">
-             {/* Outstanding chips */}
-             {balance ? (() => {
-               const remainingCustomerFee = Math.max(0, balance.customer_fee_owed - balance.platform_fee_paid);
-               const remainingPlatformFee = Math.max(0, balance.platform_fee_owed - Math.max(0, balance.platform_fee_paid - balance.customer_fee_owed));
-               
-               return (
-               <div className="bg-muted/40 rounded-lg border p-3 space-y-3">
-                 <p className="text-xs font-semibold text-muted-foreground">مستحقات المندوب</p>
+             {/* Outstanding breakdown — always visible */}
+             <div className="bg-muted/40 rounded-lg border p-3 space-y-3">
+               <p className="text-xs font-semibold text-muted-foreground">مستحقات المندوب</p>
+               {balance ? (
                  <div className="flex flex-wrap gap-2">
-                   {remainingPlatformFee > 0 && (
-                     <button
-                       type="button"
-                       onClick={() => setPaymentAmount(String(remainingPlatformFee.toFixed(2)))}
-                       className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-xs hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
-                     >
-                       عمولة توصيل <span className="font-bold">{formatPrice(remainingPlatformFee)}</span>
-                     </button>
-                   )}
-                   {remainingCustomerFee > 0 && (
-                     <button
-                       type="button"
-                       onClick={() => setPaymentAmount(String(remainingCustomerFee.toFixed(2)))}
-                       className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-xs hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all"
-                     >
-                       مستحقات المنصة <span className="font-bold">{formatPrice(remainingCustomerFee)}</span>
-                     </button>
-                   )}
+                   {/* عمولة التوصيل — always show */}
+                   <button
+                     type="button"
+                     onClick={() => setPaymentAmount(String((balance.customer_fee_owed ?? 0).toFixed(2)))}
+                     className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-border bg-background text-xs hover:bg-primary hover:text-primary-foreground hover:border-primary transition-all"
+                   >
+                     عمولة التوصيل <span className="font-bold">{formatPrice(balance.customer_fee_owed ?? 0)}</span>
+                   </button>
+
+                   {/* رسوم المنصة — always show */}
+                   <button
+                     type="button"
+                     onClick={() => setPaymentAmount(String((balance.platform_fee_owed ?? 0).toFixed(2)))}
+                     className="flex items-center gap-1 px-3 py-1.5 rounded-full border border-amber-300 bg-amber-50 text-amber-800 text-xs hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-all"
+                   >
+                     رسوم المنصة <span className="font-bold">{formatPrice(balance.platform_fee_owed ?? 0)}</span>
+                   </button>
+
+                   {/* تحصيل الكل */}
                    {balance.total_outstanding > 0 && (
                      <button
                        type="button"
@@ -167,14 +164,22 @@ export function AdminDriverFinancials({ driverId, driverName, isOpen, onClose }:
                        تحصيل الكل <span>{formatPrice(balance.total_outstanding)}</span>
                      </button>
                    )}
-                   {balance.total_outstanding <= 0 && (
-                     <span className="text-xs text-green-700 font-medium">✓ لا توجد مستحقات معلقة</span>
-                   )}
                  </div>
-               </div>
-             )})() : (
-               <div className="bg-muted/40 rounded-lg border p-3 text-xs text-muted-foreground">جاري تحميل المستحقات...</div>
-             )}
+               ) : (
+                 <div className="text-xs text-muted-foreground">جاري تحميل المستحقات...</div>
+               )}
+
+               {/* Paid so far */}
+               {balance && balance.platform_fee_paid > 0 && (
+                 <p className="text-xs text-green-700">
+                   ✓ تم تسوية: <span className="font-semibold">{formatPrice(balance.platform_fee_paid)}</span>
+                 </p>
+               )}
+               {balance && balance.total_outstanding <= 0 && (
+                 <span className="text-xs text-green-700 font-medium">✓ لا توجد مستحقات معلقة</span>
+               )}
+             </div>
+
              <div className="space-y-2">
                <div className="flex items-center justify-between">
                  <Label>المبلغ المستلم (ج.م)</Label>
@@ -187,18 +192,10 @@ export function AdminDriverFinancials({ driverId, driverName, isOpen, onClose }:
                  placeholder="0.00"
                  value={paymentAmount}
                  min={0}
-                 max={balance?.total_outstanding ?? undefined}
-                 onChange={(e) => {
-                   const val = e.target.value;
-                   if (balance && Number(val) > balance.total_outstanding) {
-                     setPaymentAmount(String(balance.total_outstanding.toFixed(2)));
-                   } else {
-                     setPaymentAmount(val);
-                   }
-                 }}
+                 onChange={(e) => setPaymentAmount(e.target.value)}
                  className={balance && Number(paymentAmount) > balance.total_outstanding ? 'border-red-500 focus-visible:ring-red-500' : ''}
                />
-               {balance && Number(paymentAmount) > balance.total_outstanding && (
+               {balance && Number(paymentAmount) > balance.total_outstanding && balance.total_outstanding > 0 && (
                  <p className="text-xs text-red-600 flex items-center gap-1"><AlertCircle className="w-3 h-3"/> المبلغ يتجاوز إجمالي المستحقات</p>
                )}
              </div>
@@ -214,7 +211,7 @@ export function AdminDriverFinancials({ driverId, driverName, isOpen, onClose }:
              <Button
                className="w-full"
                onClick={handleCollectPayment}
-               disabled={isLoading || !paymentAmount || Number(paymentAmount) <= 0 || (!!balance && Number(paymentAmount) > balance.total_outstanding)}
+               disabled={isLoading || !paymentAmount || Number(paymentAmount) <= 0}
              >
                 {isLoading ? "جاري الحفظ..." : "تسجيل الدفعة وتخفيض المديونية"}
              </Button>

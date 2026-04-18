@@ -27,8 +27,9 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
 
   // Determine tier based on premium_sort_order
   const slot = shop.premium_sort_order ?? 99;
-  const isGold = shop.is_premium && slot <= 2;       // slots 1-2: gold
-  const isSilver = shop.is_premium && slot >= 3 && slot <= 6; // slots 3-6: silver
+  const isGold = shop.is_premium && slot <= 2;                    // slots 1-2: gold
+  const isSilver = shop.is_premium && slot >= 3 && slot <= 6;    // slots 3-6: silver
+  const isGeneralPremium = shop.is_premium && !isGold && !isSilver; // slot 99 or other: basic premium
 
   const CardContent = (
     <Card
@@ -37,8 +38,10 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
         "p-4 md:p-6 transition-all duration-300 relative overflow-hidden h-full flex flex-col justify-between font-inherit",
         // Gold border
         isGold && "border-2 border-amber-400/70 bg-amber-50/5 shadow-xl shadow-amber-200/30",
-        // Silver border (also for all non-premium public shops)
+        // Silver border
         isSilver && "border-2 border-slate-300/80 bg-slate-50/5 shadow-lg shadow-slate-200/20",
+        // General premium: silver (same as slots 3-6)
+        isGeneralPremium && "border-2 border-slate-300/80 bg-slate-50/5 shadow-lg shadow-slate-200/20",
         // Public (non-premium): subtle silver border
         !shop.is_premium && "border border-slate-200/60 hover:shadow-lg hover:-translate-y-1",
         className
@@ -47,16 +50,24 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
       {/* Gold badge — top slots 1-2 */}
       {isGold && (
         <div className="absolute top-0 right-0 p-1 pointer-events-none z-20 overflow-visible">
-          <Badge className="bg-amber-400 hover:bg-amber-400 text-amber-950 font-bold text-[10px] scale-90 border-none shadow-sm gap-1">
-            🥇 مميز #{slot}
+          <Badge className="bg-amber-400 hover:bg-amber-400 text-amber-950 font-bold text-[10px] scale-90 border-none shadow-sm">
+            مميز
           </Badge>
         </div>
       )}
       {/* Silver badge — slots 3-6 */}
       {isSilver && (
         <div className="absolute top-0 right-0 p-1 pointer-events-none z-20 overflow-visible">
-          <Badge className="bg-slate-200 hover:bg-slate-200 text-slate-700 font-bold text-[10px] scale-90 border-none shadow-sm gap-1">
-            🥈 مميز #{slot}
+          <Badge className="bg-slate-200 hover:bg-slate-200 text-slate-700 font-bold text-[10px] scale-90 border-none shadow-sm">
+            مميز
+          </Badge>
+        </div>
+      )}
+      {/* General premium badge — slot 99: silver */}
+      {isGeneralPremium && (
+        <div className="absolute top-0 right-0 p-1 pointer-events-none z-20 overflow-visible">
+          <Badge className="bg-slate-200 hover:bg-slate-200 text-slate-700 font-bold text-[10px] scale-90 border-none shadow-sm">
+            مميز
           </Badge>
         </div>
       )}
@@ -116,6 +127,14 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
                 shineColor="#9ca3af" 
                 className="font-semibold"
               />
+            ) : isGeneralPremium ? (
+              <ShinyText 
+                text={shop.name} 
+                speed={4} 
+                color="#374151" 
+                shineColor="#9ca3af" 
+                className="font-semibold"
+              />
             ) : (
               shop.name
             )}
@@ -151,14 +170,14 @@ export function ShopCard({ shop, className, index = 0 }: ShopCardProps) {
       to={`/shops/${shop.slug}`}
       className="block h-full group"
     >
-      {isGold ? (
+      {(isGold) ? (
         <SpotlightCard 
           className="h-full border-none p-0 bg-transparent rounded-xl overflow-visible"
           spotlightColor="rgba(251, 191, 36, 0.18)"
         >
           {CardContent}
         </SpotlightCard>
-      ) : isSilver ? (
+      ) : (isSilver || isGeneralPremium) ? (
         <SpotlightCard 
           className="h-full border-none p-0 bg-transparent rounded-xl overflow-visible"
           spotlightColor="rgba(148, 163, 184, 0.15)"
