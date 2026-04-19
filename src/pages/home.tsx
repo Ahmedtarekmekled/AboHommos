@@ -58,7 +58,7 @@ export default function HomePage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative bg-gradient-to-br from-primary/5 via-background to-secondary/10 pt-16 pb-24 md:pt-24 md:pb-32 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-primary/5 via-background to-secondary/10 pt-16 pb-44 md:pt-24 md:pb-56 overflow-hidden">
         <div className="absolute top-0 -left-1/4 w-[120%] h-[120%] bg-gradient-to-tr from-primary/10 via-transparent to-secondary/10 blur-3xl rounded-full opacity-60 animate-pulse mix-blend-multiply pointer-events-none" />
         
         <div className="container-app relative z-10">
@@ -142,16 +142,22 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* SVG Wave Divider at the bottom */}
-        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-none z-0 rotate-180">
-          <svg className="relative block w-[calc(110%+1.3px)] h-[40px] md:h-[60px]" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" className="fill-background"></path>
+        {/* Animated Ocean Wave Divider */}
+        <div className="ocean-waves" aria-hidden="true">
+          <svg className="ocean-wave ocean-wave--back" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,64 C120,90 240,110 360,96 C480,82 600,40 720,32 C840,24 960,56 1080,72 C1200,88 1320,96 1440,80 L1440,120 L0,120 Z" />
+          </svg>
+          <svg className="ocean-wave ocean-wave--mid" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,80 C160,48 280,20 420,36 C560,52 640,96 780,100 C920,104 1060,68 1200,52 C1340,36 1400,56 1440,64 L1440,120 L0,120 Z" />
+          </svg>
+          <svg className="ocean-wave ocean-wave--front" viewBox="0 0 1440 120" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0,96 C180,76 300,88 480,100 C660,112 780,72 960,64 C1140,56 1260,84 1440,96 L1440,120 L0,120 Z" />
           </svg>
         </div>
       </section>
 
       {/* Shop Categories Horizontal Bar */}
-      <section className="py-16 bg-gradient-to-br from-primary/5 via-background to-secondary/5 relative">
+      <section className="pt-0 pb-16 bg-gradient-to-br from-primary/5 via-background to-secondary/5 relative">
         <div className="absolute inset-0 bg-grid-primary/[0.02] bg-[size:32px_32px]" />
         <div className="container-app relative z-10">
           <div className="flex items-center justify-between mb-8">

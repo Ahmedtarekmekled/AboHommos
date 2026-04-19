@@ -440,3 +440,67 @@
     cursor: default !important;
   }
 }
+
+/* ===== Ocean Wave Divider ===== */
+.ocean-waves {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 80px;
+  overflow: hidden;
+  z-index: 5;
+  pointer-events: none;
+  direction: ltr; /* prevent RTL flip */
+}
+
+@media (min-width: 768px) {
+  .ocean-waves {
+    height: 120px;
+  }
+}
+
+.ocean-wave {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  display: block;
+}
+
+/* Back layer — warm peach, slow sway */
+.ocean-wave--back {
+  fill: rgba(255, 200, 170, 0.3);
+  animation: ocean-sway 12s ease-in-out infinite alternate;
+}
+
+/* Mid layer — teal mist, mid speed opposite */
+.ocean-wave--mid {
+  fill: rgba(16, 185, 129, 0.07);
+  animation: ocean-sway-reverse 8s ease-in-out infinite alternate;
+}
+
+/* Front layer — matches next section bg for seamless blend */
+.ocean-wave--front {
+  fill: hsl(var(--background));
+  animation: ocean-sway 6s ease-in-out infinite alternate;
+}
+
+@keyframes ocean-sway {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ocean-sway-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
