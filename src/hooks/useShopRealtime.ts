@@ -1,9 +1,17 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase";
 import { SoundService } from "@/services/sound.service";
 import { notify } from "@/lib/notify";
 
 export function useShopRealtime(shopId: string | undefined, onNewOrder: () => void, onOrderUpdate: () => void) {
+  const onNewOrderRef = useRef(onNewOrder);
+  const onOrderUpdateRef = useRef(onOrderUpdate);
+
+  useEffect(() => {
+    onNewOrderRef.current = onNewOrder;
+    onOrderUpdateRef.current = onOrderUpdate;
+  }, [onNewOrder, onOrderUpdate]);
+
   useEffect(() => {
     if (!shopId) return;
 
@@ -22,10 +30,10 @@ export function useShopRealtime(shopId: string | undefined, onNewOrder: () => vo
              // New order -> Play Sound + Refresh List
              await SoundService.playNewOrderSound();
              notify.info(`طلب جديد وصل! رقم الطلب: ${(payload.new as any).order_number}`);
-             onNewOrder();
+             onNewOrderRef.current();
           } else if (payload.eventType === "UPDATE") {
              // Order update -> Refresh List
-             onOrderUpdate();
+             onOrderUpdateRef.current();
           }
         }
       )
@@ -34,5 +42,5 @@ export function useShopRealtime(shopId: string | undefined, onNewOrder: () => vo
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [shopId, onNewOrder, onOrderUpdate]);
+  }, [shopId]);
 }

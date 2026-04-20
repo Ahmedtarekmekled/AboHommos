@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/store";
 import { orderService, ORDER_STATUS_CONFIG } from "@/services/order.service";
 import type { OrderStatus, ParentOrderWithSuborders } from "@/types/database";
@@ -26,6 +26,7 @@ import { deliveryAdminService } from "@/services/delivery-admin.service";
 function useAvailableOrders() {
   const [orders, setOrders] = useState<ParentOrderWithSuborders[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const fetchAvailableRef = useRef<((silent?: boolean) => Promise<void>) | null>(null);
 
   const fetchAvailable = async (silent = false) => {
     if (!silent) setIsLoading(true);
@@ -41,10 +42,6 @@ function useAvailableOrders() {
       
       const ordersWithDetails = await Promise.all(
         (data || []).map(async (pOrder) => {
-           // We'll fetch details manually if getParentOrder is not reliable,
-           // but `getParentOrder` SHOULD exist. 
-           // If it's missing, we must implement it or use a raw query.
-           // Let's assume it exists for now based on previous code context.
            try {
              return await orderService.getParentOrder(pOrder.id);
            } catch (e) {
@@ -63,7 +60,11 @@ function useAvailableOrders() {
   };
 
   useEffect(() => {
-    fetchAvailable();
+    fetchAvailableRef.current = fetchAvailable;
+  });
+
+  useEffect(() => {
+    if (fetchAvailableRef.current) fetchAvailableRef.current();
 
     const channel = supabase
       .channel("courier-marketplace")
@@ -76,15 +77,13 @@ function useAvailableOrders() {
         },
         (payload) => {
             const newOrder = payload.new as any;
-            // Refresh on any change to keep list in sync
-            // Specifically check for new available orders to play sound
             if (
               (payload.eventType === 'INSERT' && newOrder.status === 'READY_FOR_PICKUP') ||
               (payload.eventType === 'UPDATE' && newOrder.status === 'READY_FOR_PICKUP' && (payload.old as any)?.status !== 'READY_FOR_PICKUP')
             ) {
                SoundService.playNewOrderSound();
             }
-            fetchAvailable(true); 
+            if (fetchAvailableRef.current) fetchAvailableRef.current(true); 
         }
       )
       .subscribe();
@@ -99,8 +98,9 @@ function useAvailableOrders() {
 
 // Hook for My Assigned Orders
 function useMyDeliveries(userId: string | undefined) {
-  const [orders, setOrders] = useState<ParentOrderWithSuborders[]>([]); // Changed type to ParentOrderWithSuborders
+  const [orders, setOrders] = useState<ParentOrderWithSuborders[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const fetchMyOrdersRef = useRef<((silent?: boolean) => Promise<void>) | null>(null);
 
   const fetchMyOrders = async (silent = false) => {
     if (!userId) return;
@@ -112,7 +112,6 @@ function useMyDeliveries(userId: string | undefined) {
       // 2. Enrich with suborders/items
       const enrichedOrders = await Promise.all(
         (rawOrders || []).map(async (pOrder) => {
-           // We need getParentOrder to fetch suborders & items
            return await orderService.getParentOrder(pOrder.id);
         })
       );
@@ -126,8 +125,12 @@ function useMyDeliveries(userId: string | undefined) {
   };
 
   useEffect(() => {
+    fetchMyOrdersRef.current = fetchMyOrders;
+  });
+
+  useEffect(() => {
     if (userId) {
-      fetchMyOrders();
+      if (fetchMyOrdersRef.current) fetchMyOrdersRef.current();
       
       const channel = supabase
         .channel(`my-deliveries-${userId}`)
@@ -139,7 +142,9 @@ function useMyDeliveries(userId: string | undefined) {
             table: "parent_orders", // Watch parent_orders instead of orders
             filter: `delivery_user_id=eq.${userId}`,
           },
-          () => fetchMyOrders(true) // Silent refresh on realtime update
+          () => {
+            if (fetchMyOrdersRef.current) fetchMyOrdersRef.current(true); // Silent refresh on realtime update
+          }
         )
         .subscribe();
 

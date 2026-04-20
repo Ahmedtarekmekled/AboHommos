@@ -64,6 +64,7 @@ export default function CheckoutPage() {
   const { isAuthenticated, user } = useAuth();
   const { cart, cartTotal, clearCart } = useCart();
   const [isLoading, setIsLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false); // double-submit guard
   const [currentStep, setCurrentStep] = useState<CheckoutStep>("delivery");
   const [locationData, setLocationData] = useState<LocationData>({
     address: "",
@@ -84,8 +85,36 @@ export default function CheckoutPage() {
   }, [cart?.items]);
   const hasInactiveShops = inactiveShops.length > 0;
 
-  const shopMinOrder = (cart?.items?.[0]?.product?.shop as any)?.min_order_amount || 0;
-  const isBelowMinOrder = shopMinOrder > 0 && cartTotal < shopMinOrder;
+  // ── Per-shop minimum order validation ───────────────────────────────────────
+  // BUG FIX: Previously only checked the first shop's min against the total cart.
+  // Now correctly checks each shop's SUBTOTAL against that shop's own minimum.
+  const shopMinOrderViolations = useMemo(() => {
+    if (!cart?.items) return [];
+
+    // Group items by shop
+    const byShop: Record<string, { shopName: string; minOrder: number; subtotal: number }> = {};
+    for (const item of cart.items) {
+      const shop = item.product?.shop as any;
+      if (!shop?.id) continue;
+      if (!byShop[shop.id]) {
+        byShop[shop.id] = {
+          shopName:  shop.name || 'المتجر',
+          minOrder:  shop.min_order_amount || 0,
+          subtotal:  0,
+        };
+      }
+      const price = item.product?.price || 0;
+      byShop[shop.id].subtotal += price * item.quantity;
+    }
+
+    // Return only shops that are below their minimum
+    return Object.values(byShop).filter(
+      (s) => s.minOrder > 0 && s.subtotal < s.minOrder
+    );
+  }, [cart?.items]);
+
+  const isBelowMinOrder = shopMinOrderViolations.length > 0;
+
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -232,66 +261,66 @@ export default function CheckoutPage() {
   };
 
   const onSubmit = async (data: CheckoutForm) => {
+    // ── Double-submit guard ─────────────────────────────────────────────────
+    if (isSubmitting || isLoading) return;
+
     if (!cart || !cart.items || cart.items.length === 0) {
       notify.error("السلة فارغة");
       return;
     }
+
     setIsLoading(true);
+    setIsSubmitting(true);
     try {
       const { user: authUser } = await getCurrentUser();
       if (!authUser) {
         notify.error("يجب تسجيل الدخول");
         return;
       }
-      const uniqueShops = new Set(cart.items.map(item => item.product?.shop_id).filter(Boolean));
-      const isMultiShop = uniqueShops.size > 1 || cart.shop_id === null;
-      if (isMultiShop) {
-        const { calculateMultiStoreCheckout } = await import('@/services/multi-store-checkout.service');
-        const calculation = await calculateMultiStoreCheckout({
-          userId: authUser.id,
-          cartItems: cart.items as any,
-          deliveryAddress: locationData.address || data.address,
-          deliveryLatitude: locationData.lat || 0,
-          deliveryLongitude: locationData.lng || 0,
-          customerName: user?.full_name || authUser.email || "عميل",
-          customerPhone: data.phone,
-          notes: data.notes,
-        });
-        if (calculation.validation_errors.length > 0) {
-          notify.error(calculation.validation_errors[0]);
-          return;
-        }
-        if (calculation.is_fallback && calculation.fallback_warning) {
-          notify.warning(calculation.fallback_warning);
-        }
-        const result = await orderService.createMultiStoreOrder(calculation);
-        await clearCart();
-        notify.success(AR.checkout.success);
-        navigate(`/orders/${result.parent_order_id}`, { replace: true });
-      } else {
-        const order = await orderService.create({
-          userId: authUser.id,
-          shopId: cart.shop_id || cart.items[0].product?.shop_id!,
-          customerName: user?.full_name || authUser.email || "عميل",
-          items: cart.items.map((item) => ({
-            productId: item.product_id,
-            productName: item.product?.name || "",
-            productPrice: item.product?.price || 0,
-            quantity: item.quantity,
-          })),
-          deliveryAddress: locationData.address || data.address,
-          deliveryPhone: data.phone,
-          notes: data.notes,
-          deliveryFee: deliveryFee || 0,
-        });
-        notify.success(AR.checkout.success);
-        navigate(`/orders/${order.id}`, { replace: true });
+
+      const { calculateMultiStoreCheckout } = await import('@/services/multi-store-checkout.service');
+      const calculation = await calculateMultiStoreCheckout({
+        userId: authUser.id,
+        cartItems: cart.items as any,
+        deliveryAddress: locationData.address || data.address,
+        deliveryLatitude: locationData.lat || 0,
+        deliveryLongitude: locationData.lng || 0,
+        customerName: user?.full_name || authUser.email || "عميل",
+        customerPhone: data.phone,
+        notes: data.notes,
+      });
+
+      if (calculation.validation_errors.length > 0) {
+        notify.error(calculation.validation_errors[0]);
+        return;
       }
-    } catch (error) {
-      console.error(error);
-      notify.error("حدث خطأ أثناء إنشاء الطلب");
+
+      if (calculation.is_fallback && calculation.fallback_warning) {
+        notify.warning(calculation.fallback_warning);
+      }
+
+      const result = await orderService.createMultiStoreOrder(calculation);
+
+      // Clear cart in background — don't block navigation
+      clearCart().catch((e) => console.warn('[checkout] clearCart error (non-critical):', e));
+
+      notify.success(AR.checkout.success);
+      navigate(`/orders/${result.parent_order_id}`, { replace: true });
+    } catch (error: any) {
+      console.error('[checkout] onSubmit error:', error);
+
+      // Surface specific error messages from RPC or validation
+      if (error.message?.startsWith('STOCK:')) {
+        notify.error(error.message.replace('STOCK: ', ''));
+      } else if (error.message?.startsWith('AUTH:')) {
+        notify.error("يجب تسجيل الدخول لإتمام الطلب");
+        navigate('/login?redirect=/checkout');
+      } else {
+        notify.error("حدث خطأ أثناء إنشاء الطلب. يرجى المحاولة مرة أخرى.");
+      }
     } finally {
       setIsLoading(false);
+      setIsSubmitting(false);
     }
   };
 
@@ -349,15 +378,27 @@ export default function CheckoutPage() {
   if (isBelowMinOrder) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center py-16 px-4">
-        <div className="text-center max-w-sm">
+        <div className="text-center max-w-sm w-full">
           <div className="w-20 h-20 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4">
             <ShoppingBag className="w-10 h-10 text-amber-600" />
           </div>
           <h2 className="text-xl font-bold mb-2 text-amber-600">الحد الأدنى للطلب</h2>
-          <p className="text-muted-foreground mb-6 text-sm">
-            الحد الأدنى للطلب من هذا المتجر هو {formatPrice(shopMinOrder)}. 
-            يرجى إضافة منتجات بقيمة {formatPrice(shopMinOrder - cartTotal)} لإتمام الطلب.
+          <p className="text-muted-foreground mb-4 text-sm">
+            بعض المتاجر في سلتك لم تصل لحدها الأدنى للطلب
           </p>
+          <div className="space-y-3 mb-6">
+            {shopMinOrderViolations.map((v, i) => (
+              <div key={i} className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-right">
+                <p className="font-semibold text-amber-800">{v.shopName}</p>
+                <p className="text-amber-700 mt-1">
+                  أضفت {formatPrice(v.subtotal)} من أصل {formatPrice(v.minOrder)} (الحد الأدنى)
+                </p>
+                <p className="text-amber-600 font-medium">
+                  تحتاج إضافة {formatPrice(v.minOrder - v.subtotal)} إضافية
+                </p>
+              </div>
+            ))}
+          </div>
           <Link to="/cart">
             <Button size="lg" className="w-full">العودة للسلة</Button>
           </Link>
@@ -365,6 +406,7 @@ export default function CheckoutPage() {
       </div>
     );
   }
+
 
   const stepIndex = STEPS.findIndex((s) => s.id === currentStep);
   const totalAmount = cartTotal + (deliveryFee || 0) + platformFee;

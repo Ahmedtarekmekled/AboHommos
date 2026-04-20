@@ -132,7 +132,7 @@ export function ShopProductCard({ product, shopId, shop, canOrder, onAddToCart }
 
   return (
     <Link
-      to={canOrder ? `/products/${product.id}` : "#"}
+      to={canOrder ? `/products/${product.slug || product.id}` : "#"}
       className={cn("group block h-full", !canOrder && "pointer-events-none opacity-60")}
     >
       <Card className="h-full overflow-hidden border-border/50 transition-all duration-300 hover:shadow-lg hover:border-primary/20 relative">

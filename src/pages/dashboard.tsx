@@ -48,6 +48,7 @@ import {
 import { SoundService } from "@/services/sound.service";
 import { useRef } from "react";
 import { supabase } from "@/lib/supabase";
+import { generateSlug } from "@/lib/slug-generator";
 import { AdminDelivery } from "@/components/delivery/AdminDelivery";
 import { DeliveryDashboard } from "@/components/delivery/DeliveryDashboard";
 import { CourierAccount } from "@/components/delivery/CourierAccount";
@@ -1339,9 +1340,9 @@ function DashboardProducts() {
         stock_quantity: parseInt(formData.stock_quantity) || 0,
         is_featured: formData.is_featured,
         shop_id: shop.id,
-        slug: `product-${Date.now()}-${Math.random()
-          .toString(36)
-          .substring(2, 8)}`,
+        // Generate a readable slug from the product name
+        // e.g. "برتقال طازج" → "برتقال-طازج-a3f9x"
+        slug: generateSlug(formData.name),
         is_active: true,
         image_url: imageUrl,
       };

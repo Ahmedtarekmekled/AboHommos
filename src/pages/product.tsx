@@ -27,14 +27,40 @@ import { SEO } from "@/components/SEO";
 import { getShopOpenState } from "@/lib/shop-helpers";
 
 export default function ProductPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>(); // "id" param — may be a slug or a UUID
   const { isAuthenticated } = useAuth();
   const { addToCart } = useCart();
   const [quantity, setQuantity] = useState(1);
 
+  // Detect whether the URL param is a UUID or a slug
+  // UUID pattern: 8-4-4-4-12 hex chars
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id ?? '');
+
   const { data: product, isLoading: isProductLoading } = useQuery({
     queryKey: ["product", id],
-    queryFn: () => productsService.getById(id!),
+    queryFn: async () => {
+      if (!id) return null;
+      if (isUUID) {
+        // Old UUID link — fetch by ID directly (backward compatibility)
+        return productsService.getById(id);
+      }
+      // New slug link — fetch by slug
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          shop:shops(id, name, slug, logo_url, phone, address, override_mode, is_open, is_active, status),
+          category:categories(id, name, slug)
+        `)
+        .eq('slug', id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (error || !data) {
+        // Slug not found — try treating it as an ID for extra safety
+        return productsService.getById(id);
+      }
+      return data as any;
+    },
     enabled: !!id,
   });
 
@@ -134,7 +160,7 @@ export default function ProductPage() {
         title={`${product.name} | ${product.shop?.name}`} 
         description={product.description || `اشتري ${product.name} من ${product.shop?.name} الآن عبر شوبي داش`} 
         image={product.image_url || "https://shopydash.store/logo.png"} 
-        url={`https://shopydash.store/products/${product.id}`} 
+        url={`https://shopydash.store/products/${product.slug || product.id}`} 
       />
       <div className="container-app">
         {/* Breadcrumb */}
@@ -178,7 +204,7 @@ export default function ProductPage() {
             {/* Additional images */}
             {product.images && product.images.length > 0 && (
               <div className="flex gap-2 overflow-x-auto pb-2">
-                {product.images.map((img, i) => (
+                {product.images.map((img: string, i: number) => (
                   <div
                     key={i}
                     className="w-20 h-20 rounded-lg overflow-hidden bg-muted flex-shrink-0"

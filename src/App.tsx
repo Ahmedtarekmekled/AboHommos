@@ -50,6 +50,7 @@ function App() {
             <Route path="/shops" element={<ShopsPage />} />
             <Route path="/shops/:slug" element={<ShopPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            {/* Slug-based route (new SEO-friendly URLs) */}
             <Route path="/products/:id" element={<ProductPage />} />
 
             {/* Auth */}
