@@ -18,8 +18,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import { authService } from "@/services/auth.service";
 
-// Strong password: 8+ chars, 1 uppercase, 1 lowercase, 1 number
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+// Simplified password: 8+ chars, at least one letter and one number
+const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
 
 const resetSchema = z
   .object({
@@ -28,7 +28,7 @@ const resetSchema = z
       .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
       .regex(
         passwordRegex,
-        "يجب أن تحتوي على حرف كبير، حرف صغير، ورقم واحد على الأقل"
+        "يجب أن تحتوي على حروف وأرقام"
       ),
     confirmPassword: z.string(),
   })
@@ -152,7 +152,7 @@ export default function ResetPasswordPage() {
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  8 أحرف على الأقل • حرف كبير • حرف صغير • رقم
+                  8 أحرف على الأقل • حروف وأرقام
                 </p>
               </div>
 

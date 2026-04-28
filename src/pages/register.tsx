@@ -20,8 +20,8 @@ import { AR } from "@/lib/i18n";
 import { useAuth } from "@/store";
 import { authService } from "@/services/auth.service";
 
-// Strong password: 8+ chars, 1 uppercase, 1 lowercase, 1 number
-const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/;
+// Simplified password: 8+ chars, at least one letter and one number
+const passwordRegex = /^(?=.*[a-zA-Z])(?=.*\d).{8,}$/;
 
 const registerSchema = z
   .object({
@@ -33,7 +33,7 @@ const registerSchema = z
       .min(8, "كلمة المرور يجب أن تكون 8 أحرف على الأقل")
       .regex(
         passwordRegex,
-        "يجب أن تحتوي على حرف كبير، حرف صغير، ورقم واحد على الأقل"
+        "يجب أن تحتوي على حروف وأرقام"
       ),
     confirmPassword: z.string(),
   })
@@ -121,11 +121,24 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterForm) => {
     setIsLoading(true);
     try {
+      let formattedPhone = data.phone;
+      if (formattedPhone) {
+        formattedPhone = formattedPhone.replace(/\D/g, "");
+        if (formattedPhone.startsWith("0")) {
+          formattedPhone = formattedPhone.substring(1);
+        }
+        if (formattedPhone.startsWith("20")) {
+          formattedPhone = `+${formattedPhone}`;
+        } else {
+          formattedPhone = `+20${formattedPhone}`;
+        }
+      }
+
       const { error, needsVerification } = await registerUser({
         email: data.email.trim().toLowerCase(),
         password: data.password,
         fullName: data.fullName,
-        phone: data.phone,
+        phone: formattedPhone,
         role: accountType === "shop_owner" ? "SHOP_OWNER" : "CUSTOMER",
       });
       if (error) {
@@ -285,6 +298,7 @@ export default function RegisterPage() {
               </Label>
               <Input
                 id="fullName"
+                autoComplete="name"
                 placeholder="أدخل اسمك الكامل"
                 error={!!errors.fullName}
                 className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
@@ -304,6 +318,7 @@ export default function RegisterPage() {
               </Label>
               <Input
                 id="email"
+                autoComplete="email"
                 type="email"
                 placeholder="example@email.com"
                 error={!!errors.email}
@@ -320,14 +335,22 @@ export default function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="phone" className="text-sm font-medium text-foreground ml-1">{AR.auth.phone}</Label>
-              <Input
-                id="phone"
-                type="tel"
-                placeholder="01xxxxxxxxx"
-                className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background px-4 transition-colors text-right"
-                dir="rtl"
-                {...register("phone")}
-              />
+              <div className="relative flex items-center" dir="ltr">
+                <span className="absolute left-4 text-muted-foreground font-medium flex items-center gap-1.5 select-none">
+                  <span className="text-lg leading-none">🇪🇬</span>
+                  <span className="text-sm mt-0.5">+20</span>
+                  <div className="w-px h-5 bg-border ml-1"></div>
+                </span>
+                <Input
+                  id="phone"
+                  autoComplete="tel"
+                  type="tel"
+                  placeholder="1x xxx xxxx"
+                  className="rounded-2xl h-[52px] bg-muted/40 border-border/50 focus:bg-background pl-[5.5rem] pr-4 transition-colors text-left tracking-wide"
+                  dir="ltr"
+                  {...register("phone")}
+                />
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -337,6 +360,7 @@ export default function RegisterPage() {
               <div className="relative">
                 <Input
                   id="password"
+                  autoComplete="new-password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   error={!!errors.password}
@@ -362,7 +386,7 @@ export default function RegisterPage() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground ml-1 font-medium">
-                8 أحرف على الأقل • حرف كبير • حرف صغير • رقم
+                8 أحرف على الأقل • حروف وأرقام
               </p>
             </div>
 
@@ -372,6 +396,7 @@ export default function RegisterPage() {
               </Label>
               <Input
                 id="confirmPassword"
+                autoComplete="new-password"
                 type="password"
                 placeholder="••••••••"
                 error={!!errors.confirmPassword}
